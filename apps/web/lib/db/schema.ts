@@ -367,6 +367,20 @@ export const innings = pgTable(
     status: inningsStatus('status').notNull().default('not_started'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+
+    // Engine seed state — the striker/non-striker/bowler that open this
+    // innings. These are also derivable from the LAST ball_event row, but
+    // we cache them so a fresh innings (before any balls) has a valid seed.
+    openingStrikerId: uuid('opening_striker_id').references(() => players.id, {
+      onDelete: 'set null',
+    }),
+    openingNonStrikerId: uuid('opening_non_striker_id').references(() => players.id, {
+      onDelete: 'set null',
+    }),
+    openingBowlerId: uuid('opening_bowler_id').references(() => players.id, {
+      onDelete: 'set null',
+    }),
+    maxWickets: smallint('max_wickets').notNull().default(10), // 2 for Super Over
   },
   (t) => ({
     matchNumberIdx: uniqueIndex('innings_match_number_idx').on(t.matchId, t.inningsNumber),
