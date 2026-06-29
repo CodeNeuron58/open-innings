@@ -23,6 +23,8 @@
     "test": "pnpm -r test",
     "db:generate": "pnpm --filter web db:generate",
     "db:migrate": "pnpm --filter web db:migrate",
+    "db:seed": "pnpm --filter web db:seed",
+    "db:reset": "pnpm --filter web db:reset",
     "db:studio": "pnpm --filter web db:studio",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,md,json,yml,yaml}\""

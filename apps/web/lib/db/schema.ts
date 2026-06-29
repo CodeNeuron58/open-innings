@@ -149,11 +149,15 @@ export const tournamentResult = pgEnum('tournament_result', [
 export const users = pgTable(
   'users',
   {
-    id: uuid('id').primaryKey(), // = auth.users.id
+    // Local-auth id. Not tied to an external auth provider.
+    id: uuid('id').primaryKey().defaultRandom(),
     email: text('email').notNull().unique(),
     displayName: text('display_name'),
     avatarUrl: text('avatar_url'),
     bio: text('bio'),
+    // Local-auth credentials. Argon2 hash + salt. Never sent to the client.
+    passwordHash: text('password_hash').notNull(),
+    passwordSalt: text('password_salt').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     // GDPR: when a user requests deletion, anonymise rather than hard-delete
@@ -454,6 +458,31 @@ export const ballEvents = pgTable(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 8. Sessions — server-side session storage for local email/password auth
+// ─────────────────────────────────────────────────────────────────────────────
+// The client gets an opaque session token via a signed cookie. We store the
+// token + user binding here so we can revoke, expire, and audit sessions.
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(), // SHA-256 of the cookie value
+    userAgent: text('user_agent'),
+    ipAddress: text('ip_address'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index('sessions_user_idx').on(t.userId),
+    expiresIdx: index('sessions_expires_idx').on(t.expiresAt),
+  }),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Relations (for Drizzle's relational query API)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -553,6 +582,8 @@ export type Innings = typeof innings.$inferSelect;
 export type NewInnings = typeof innings.$inferInsert;
 export type BallEvent = typeof ballEvents.$inferSelect;
 export type NewBallEvent = typeof ballEvents.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
 export type Tournament = typeof tournaments.$inferSelect;
 export type NewTournament = typeof tournaments.$inferInsert;
 

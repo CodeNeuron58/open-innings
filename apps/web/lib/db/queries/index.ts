@@ -21,24 +21,7 @@ import {
   type Innings,
   type BallEvent,
 } from '../schema';
-import { getSupabaseServerClient } from '@/lib/auth/server';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Auth helper
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Returns the authenticated user ID, or null if not signed in. */
-async function getUserId(): Promise<string | null> {
-  try {
-    const supabase = await getSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+import { getUserId } from '@/lib/auth/local';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Players

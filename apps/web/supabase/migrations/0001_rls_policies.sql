@@ -3,6 +3,13 @@
 -- =============================================================================
 -- Apply this AFTER `drizzle-kit migrate` has created the tables.
 -- It enables RLS and sets the access rules below.
+--
+-- ⚠️  v0.1 NOTE: RLS is DISABLED by default because our app uses a single
+-- Postgres role for now (Supabase Auth is not in use). Authorization is
+-- enforced at the application layer in lib/auth/. When we move to a
+-- per-user DB role (or Supabase), re-enable this file.
+--
+-- To enable: `psql $DATABASE_URL -f supabase/migrations/0001_rls_policies.sql`
 -- =============================================================================
 --
 -- Rule of thumb:
@@ -17,27 +24,24 @@
 -- Public = no auth required to read. Required for shareable /m/{matchId} links.
 -- =============================================================================
 
--- Helper: get the current authenticated user from the Supabase JWT
+-- Helper: get the current authenticated user from a session variable.
+-- The app sets `app.current_user_id` at the start of every request via
+--   SET LOCAL app.current_user_id = '<uuid>';
+-- Until we wire that up, this returns NULL and policies become restrictive.
 create or replace function public.current_user_id()
 returns uuid
 language sql
 stable
-security definer
-set search_path = public
 as $$
-  select nullif(
-    coalesce(
-      current_setting('request.jwt.claim.sub', true),
-      (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')
-    ),
-    ''
-  )::uuid;
+  select nullif(current_setting('app.current_user_id', true), '')::uuid;
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Enable RLS
+-- Uncomment the block below to ENABLE RLS. Disabled in v0.1 (see header).
 -- ─────────────────────────────────────────────────────────────────────────────
+/*
 
+-- Enable RLS
 alter table users enable row level security;
 alter table players enable row level security;
 alter table teams enable row level security;
@@ -48,49 +52,33 @@ alter table matches enable row level security;
 alter table innings enable row level security;
 alter table ball_events enable row level security;
 
--- ─────────────────────────────────────────────────────────────────────────────
 -- users
--- ─────────────────────────────────────────────────────────────────────────────
-
 create policy "users are publicly readable"
-  on users for select
-  using (true);
+  on users for select using (true);
 
 create policy "users can update their own row"
   on users for update
   using (id = public.current_user_id())
   with check (id = public.current_user_id());
 
--- Inserts/deletes are handled by auth triggers (Supabase auth.users → users).
-
--- ─────────────────────────────────────────────────────────────────────────────
 -- players
--- ─────────────────────────────────────────────────────────────────────────────
-
 create policy "players are publicly readable"
-  on players for select
-  using (true);
+  on players for select using (true);
 
 create policy "authenticated users can create players"
-  on players for insert
-  with check (created_by = public.current_user_id());
+  on players for insert with check (created_by = public.current_user_id());
 
 create policy "creators can update their players"
   on players for update
   using (created_by = public.current_user_id())
   with check (created_by = public.current_user_id());
 
--- ─────────────────────────────────────────────────────────────────────────────
--- teams + team_members
--- ─────────────────────────────────────────────────────────────────────────────
-
+-- teams
 create policy "teams are publicly readable"
-  on teams for select
-  using (true);
+  on teams for select using (true);
 
 create policy "owners can create teams"
-  on teams for insert
-  with check (owner_id = public.current_user_id());
+  on teams for insert with check (owner_id = public.current_user_id());
 
 create policy "owners can update their teams"
   on teams for update
@@ -98,8 +86,7 @@ create policy "owners can update their teams"
   with check (owner_id = public.current_user_id());
 
 create policy "team members are publicly readable"
-  on team_members for select
-  using (true);
+  on team_members for select using (true);
 
 create policy "team owners can manage rosters"
   on team_members for all
@@ -118,30 +105,21 @@ create policy "team owners can manage rosters"
     )
   );
 
--- ─────────────────────────────────────────────────────────────────────────────
 -- matches
--- ─────────────────────────────────────────────────────────────────────────────
-
 create policy "matches are publicly readable"
-  on matches for select
-  using (true);
+  on matches for select using (true);
 
 create policy "authenticated users can create matches"
-  on matches for insert
-  with check (created_by = public.current_user_id());
+  on matches for insert with check (created_by = public.current_user_id());
 
 create policy "creators can update their matches"
   on matches for update
   using (created_by = public.current_user_id())
   with check (created_by = public.current_user_id());
 
--- ─────────────────────────────────────────────────────────────────────────────
--- innings (mirrors match access)
--- ─────────────────────────────────────────────────────────────────────────────
-
+-- innings
 create policy "innings are publicly readable"
-  on innings for select
-  using (true);
+  on innings for select using (true);
 
 create policy "match creators can manage innings"
   on innings for all
@@ -160,17 +138,12 @@ create policy "match creators can manage innings"
     )
   );
 
--- ─────────────────────────────────────────────────────────────────────────────
--- ball_events (public read, scorer write)
--- ─────────────────────────────────────────────────────────────────────────────
-
+-- ball_events
 create policy "ball events are publicly readable"
-  on ball_events for select
-  using (true);
+  on ball_events for select using (true);
 
 create policy "match scorers can create ball events"
-  on ball_events for insert
-  with check (
+  on ball_events for insert with check (
     exists (
       select 1 from innings i
       join matches m on m.id = i.match_id
@@ -199,8 +172,7 @@ create policy "match scorers can update ball events"
   );
 
 create policy "match scorers can delete ball events"
-  on ball_events for delete
-  using (
+  on ball_events for delete using (
     exists (
       select 1 from innings i
       join matches m on m.id = i.match_id
@@ -209,13 +181,9 @@ create policy "match scorers can delete ball events"
     )
   );
 
--- ─────────────────────────────────────────────────────────────────────────────
 -- tournaments
--- ─────────────────────────────────────────────────────────────────────────────
-
 create policy "tournaments are publicly readable"
-  on tournaments for select
-  using (true);
+  on tournaments for select using (true);
 
 create policy "creators can manage their tournaments"
   on tournaments for all
@@ -223,8 +191,7 @@ create policy "creators can manage their tournaments"
   with check (created_by = public.current_user_id());
 
 create policy "tournament teams are publicly readable"
-  on tournament_teams for select
-  using (true);
+  on tournament_teams for select using (true);
 
 create policy "tournament creators can manage their tournament teams"
   on tournament_teams for all
@@ -242,3 +209,5 @@ create policy "tournament creators can manage their tournament teams"
         and t.created_by = public.current_user_id()
     )
   );
+
+*/

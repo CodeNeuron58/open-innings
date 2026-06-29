@@ -1,6 +1,14 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
+
+// Load .env.local in dev / scripts when run outside Next.js.
+// Safe to call multiple times — dotenv caches by path.
+if (!process.env.DATABASE_URL) {
+  config({ path: resolve(process.cwd(), '.env.local') });
+}
 
 declare global {
   // eslint-disable-next-line no-var

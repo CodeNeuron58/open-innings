@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { loginAction } from './actions';
+
 export default function LoginPage() {
   return (
     <main className="container flex min-h-screen items-center justify-center">
@@ -6,9 +9,45 @@ export default function LoginPage() {
         <p className="mb-6 text-sm text-muted-foreground">
           Sign in to score matches, manage teams, view stats.
         </p>
-        <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-          Auth flow coming in the next milestone. See{' '}
-          <code className="rounded bg-background px-1">lib/auth/server.ts</code>.
+        <form action={loginAction} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              className="w-full rounded-md border border-border bg-background px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium" htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="w-full rounded-md border border-border bg-background px-3 py-2"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Sign in
+          </button>
+        </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          New to Open Innings?{' '}
+          <Link href="/signup" className="text-primary hover:underline">
+            Create an account
+          </Link>
         </p>
       </div>
     </main>

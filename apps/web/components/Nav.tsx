@@ -1,15 +1,9 @@
 import Link from 'next/link';
-import { getSupabaseServerClient } from '@/lib/auth/server';
+import { getCurrentUser } from '@/lib/auth/local';
+import { signOutAction } from '@/lib/auth/actions';
 
 export async function Nav() {
-  let userEmail: string | null = null;
-  try {
-    const supabase = await getSupabaseServerClient();
-    const { data } = await supabase.auth.getUser();
-    userEmail = data.user?.email ?? null;
-  } catch {
-    userEmail = null;
-  }
+  const user = await getCurrentUser();
 
   return (
     <header className="border-b border-border bg-card">
@@ -32,12 +26,14 @@ export async function Nav() {
           </Link>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          {userEmail ? (
+          {user ? (
             <>
-              <span className="text-muted-foreground">{userEmail}</span>
-              <Link href="/api/auth/signout" className="text-muted-foreground hover:text-foreground">
-                Sign out
-              </Link>
+              <span className="text-muted-foreground">{user.email}</span>
+              <form action={signOutAction}>
+                <button type="submit" className="text-muted-foreground hover:text-foreground">
+                  Sign out
+                </button>
+              </form>
             </>
           ) : (
             <>

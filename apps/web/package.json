@@ -12,14 +12,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "tsx scripts/reset.ts",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.5.1",
-    "@supabase/supabase-js": "^2.45.4",
+    "@node-rs/argon2": "^2.0.2",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
     "drizzle-orm": "^0.33.0",
     "lucide-react": "^0.447.0",
     "nanoid": "^5.0.7",
@@ -35,11 +37,13 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "dotenv-cli": "^7.4.2",
     "drizzle-kit": "^0.24.2",
     "eslint": "^9.12.0",
     "eslint-config-next": "15.0.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.2"
   }
