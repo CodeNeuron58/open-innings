@@ -1,69 +1,158 @@
-# Open Innings — Setup Guide
+# Open Innings — Local Setup Guide
 
-Step-by-step instructions to get Open Innings running locally.
+Step-by-step instructions to get Open Innings running on your laptop. **No cloud accounts, no third-party signups, no credit cards.**
 
-## 1. Install prerequisites
+> **TL;DR**: install Postgres 16+ → install pnpm 9+ → clone repo → `pnpm install` → `cp .env.example .env.local` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev` → open <http://localhost:3000>.
 
-- **Node.js 20+** — <https://nodejs.org>
-- **pnpm 9+** — `npm install -g pnpm`
-- **Git** — <https://git-scm.com>
+---
 
-## 2. Create a Supabase project
+## 1. Prerequisites
 
-1. Go to <https://supabase.com/dashboard> and sign in
-2. Click **"New Project"**
-3. Choose an organization, name it (e.g. `open-innings-dev`), set a strong database password
-4. Pick the **closest region** to you (e.g. `ap-south-1` Mumbai for India)
-5. Wait for the project to provision (~2 minutes)
+You need three things installed before continuing:
 
-## 3. Get your Supabase keys
+| Tool | Version | Why |
+|---|---|---|
+| **Node.js** | 20+ | Runs the Next.js app and build tools |
+| **pnpm** | 9+ | Package manager (we use pnpm workspaces) |
+| **Postgres** | 16+ | The database (any 16.x or 18.x release works) |
 
-In your Supabase project dashboard:
+Optional but recommended: **Docker Desktop** (lets you skip native Postgres install).
 
-1. Go to **Settings → API**
-2. Copy:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role** key (⚠️ keep secret) → `SUPABASE_SERVICE_ROLE_KEY`
-3. Go to **Settings → Database → Connection string → Transaction pooler**
-4. Copy the URI → `DATABASE_URL`
+### Install Node.js
 
-## 4. Configure environment
+Download from <https://nodejs.org> (the LTS version, currently 20.x or 22.x).
 
+Verify:
 ```bash
-cd apps/web
-cp .env.example .env.local
-# Edit .env.local with the values from step 3
+node --version    # should print v20.x or v22.x
 ```
 
-## 5. Install dependencies
+### Install pnpm
 
-From the repo root:
+```bash
+npm install -g pnpm
+```
+
+Verify:
+```bash
+pnpm --version    # should print 9.x or 10.x
+```
+
+### Install Postgres (pick one)
+
+#### Option A — Native install (recommended for Windows users)
+
+1. Go to <https://www.postgresql.org/download/windows/>
+2. Click **"Interactive installer by EDB"**
+3. Pick **PostgreSQL 16.x for Windows x86-64** (or 18.x — both work)
+4. Run the installer:
+   - Components: install **PostgreSQL Server**, **pgAdmin 4**, **Command Line Tools**. Uncheck **Stack Builder** (we don't need it).
+   - Password for the `postgres` superuser: pick any — defaults below assume `postgres`
+   - Port: **5432** (default)
+   - Locale: default
+5. Verify it works by opening a **new** PowerShell window (so the updated PATH loads) and running:
+   ```powershell
+   psql -U postgres -h localhost
+   # enter the password you just set
+   ```
+   Type `\q` to quit.
+
+#### Option B — Docker Compose (Linux/macOS, or Windows with Docker Desktop)
+
+If you have Docker installed, the repo ships a `docker-compose.yml`. From the repo root:
+
+```bash
+docker compose up -d
+```
+
+This starts Postgres 16 on `localhost:5432` with the same credentials as Option A (user `postgres`, password `postgres`, db `open_innings`).
+
+Verify:
+```bash
+docker compose exec postgres psql -U postgres -c "select 1;"
+```
+
+---
+
+## 2. Clone the repository
+
+```bash
+git clone https://github.com/open-innings/open-innings.git
+cd open-innings
+```
+
+## 3. Install dependencies
 
 ```bash
 pnpm install
 ```
 
+This installs all packages across the monorepo (just `apps/web` for now, but the workspace is set up for future apps).
+
+## 4. Configure environment
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Open `apps/web/.env.local` and confirm the values match your Postgres setup. The defaults work out-of-the-box:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/open_innings"
+SESSION_SECRET="dev-only-change-me-before-production-please-use-32-bytes-min"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+If you set a different password during Postgres install, update `DATABASE_URL` accordingly. If you used Docker, the defaults are already correct.
+
+## 5. Create the database
+
+If you're on **native Postgres**, create the empty database once:
+
+```powershell
+psql -U postgres -h localhost -c "create database open_innings;"
+```
+
+If you're using **Docker Compose**, the database is created automatically by the `POSTGRES_DB` env var in `docker-compose.yml`. Skip this step.
+
 ## 6. Apply database migrations
 
 ```bash
-# Generate migration SQL from the Drizzle schema (first time only)
-pnpm db:generate
-
-# Apply migrations to your Supabase database
 pnpm db:migrate
 ```
 
-## 7. Apply RLS policies
+This runs all SQL files in `apps/web/supabase/migrations/` in lexical order, tracking applied ones in a `__open_innings_migrations` table. Re-running is a no-op.
 
-The Drizzle migrations only create tables. The Row Level Security policies
-and auth triggers must be applied via the Supabase SQL editor:
+You should see:
+```
+→ Applying 4 migration(s):
+  0000_initial_schema.sql ... ok
+  0001_rls_policies.sql ... ok
+  0002_sessions.sql ... ok
+  0003_innings_opening_players.sql ... ok
+✓ All migrations applied.
+```
 
-1. In your Supabase dashboard, go to **SQL Editor**
-2. Click **"New query"**
-3. Paste the contents of `apps/web/supabase/migrations/0001_rls_policies.sql`
-4. Click **"Run"**
-5. Repeat with `apps/web/supabase/migrations/0002_auth_users_sync.sql`
+## 7. Seed the database (optional but recommended for first run)
+
+```bash
+pnpm db:seed
+```
+
+This creates a dev user, two teams, eight players, and one live match ready to score. You'll see:
+
+```
+✓ Dev user: dev@local (password: devpassword123)
+✓ Teams: India, Australia
+✓ 8 players
+✓ Rosters assigned
+✓ Sample match: /matches/<id>/score
+🎉 Seed complete. Sign in at /login with:
+    email:    dev@local
+    password: devpassword123
+```
+
+The seed is **idempotent** — re-running won't duplicate rows. Safe to run any time.
 
 ## 8. Start the dev server
 
@@ -71,37 +160,177 @@ and auth triggers must be applied via the Supabase SQL editor:
 pnpm dev
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:3000>. You should land on the homepage.
+
+Click **Sign in** in the top-right and use the seeded credentials:
+- **Email**: `dev@local`
+- **Password**: `devpassword123`
+
+You'll land on the dashboard. Navigate to **Matches** → click **Score** on the seeded "Sample Match" → tap a button (try `4`) → see the score update.
+
+---
+
+## Useful commands
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Start the Next.js dev server with hot reload |
+| `pnpm build` | Production build |
+| `pnpm lint` | ESLint |
+| `pnpm typecheck` | TypeScript validation (no emit) |
+| `pnpm test` | Run all tests (Vitest) |
+| `pnpm db:migrate` | Apply pending SQL migrations |
+| `pnpm db:seed` | Populate the database with dev data |
+| `pnpm db:studio` | Open Drizzle Studio (visual DB browser) |
+| `pnpm tsx apps/web/scripts/auth-smoke.ts` | Run the auth round-trip smoke test |
+
+---
 
 ## Troubleshooting
 
-### `Error: Missing Supabase env vars`
+### `psql: command not found` (or "the term 'psql' is not recognized")
 
-You didn't complete step 4. Make sure `.env.local` exists in `apps/web/` and
-has all four required values.
+Postgres isn't in your PATH. Either:
+- **Native install**: close and reopen PowerShell so PATH refreshes, OR
+- Use the full path: `& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h localhost` (adjust the version number if you installed a different one)
 
-### `Error: ECONNREFUSED 127.0.0.1:5432`
+If PATH still won't pick it up after reopening PowerShell, add it manually:
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\PostgreSQL\16\bin", "User")
+```
+Close and reopen PowerShell.
 
-The `DATABASE_URL` is pointing to localhost but Supabase is remote. Re-copy
-the **Transaction pooler** URI from Supabase → Settings → Database.
+### `password authentication failed for user "postgres"`
+
+You used a different password during Postgres install than what's in `.env.local`. Either:
+- Update `DATABASE_URL` in `.env.local` to use the password you actually set, OR
+- Reset the postgres password (see next section).
+
+### Resetting the `postgres` password
+
+If you forgot what password you set during install, you can reset it:
+
+1. Open PowerShell **as Administrator**
+2. Stop Postgres:
+   ```powershell
+   taskkill /F /IM postgres.exe
+   ```
+3. Edit `C:\Program Files\PostgreSQL\16\data\pg_hba.conf` and find the line for `host all all 127.0.0.1/32`. Change `scram-sha-256` to `trust` (just temporarily).
+4. Start Postgres:
+   ```powershell
+   & "C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe" -D "C:\Program Files\PostgreSQL\16\data" start
+   ```
+5. Connect and reset:
+   ```powershell
+   & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h localhost
+   ```
+   ```sql
+   ALTER USER postgres WITH PASSWORD 'postgres';
+   \q
+   ```
+6. Edit `pg_hba.conf` again and change `trust` back to `scram-sha-256`.
+7. Reload Postgres:
+   ```powershell
+   & "C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe" -D "C:\Program Files\PostgreSQL\16\data" reload
+   ```
+8. Update `DATABASE_URL` in `.env.local` to use the new password and try again.
 
 ### `relation "users" does not exist`
 
-You didn't run `pnpm db:migrate` (step 6).
+You skipped step 6. Run `pnpm db:migrate`.
 
-### Sign up works but user is not in the `users` table
+### `Error: connect ECONNREFUSED 127.0.0.1:5432`
 
-You didn't apply the trigger from step 7 (`0002_auth_users_sync.sql`).
+Postgres isn't running. Either:
+- **Native**: open **Services** (`services.msc`), find `postgresql-x64-16` (or 18), click Start.
+- **Docker**: `docker compose up -d`
 
-### `cookies should be awaited`
+### Sign-in form gives "Invalid email or password"
 
-If you're using Next.js 14, the `cookies()` function doesn't return a
-Promise. Upgrade to Next.js 15 or change `await cookies()` to `cookies()`.
+You're not using the seeded credentials. The seed creates `dev@local` / `devpassword123`. If you ran `pnpm db:seed` but still get this, run the seed again — it's idempotent.
+
+### Dev server says "Another server is running on port 3000"
+
+Either:
+- Kill the old process: `taskkill /F /IM node.exe` (Windows) / `pkill node` (macOS/Linux)
+- Or use a different port: `pnpm dev -- -p 3001`
+
+### `Cannot find module '@node-rs/argon2'` or similar on `pnpm install`
+
+The native argon2 binary failed to build. On Windows this usually means you need the **Visual Studio Build Tools** with the "Desktop development with C++" workload installed: <https://visualstudio.microsoft.com/downloads/> (scroll to "Tools for Visual Studio" → "Build Tools for Visual Studio").
+
+If you don't want to install build tools, you can switch to a pure-JS argon2 implementation by replacing `@node-rs/argon2` with `argon2` in `apps/web/package.json` (it uses Node's `crypto` module and has no native build).
+
+### `pgAdmin` errors with "PermissionError" on startup
+
+Common on Windows when Postgres is installed in `Program Files` (which requires admin). Either:
+- Always run pgAdmin as Administrator, OR
+- Just skip pgAdmin — the `psql` CLI is all you need for everything in this guide.
+
+---
+
+## Resetting everything
+
+If you want to start over from scratch:
+
+```bash
+# Drop and recreate the database
+psql -U postgres -h localhost -c "drop database open_innings;"
+psql -U postgres -h localhost -c "create database open_innings;"
+
+# Re-apply migrations and seed
+pnpm db:migrate
+pnpm db:seed
+```
+
+If using Docker:
+```bash
+docker compose down -v    # ⚠️ destroys the volume + all data
+docker compose up -d
+pnpm db:migrate
+pnpm db:seed
+```
+
+---
+
+## Project layout (where things live)
+
+```
+apps/web/
+├── app/
+│   ├── (app)/                # Authenticated routes (with nav)
+│   │   ├── dashboard/
+│   │   ├── players/
+│   │   ├── teams/
+│   │   └── matches/
+│   ├── (auth)/               # Public auth routes
+│   │   ├── login/
+│   │   └── signup/
+│   ├── m/[matchId]/          # PUBLIC scorecard (no auth required)
+│   ├── api/                  # Route handlers
+│   ├── globals.css
+│   └── layout.tsx
+├── components/
+│   ├── Nav.tsx
+│   ├── scorer/               # The big-button scoring UI
+│   └── scorecard/            # Read-only scorecard components
+├── lib/
+│   ├── auth/                 # argon2 + sessions + cookies
+│   ├── db/                   # Drizzle schema + queries
+│   └── scoring/              # Pure-function engine + 44 unit tests
+├── scripts/                  # migrate.ts, seed.ts, auth-smoke.ts
+├── supabase/migrations/      # SQL migrations
+├── .env.local                # YOUR config (not committed)
+└── .env.example              # Template (committed)
+```
+
+The most important file is `lib/scoring/engine.ts` — a pure function `applyBall(state, event) → newState` with 44 tests covering MCC cricket rules.
+
+---
 
 ## Next steps
 
-Once everything is running:
-
-- Read [docs/architecture.md](docs/architecture.md)
-- Check the [issues labelled "good first issue"](https://github.com/open-innings/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
-- Join a [discussion](https://github.com/open-innings/open-innings/discussions)
+- Read [docs/architecture.md](docs/architecture.md) for the design rationale
+- Try scoring a match manually
+- Look at the unit tests in `lib/scoring/__tests__/` to see how the engine is verified
+- Check `apps/web/scripts/auth-smoke.ts` to see how the auth layer is tested end-to-end

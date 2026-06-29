@@ -2,7 +2,7 @@
 
 > **Free, open-source, forever.** A community-owned cricket scoring app — the Lichess of cricket.
 
-[Live demo](https://open-innings.app) · [Contribute](CONTRIBUTING.md) · [Donate](https://opencollective.com/open-innings) · [Roadmap](docs/architecture.md)
+[Quick start](#quick-start) · [Setup guide](SETUP.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md) · [Donate](https://opencollective.com/open-innings)
 
 ---
 
@@ -14,12 +14,13 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 
 ## Features
 
-### v0.1 (in progress)
+### v0.1 (current — in development)
 - 📱 Ball-by-ball scorer (mobile-first, one-handed usable)
-- 📊 Public scorecards — shareable on WhatsApp, no login to view
+- 📊 Public scorecards — shareable links, no login to view
 - 👥 Player database — career stats, photos, teams
-- 🏟️ Teams with squads, captains, wicketkeepers
+- 🏟️ Teams with squads
 - ↩️ Undo last ball (ball events are the source of truth)
+- 🔐 Local email/password auth (no third-party login required)
 
 ### v0.2
 - 🏆 Tournament organisation — round-robin, knockout, group+KO
@@ -36,34 +37,49 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | Next.js 15 (App Router) + TypeScript |
-| Styling | Tailwind CSS + shadcn/ui |
-| Database | Supabase (Postgres + Auth + Storage) |
-| ORM | Drizzle |
-| Deploy | Vercel + Supabase Cloud |
+| Layer | Choice | Why |
+|---|---|---|
+| Frontend | Next.js 15 (App Router) + TypeScript | SEO for public scorecards, RSC pairs well with our server-first design |
+| Styling | Tailwind CSS | Fast to ship, no design-system lock-in |
+| Database | Postgres (native) | Free, runs anywhere, no third-party dependency |
+| ORM | Drizzle | Lightweight, type-safe, SQL-first |
+| Auth | Self-hosted (argon2 + session cookies) | No Supabase, no Clerk, no vendor lock-in |
+| Deploy | TBD — likely Oracle Cloud free + Cloudflare | Free tier we control, no surprise billing |
+| Realtime (v0.1) | Polling | Simplest. WebSockets deferred to v0.3 |
 
 ## Quick start
 
+The fastest path to running the app on your laptop:
+
 ```bash
-# 1. Install dependencies
+# 1. Install Postgres 16+ and pnpm 9+ (see SETUP.md for details)
+
+# 2. Clone and install
+git clone https://github.com/open-innings/open-innings.git
+cd open-innings
 pnpm install
 
-# 2. Set up Supabase (see SETUP.md)
-#    Create a project at supabase.com, then:
+# 3. Configure environment
 cp apps/web/.env.example apps/web/.env.local
-#    Fill in NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Edit apps/web/.env.local — defaults work if Postgres is on localhost:5432
+# with user=postgres, password=postgres, db=open_innings
 
-# 3. Generate + apply database migrations
-pnpm db:generate
+# 4. Start Postgres, then apply migrations + seed
 pnpm db:migrate
+pnpm db:seed
 
-# 4. Start the dev server
+# 5. Start the dev server
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) and sign in with the seeded dev account:
+
+- **Email**: `dev@local`
+- **Password**: `devpassword123`
+
+Then go to **Matches** → click **Score** on the seeded match → tap a button to score a ball.
+
+**Need help?** See [SETUP.md](SETUP.md) for the full guide (Windows / macOS / Linux, troubleshooting, project layout).
 
 ## Architecture
 
@@ -76,14 +92,20 @@ The single most important file in the codebase is `apps/web/lib/scoring/engine.t
 ```
 open-innings/
 ├── apps/
-│   └── web/                  # Next.js app
-├── packages/
-│   └── shared/               # Shared types (future: web + mobile)
+│   └── web/                  # Next.js app (the whole product lives here in v0.1)
+│       ├── app/              # Routes — App Router
+│       ├── components/       # React components
+│       ├── lib/
+│       │   ├── auth/         # Email/password auth (argon2, sessions)
+│       │   ├── db/           # Drizzle schema + typed queries
+│       │   └── scoring/      # Pure-function scoring engine + 44 tests
+│       ├── scripts/          # migrate.ts, seed.ts, auth-smoke.ts
+│       └── supabase/         # SQL migrations (kept here for Drizzle tooling)
 ├── docs/
 │   ├── architecture.md       # Architecture decisions
 │   ├── scoring-rules.md      # Cricket rule references
 │   └── donation-model.md     # How funding works
-├── .github/workflows/        # CI
+├── docker-compose.yml        # Optional — Postgres in a container
 └── README.md
 ```
 
@@ -95,6 +117,15 @@ We welcome contributors of all kinds — code, design, documentation, translatio
 - 💡 [Request a feature](https://github.com/open-innings/open-innings/issues/new?template=feature.yml)
 - 🔧 [Submit a PR](CONTRIBUTING.md)
 - 💬 [Join the discussion](https://github.com/open-innings/open-innings/discussions)
+
+## Deployment
+
+Open Innings is designed to run on **free-tier infrastructure**:
+
+- **Database**: Postgres on Oracle Cloud Free Tier ARM VM (free forever, 24GB RAM)
+- **App + bandwidth**: Cloudflare (free) or Vercel (free)
+
+Detailed deployment instructions are coming once we've validated the local setup end-to-end. If you're an early adopter willing to deploy this yourself, see [docs/deployment.md](docs/deployment.md) (TODO).
 
 ## Funding
 
