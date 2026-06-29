@@ -40,7 +40,7 @@ pnpm --version    # should print 9.x or 10.x
 
 ### Install Postgres (pick one)
 
-#### Option A — Native install (recommended for Windows users)
+#### Option A — Native install (recommended)
 
 1. Go to <https://www.postgresql.org/download/windows/>
 2. Click **"Interactive installer by EDB"**
@@ -56,21 +56,6 @@ pnpm --version    # should print 9.x or 10.x
    # enter the password you just set
    ```
    Type `\q` to quit.
-
-#### Option B — Docker Compose (Linux/macOS, or Windows with Docker Desktop)
-
-If you have Docker installed, the repo ships a `docker-compose.yml`. From the repo root:
-
-```bash
-docker compose up -d
-```
-
-This starts Postgres 16 on `localhost:5432` with the same credentials as Option A (user `postgres`, password `postgres`, db `open_innings`).
-
-Verify:
-```bash
-docker compose exec postgres psql -U postgres -c "select 1;"
-```
 
 ---
 
@@ -107,13 +92,11 @@ If you set a different password during Postgres install, update `DATABASE_URL` a
 
 ## 5. Create the database
 
-If you're on **native Postgres**, create the empty database once:
+If you're using **native Postgres**, create the empty database once:
 
 ```powershell
 psql -U postgres -h localhost -c "create database open_innings;"
 ```
-
-If you're using **Docker Compose**, the database is created automatically by the `POSTGRES_DB` env var in `docker-compose.yml`. Skip this step.
 
 ## 6. Apply database migrations
 
@@ -243,7 +226,6 @@ You skipped step 6. Run `pnpm db:migrate`.
 
 Postgres isn't running. Either:
 - **Native**: open **Services** (`services.msc`), find `postgresql-x64-16` (or 18), click Start.
-- **Docker**: `docker compose up -d`
 
 ### Sign-in form gives "Invalid email or password"
 
@@ -279,14 +261,6 @@ psql -U postgres -h localhost -c "drop database open_innings;"
 psql -U postgres -h localhost -c "create database open_innings;"
 
 # Re-apply migrations and seed
-pnpm db:migrate
-pnpm db:seed
-```
-
-If using Docker:
-```bash
-docker compose down -v    # ⚠️ destroys the volume + all data
-docker compose up -d
 pnpm db:migrate
 pnpm db:seed
 ```

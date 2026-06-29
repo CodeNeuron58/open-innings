@@ -105,7 +105,6 @@ open-innings/
 │   ├── architecture.md       # Architecture decisions
 │   ├── scoring-rules.md      # Cricket rule references
 │   └── donation-model.md     # How funding works
-├── docker-compose.yml        # Optional — Postgres in a container
 └── README.md
 ```
 
