@@ -10,7 +10,14 @@ import { SESSION_COOKIE, createSession } from '@/lib/auth/session';
 import { eq } from 'drizzle-orm';
 
 const SignupInput = z.object({
-  email: z.string().trim().toLowerCase().email('Enter a valid email'),
+  // Dev-friendly: accept anything with '@' (real TLD validation is too strict for dev seeds).
+  // TODO(prod): tighten this back to z.string().email() before public launch.
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, 'Enter a valid email')
+    .regex(/^[^@\s]+@[^@\s]+$/, 'Enter a valid email'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   displayName: z.string().trim().min(1).max(80).optional(),
 });
