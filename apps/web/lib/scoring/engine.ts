@@ -216,13 +216,12 @@ function validate(state: MatchState, event: BallEvent): void {
   const lastBallWasWicket = !!lastBall?.wicketType && !!lastBall?.wicketPlayerId;
   const previousStriker = inn.strikerId;
 
-  // If a wicket occurred on the previous ball and the dismissed player
-  // is being replaced (i.e. the event's batsmanId is different from
-  // state.strikerId), we accept the new batsman pair.
+  // If a wicket occurred on the previous ball and the dismissed player is
+  // being replaced — in either slot: a dismissed striker is replaced via
+  // batsmanId, a run-out non-striker via nonStrikerId — accept the new pair.
   const replacingAfterWicket =
     lastBallWasWicket &&
-    lastBall.wicketPlayerId !== null &&
-    event.batsmanId !== previousStriker;
+    (event.batsmanId !== previousStriker || event.nonStrikerId !== inn.nonStrikerId);
 
   if (!replacingAfterWicket) {
     if (
@@ -464,36 +463,17 @@ function updateInnings(
     totalRuns: event.totalRuns,
     isEndOfOver: isEOOver,
   });
-  const { strikerId: rotatedStriker, nonStrikerId: rotatedNonStriker } = rotateStrike(
-    inn.strikerId,
-    inn.nonStrikerId,
+  // The event declares the pair at the crease when this ball was bowled —
+  // validation has already confirmed it is either the current pair or a
+  // legal replacement after a wicket. Rotation must apply to the pair that
+  // actually faced the ball, so a replacement is swapped in BEFORE rotating
+  // (rotating first and patching after scrambles ends when the new batter
+  // takes an odd run on their first ball).
+  const { strikerId, nonStrikerId } = rotateStrike(
+    event.batsmanId,
+    event.nonStrikerId,
     shouldSwap,
   );
-
-  // If the previous ball was a wicket and the scorer sent a replacement
-  // batsman, accept it: the new batsman replaces the dismissed player.
-  // - If the striker was dismissed, the new batsman takes the striker
-  //   slot (rotatedStriker is the new batsman).
-  // - If the non-striker was dismissed, the new batsman takes the
-  //   non-striker slot.
-  let strikerId = rotatedStriker;
-  let nonStrikerId = rotatedNonStriker;
-  const prevBall = state.balls[state.balls.length - 1];
-  if (
-    prevBall?.wicketType &&
-    prevBall.wicketPlayerId &&
-    event.batsmanId !== rotatedStriker
-  ) {
-    // Scorer is bringing in a new batsman. Determine which slot.
-    if (prevBall.wicketPlayerId === rotatedStriker) {
-      // Striker was out → new batsman takes striker slot
-      strikerId = event.batsmanId;
-      nonStrikerId = event.nonStrikerId;
-    } else if (prevBall.wicketPlayerId === rotatedNonStriker) {
-      // Non-striker was out → new batsman takes non-striker slot
-      nonStrikerId = event.nonStrikerId;
-    }
-  }
 
   // Bowler change at end of over:
   // - `lastBowlerId` tracks the bowler of the PREVIOUS over (null if no

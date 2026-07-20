@@ -1,14 +1,20 @@
 import Link from 'next/link';
 import { loginAction } from './actions';
 import { AuthShell } from '../auth-shell';
-import { Button, Input, Label } from '@/components/ui';
+import { Button, FormError, Input, Label } from '@/components/ui';
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   return (
     <AuthShell
       title="Welcome back"
       subtitle="Sign in to score matches, manage teams and follow your stats."
     >
+      <FormError message={error} />
       <form action={loginAction} className="space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>

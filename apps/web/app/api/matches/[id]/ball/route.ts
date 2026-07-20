@@ -25,7 +25,12 @@ import {
   insertBallEvent,
   deleteLastBallEvent,
   updateInningCache,
+  completeMatch,
+  reopenMatch,
+  getTeam,
 } from '@/lib/db/queries';
+import { getUserId } from '@/lib/auth/local';
+import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -33,6 +38,11 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
   const { id: matchId } = await ctx.params;
 
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
+    }
+
     const body = (await request.json()) as BallEventInput;
 
     const loaded = await loadMatchInProgress(matchId);
@@ -40,6 +50,12 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
     const { match, currentInnings, balls } = loaded;
+    if (match.createdBy !== userId) {
+      return NextResponse.json(
+        { error: 'Only the match owner can score this match' },
+        { status: 403 },
+      );
+    }
 
     // Reconstruct state from existing balls
     const seed = buildSeed(match, currentInnings);
@@ -98,6 +114,40 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
     }
     await updateInningCache(currentInnings.id, cachePatch);
 
+    // Chase innings just finished → the match has a result.
+    if (
+      updated.status === 'completed' &&
+      currentInnings.inningsNumber >= 2 &&
+      typeof updated.target === 'number'
+    ) {
+      try {
+        const result = computeMatchResult({
+          runs: updated.runs,
+          wickets: updated.wickets,
+          target: updated.target,
+          maxWickets: updated.maxWickets,
+          battingTeamId: currentInnings.battingTeamId,
+          bowlingTeamId: currentInnings.bowlingTeamId,
+        });
+        const winner = result.winningTeamId
+          ? await getTeam(result.winningTeamId).catch(() => null)
+          : null;
+        await completeMatch(matchId, {
+          result:
+            result.winningTeamId === null
+              ? 'tie'
+              : result.winningTeamId === match.teamAId
+                ? 'team_a_win'
+                : 'team_b_win',
+          winningTeamId: result.winningTeamId,
+          summary: formatMatchResult(result, winner?.name),
+        });
+      } catch (err) {
+        // The ball is already saved — a failed result write must not fail the request.
+        console.error('Failed to finalize match result', err);
+      }
+    }
+
     return NextResponse.json({ state: nextState });
   } catch (err) {
     console.error('POST /api/matches/[id]/ball failed', err);
@@ -108,11 +158,22 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
 export async function DELETE(_request: NextRequest, ctx: RouteParams) {
   const { id: matchId } = await ctx.params;
   try {
+    const userId = await getUserId();
+    if (!userId) {
+      return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
+    }
+
     const loaded = await loadMatchInProgress(matchId);
     if (!loaded) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }
     const { match, currentInnings, balls } = loaded;
+    if (match.createdBy !== userId) {
+      return NextResponse.json(
+        { error: 'Only the match owner can score this match' },
+        { status: 403 },
+      );
+    }
     if (balls.length === 0) {
       return NextResponse.json({ error: 'No balls to undo' }, { status: 400 });
     }
@@ -130,6 +191,11 @@ export async function DELETE(_request: NextRequest, ctx: RouteParams) {
       extras: state.currentInnings.extras,
       status: state.currentInnings.status,
     });
+
+    // Undoing the final ball of a finished chase reopens the match.
+    if (match.status === 'completed' && state.currentInnings.status !== 'completed') {
+      await reopenMatch(matchId);
+    }
 
     return NextResponse.json({ state });
   } catch (err) {

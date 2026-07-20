@@ -9,6 +9,11 @@ import {
   updateInningCache,
 } from '@/lib/db/queries';
 
+/** User-facing failures redirect back to the form — never the error page. */
+function fail(message: string): never {
+  redirect(`/matches/new?error=${encodeURIComponent(message)}`);
+}
+
 export async function createMatchAction(formData: FormData): Promise<void> {
   const title = ((formData.get('title') as string) ?? '').trim() || undefined;
   const venue = ((formData.get('venue') as string) ?? '').trim() || undefined;
@@ -23,16 +28,16 @@ export async function createMatchAction(formData: FormData): Promise<void> {
   const openingBowlerId = formData.get('openingBowlerId') as string;
 
   if (!teamAId || !teamBId || teamAId === teamBId) {
-    throw new Error('Pick two different teams');
+    fail('Pick two different teams');
   }
   if (!Number.isFinite(oversPerInnings) || oversPerInnings < 1) {
-    throw new Error('Overs must be a positive number');
+    fail('Overs must be a positive number');
   }
   if (!openingStrikerId || !openingNonStrikerId || !openingBowlerId) {
-    throw new Error('Pick opening batsmen and bowler');
+    fail('Pick opening batters and a bowler');
   }
   if (openingStrikerId === openingNonStrikerId) {
-    throw new Error('Striker and non-striker must be different');
+    fail('Striker and non-striker must be different');
   }
 
   const match = await createMatch({
@@ -44,7 +49,7 @@ export async function createMatchAction(formData: FormData): Promise<void> {
     tossWinnerTeamId,
     tossDecision,
   });
-  if (!match) throw new Error('Could not create match. Sign in first.');
+  if (!match) fail('Could not create match — sign in first');
 
   let battingTeamId = teamAId;
   let bowlingTeamId = teamBId;

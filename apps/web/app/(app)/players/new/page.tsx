@@ -3,19 +3,26 @@ import {
   Button,
   ButtonLink,
   Card,
+  FormError,
   Input,
   Label,
   PageHeader,
   Select,
 } from '@/components/ui';
 
-export default function NewPlayerPage() {
+export default async function NewPlayerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   return (
     <div className="container max-w-xl py-8">
       <PageHeader
         title="Add player"
         description="A name is all that's required — everything else is optional."
       />
+      <FormError message={error} />
       <form action={createPlayerAction}>
         <Card className="space-y-4 p-5">
           <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">

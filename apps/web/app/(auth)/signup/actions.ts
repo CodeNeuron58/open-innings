@@ -22,6 +22,11 @@ const SignupInput = z.object({
   displayName: z.string().trim().min(1).max(80).optional(),
 });
 
+/** User-facing failures redirect back to the form — never the error page. */
+function fail(message: string): never {
+  redirect(`/signup?error=${encodeURIComponent(message)}`);
+}
+
 export async function signupAction(formData: FormData): Promise<void> {
   const parsed = SignupInput.safeParse({
     email: formData.get('email'),
@@ -29,7 +34,7 @@ export async function signupAction(formData: FormData): Promise<void> {
     displayName: formData.get('displayName') || undefined,
   });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? 'Invalid input');
+    fail(parsed.error.issues[0]?.message ?? 'Invalid input');
   }
 
   // Reject duplicate email up front for a friendlier error than a FK violation.
@@ -39,7 +44,7 @@ export async function signupAction(formData: FormData): Promise<void> {
     .where(eq(users.email, parsed.data.email))
     .limit(1);
   if (existing.length > 0) {
-    throw new Error('An account with that email already exists');
+    fail('An account with that email already exists');
   }
 
   const salt = newSalt();

@@ -5,6 +5,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  FormError,
   Input,
   Label,
   PageHeader,
@@ -14,7 +15,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewMatchPage() {
+export default async function NewMatchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const teams = await listTeams().catch(() => []);
   const teamAMembers = teams[0] ? await getTeamMembers(teams[0].id).catch(() => []) : [];
   const teamBMembers = teams[1] ? await getTeamMembers(teams[1].id).catch(() => []) : [];
@@ -45,6 +51,7 @@ export default async function NewMatchPage() {
         title="New match"
         description="Set the format, pick the sides, name the openers — then score."
       />
+      <FormError message={error} />
       <form action={createMatchAction} className="space-y-5">
         {/* Match details */}
         <FormSection title="Match details">

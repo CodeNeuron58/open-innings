@@ -182,6 +182,19 @@ export function PageHeader({
   );
 }
 
+/** Inline form/action error alert. Renders nothing without a message. */
+export function FormError({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return (
+    <div
+      className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      role="alert"
+    >
+      {message}
+    </div>
+  );
+}
+
 export function EmptyState({
   icon,
   title,

@@ -1,14 +1,20 @@
 import Link from 'next/link';
 import { signupAction } from './actions';
 import { AuthShell } from '../auth-shell';
-import { Button, Input, Label } from '@/components/ui';
+import { Button, FormError, Input, Label } from '@/components/ui';
 
-export default function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   return (
     <AuthShell
       title="Create your account"
       subtitle="Free forever. No credit card. No premium tier."
     >
+      <FormError message={error} />
       <form action={signupAction} className="space-y-4">
         <div>
           <Label htmlFor="displayName">Display name (optional)</Label>

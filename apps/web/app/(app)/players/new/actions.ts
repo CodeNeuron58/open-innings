@@ -4,10 +4,15 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createPlayer } from '@/lib/db/queries';
 
+/** User-facing failures redirect back to the form — never the error page. */
+function fail(message: string): never {
+  redirect(`/players/new?error=${encodeURIComponent(message)}`);
+}
+
 export async function createPlayerAction(formData: FormData): Promise<void> {
   const fullName = (formData.get('fullName') as string)?.trim();
   if (!fullName) {
-    throw new Error('Full name is required');
+    fail('Full name is required');
   }
 
   const shortName = (formData.get('shortName') as string)?.trim() || undefined;
@@ -43,7 +48,7 @@ export async function createPlayerAction(formData: FormData): Promise<void> {
   });
 
   if (!player) {
-    throw new Error('Could not create player. Make sure you are signed in.');
+    fail('Could not create player — make sure you are signed in');
   }
 
   revalidatePath('/players');

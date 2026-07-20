@@ -4,8 +4,10 @@ import { MapPin } from 'lucide-react';
 import {
   loadMatchInProgress,
   getTeam,
+  getInnings,
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
+import { formatOvers } from '@/lib/utils';
 import {
   replayInnings,
   asInningsId,
@@ -60,10 +62,13 @@ export default async function PublicScorecardPage({ params }: Props) {
     events,
   );
 
-  const [teamA, teamB] = await Promise.all([
+  const [teamA, teamB, allInnings] = await Promise.all([
     getTeam(match.teamAId).catch(() => null),
     getTeam(match.teamBId).catch(() => null),
+    getInnings(matchId).catch(() => []),
   ]);
+  const priorInnings = allInnings.filter((i) => i.inningsNumber < inning.inningsNumber);
+  const matchDone = match.status === 'completed';
 
   // Resolve every player id in the state to a name.
   const playerIds = Array.from(
@@ -125,11 +130,15 @@ export default async function PublicScorecardPage({ params }: Props) {
                 )}
               </p>
             </div>
-            {isLive ? (
+            {matchDone ? (
+              <Badge variant="secondary" className="bg-scoreboard-panel text-scoreboard-accent">
+                Result
+              </Badge>
+            ) : isLive ? (
               <LiveBadge />
             ) : inn.status === 'completed' ? (
               <Badge variant="secondary" className="bg-scoreboard-panel text-scoreboard-muted">
-                Innings complete
+                Innings break
               </Badge>
             ) : (
               <Badge variant="secondary" className="bg-scoreboard-panel text-scoreboard-muted">
@@ -137,6 +146,12 @@ export default async function PublicScorecardPage({ params }: Props) {
               </Badge>
             )}
           </div>
+
+          {matchDone && match.summary && (
+            <div className="border-b border-scoreboard-border bg-scoreboard-panel/60 px-5 py-2.5 text-sm font-semibold text-scoreboard-accent">
+              🏆 {match.summary}
+            </div>
+          )}
 
           <div className="px-5 py-6">
             <div className="flex items-end justify-between gap-3">
@@ -163,6 +178,19 @@ export default async function PublicScorecardPage({ params }: Props) {
                 {reqRate ? ` · RRR ${reqRate}` : ''}
               </p>
             )}
+            {priorInnings.map((i) => {
+              const priorTeam = i.battingTeamId === match.teamAId ? teamA : teamB;
+              return (
+                <p key={i.id} className="mt-3 text-sm text-scoreboard-muted">
+                  {i.inningsNumber === 1 ? '1st innings' : `Innings ${i.inningsNumber}`}:{' '}
+                  {priorTeam?.name ?? 'Team'}{' '}
+                  <span className="font-semibold text-scoreboard-text">
+                    {i.runs}/{i.wickets}
+                  </span>{' '}
+                  ({formatOvers(i.ballsBowled)} ov)
+                </p>
+              );
+            })}
           </div>
 
           {/* Recent balls */}

@@ -198,6 +198,43 @@ export async function startMatch(matchId: string): Promise<void> {
     .where(eq(matches.id, matchId));
 }
 
+/** Mark a match finished and record its result. */
+export async function completeMatch(
+  matchId: string,
+  patch: {
+    result: 'team_a_win' | 'team_b_win' | 'tie';
+    winningTeamId: string | null;
+    summary: string;
+  },
+): Promise<void> {
+  await db
+    .update(matches)
+    .set({
+      status: 'completed',
+      completedAt: new Date(),
+      updatedAt: new Date(),
+      result: patch.result,
+      winningTeamId: patch.winningTeamId,
+      summary: patch.summary,
+    })
+    .where(eq(matches.id, matchId));
+}
+
+/** Revert a completed match to live (used when the final ball is undone). */
+export async function reopenMatch(matchId: string): Promise<void> {
+  await db
+    .update(matches)
+    .set({
+      status: 'live',
+      completedAt: null,
+      updatedAt: new Date(),
+      result: null,
+      winningTeamId: null,
+      summary: null,
+    })
+    .where(eq(matches.id, matchId));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Innings
 // ─────────────────────────────────────────────────────────────────────────────

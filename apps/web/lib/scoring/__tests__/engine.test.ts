@@ -654,3 +654,101 @@ describe('scorecard view', () => {
     expect(view.recentBalls[1]?.display).toBe('6');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 14. New batter after a wicket (scorer sends the replacement on the next ball)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('new batter after a wicket', () => {
+  const NEW_BAT = 'p5';
+
+  it('replaces a bowled striker with the new batter', () => {
+    let state = seed();
+    state = applyBall(
+      state,
+      ev(
+        { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER },
+      ),
+    );
+    // Dismissed player stays in state until the replacement ball arrives
+    expect(state.currentInnings.strikerId).toBe(STRIKER);
+
+    state = applyBall(
+      state,
+      ev(
+        { striker: NEW_BAT, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+      ),
+    );
+    expect(state.currentInnings.strikerId).toBe(NEW_BAT);
+    expect(state.currentInnings.nonStrikerId).toBe(NON_STRIKER);
+    expect(state.batting[NEW_BAT]?.balls).toBe(1);
+  });
+
+  it('keeps ends straight when the new batter takes a single first ball', () => {
+    let state = seed();
+    state = applyBall(
+      state,
+      ev(
+        { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER },
+      ),
+    );
+    state = applyBall(
+      state,
+      ev(
+        { striker: NEW_BAT, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: '1', runsOffBat: 1, totalRuns: 1 },
+      ),
+    );
+    // Single → new batter crosses to the non-striker end
+    expect(state.currentInnings.strikerId).toBe(NON_STRIKER);
+    expect(state.currentInnings.nonStrikerId).toBe(NEW_BAT);
+    // No duplicate player at both ends
+    expect(state.currentInnings.strikerId).not.toBe(state.currentInnings.nonStrikerId);
+    expect(state.batting[NEW_BAT]?.runs).toBe(1);
+  });
+
+  it('replaces a run-out non-striker in the non-striker slot', () => {
+    let state = seed();
+    state = applyBall(
+      state,
+      ev(
+        { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'run_out', wicketPlayerId: NON_STRIKER, fielderId: FIELDER_1 },
+      ),
+    );
+    state = applyBall(
+      state,
+      ev(
+        { striker: STRIKER, nonStriker: NEW_BAT, bowler: BOWLER },
+        { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+      ),
+    );
+    expect(state.currentInnings.strikerId).toBe(STRIKER);
+    expect(state.currentInnings.nonStrikerId).toBe(NEW_BAT);
+    // Runs on that ball are credited to the actual striker, not the new batter
+    expect(state.batting[NEW_BAT]?.balls ?? 0).toBe(0);
+  });
+
+  it('still rejects a wrong pair when no wicket fell', () => {
+    let state = seed();
+    state = applyBall(
+      state,
+      ev(
+        { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
+        { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+      ),
+    );
+    expect(() =>
+      applyBall(
+        state,
+        ev(
+          { striker: NEW_BAT, nonStriker: NON_STRIKER, bowler: BOWLER },
+          { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+        ),
+      ),
+    ).toThrow(ScoringError);
+  });
+});

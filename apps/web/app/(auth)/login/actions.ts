@@ -21,13 +21,18 @@ const LoginInput = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/** User-facing failures redirect back to the form — never the error page. */
+function fail(message: string): never {
+  redirect(`/login?error=${encodeURIComponent(message)}`);
+}
+
 export async function loginAction(formData: FormData): Promise<void> {
   const parsed = LoginInput.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
   });
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? 'Invalid input');
+    fail(parsed.error.issues[0]?.message ?? 'Invalid input');
   }
 
   const rows = await db
@@ -41,16 +46,16 @@ export async function loginAction(formData: FormData): Promise<void> {
   // Constant-time-ish: if user not found, still hash a dummy to avoid timing oracle.
   // For v0.1 simplicity we accept the tiny info leak; document it as TODO.
   if (!user) {
-    throw new Error('Invalid email or password');
+    fail('Invalid email or password');
   }
 
   const ok = await verifyPassword(parsed.data.password, user.passwordSalt, user.passwordHash);
   if (!ok) {
-    throw new Error('Invalid email or password');
+    fail('Invalid email or password');
   }
 
   if (user.anonymisedAt) {
-    throw new Error('This account has been deleted');
+    fail('This account has been deleted');
   }
 
   const hdrs = await headers();

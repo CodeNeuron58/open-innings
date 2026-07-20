@@ -5,6 +5,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  FormError,
   Input,
   Label,
   PageHeader,
@@ -13,7 +14,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default async function NewTeamPage() {
+export default async function NewTeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const players = await listPlayers().catch(() => []);
 
   return (
@@ -22,6 +28,7 @@ export default async function NewTeamPage() {
         title="Add team"
         description="Name the side, then tick the squad members."
       />
+      <FormError message={error} />
       <form action={createTeamAction}>
         <Card className="space-y-4 p-5">
           <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">

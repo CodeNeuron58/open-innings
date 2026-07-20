@@ -26,6 +26,12 @@ type Props = {
   matchTitle?: string;
   battingTeamName?: string;
   bowlingTeamName?: string;
+  /** Current batting side's squad — candidates for a replacement batter. */
+  battingSquad?: Player[];
+  /** Current bowling side's squad — candidates for the next over's bowler. */
+  bowlingSquad?: Player[];
+  /** Server action: end the innings early (no batters left to replace one). */
+  onEndInnings?: () => Promise<void>;
 };
 
 export function ScorerClient({
@@ -36,16 +42,53 @@ export function ScorerClient({
   matchTitle,
   battingTeamName,
   bowlingTeamName,
+  battingSquad,
+  bowlingSquad,
+  onEndInnings,
 }: Props) {
   const [state, setState] = useState<MatchState>(state0);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showWicket, setShowWicket] = useState(false);
+  // Replacement chosen in the "next batter" / "next bowler" sheets. Sent with
+  // the next ball event (that's how the engine learns about the change) and
+  // cleared once the server state reflects it.
+  const [pendingBatterId, setPendingBatterId] = useState<string | null>(null);
+  const [pendingBowlerId, setPendingBowlerId] = useState<string | null>(null);
 
   // Build player lookup
   const playerMap: Record<string, string> = {};
   for (const p of players) playerMap[p.id] = p.fullName;
   const name = (id: PlayerId | string) => playerMap[id as string] ?? String(id).slice(0, 6);
+
+  // ── Effective on-field players ─────────────────────────────────────────────
+  // After a wicket the engine keeps the dismissed batter in state until the
+  // next ball names the replacement; after a completed over the engine expects
+  // a different bowlerId on the next ball (Law 16.2). The sheets below collect
+  // those choices; every ball event is built from these effective ids.
+  const innNow = state.currentInnings;
+  const lastBall = state.balls[state.balls.length - 1];
+  const pendingWicketId =
+    lastBall?.wicketType &&
+    lastBall.wicketPlayerId &&
+    (lastBall.wicketPlayerId === innNow.strikerId ||
+      lastBall.wicketPlayerId === innNow.nonStrikerId)
+      ? lastBall.wicketPlayerId
+      : null;
+  const needsBowlerChange =
+    innNow.ballsBowled > 0 &&
+    innNow.ballsBowled % 6 === 0 &&
+    innNow.lastBowlerId === innNow.currentBowlerId;
+  const effStriker =
+    pendingWicketId === innNow.strikerId && pendingBatterId
+      ? asPlayerId(pendingBatterId)
+      : innNow.strikerId;
+  const effNonStriker =
+    pendingWicketId === innNow.nonStrikerId && pendingBatterId
+      ? asPlayerId(pendingBatterId)
+      : innNow.nonStrikerId;
+  const effBowler =
+    needsBowlerChange && pendingBowlerId ? asPlayerId(pendingBowlerId) : innNow.currentBowlerId;
 
   // POST a ball event to the API
   async function postBall(input: BallEventInput) {
@@ -62,6 +105,8 @@ export function ScorerClient({
       return;
     }
     setState(data.state as MatchState);
+    setPendingBatterId(null);
+    setPendingBowlerId(null);
   }
 
   async function undo() {
@@ -74,19 +119,22 @@ export function ScorerClient({
       return;
     }
     setState(data.state as MatchState);
+    setPendingBatterId(null);
+    setPendingBowlerId(null);
   }
 
   function handleRuns(runsOffBat: number) {
     startTransition(() => {
       const input: BallEventInput = {
         inningsId: state.currentInnings.id,
-        eventType: String(runsOffBat) as BallEventType,
+        // A dot ball is 'dot' in the event enum — never '0'.
+        eventType: runsOffBat === 0 ? 'dot' : (String(runsOffBat) as BallEventType),
         runsOffBat,
         extraRuns: 0,
         totalRuns: runsOffBat,
-        batsmanId: state.currentInnings.strikerId,
-        nonStrikerId: state.currentInnings.nonStrikerId,
-        bowlerId: state.currentInnings.currentBowlerId,
+        batsmanId: effStriker,
+        nonStrikerId: effNonStriker,
+        bowlerId: effBowler,
       };
       postBall(input);
     });
@@ -103,9 +151,9 @@ export function ScorerClient({
         runsOffBat,
         extraRuns,
         totalRuns: runs,
-        batsmanId: state.currentInnings.strikerId,
-        nonStrikerId: state.currentInnings.nonStrikerId,
-        bowlerId: state.currentInnings.currentBowlerId,
+        batsmanId: effStriker,
+        nonStrikerId: effNonStriker,
+        bowlerId: effBowler,
       };
       postBall(input);
     });
@@ -119,9 +167,9 @@ export function ScorerClient({
         runsOffBat: 0,
         extraRuns: 0,
         totalRuns: 0,
-        batsmanId: state.currentInnings.strikerId,
-        nonStrikerId: state.currentInnings.nonStrikerId,
-        bowlerId: state.currentInnings.currentBowlerId,
+        batsmanId: effStriker,
+        nonStrikerId: effNonStriker,
+        bowlerId: effBowler,
         wicketType,
         wicketPlayerId: asPlayerId(wicketPlayerId),
         fielderId: fielderId ? asPlayerId(fielderId) : undefined,
@@ -132,11 +180,27 @@ export function ScorerClient({
   }
 
   const inn = state.currentInnings;
-  const strikerStats = state.batting[inn.strikerId];
-  const nonStrikerStats = state.batting[inn.nonStrikerId];
-  const bowlerStats = state.bowling[inn.currentBowlerId];
+  const strikerStats = state.batting[effStriker];
+  const nonStrikerStats = state.batting[effNonStriker];
+  const bowlerStats = state.bowling[effBowler];
   const isFreeHitNext = inn.isFreeHitNext;
   const completed = inn.status === 'completed';
+
+  // Mandatory sheets — scoring is blocked until the choice is made.
+  const showBatterSheet = !completed && !dbDown && pendingWicketId !== null && !pendingBatterId;
+  const showBowlerSheet =
+    !completed && !dbDown && !showBatterSheet && needsBowlerChange && !pendingBowlerId;
+
+  const batterCandidates = (battingSquad ?? players).filter(
+    (p) =>
+      p.id !== (effStriker as string) &&
+      p.id !== (effNonStriker as string) &&
+      p.id !== (pendingWicketId as string | null) &&
+      !state.batting[p.id]?.isOut,
+  );
+  const bowlerCandidates = (bowlingSquad ?? players).filter(
+    (p) => p.id !== (inn.lastBowlerId as string | undefined),
+  );
 
   const totalBalls = state.match.oversPerInnings * 6;
   const ballsLeft = Math.max(0, totalBalls - inn.ballsBowled);
@@ -230,15 +294,15 @@ export function ScorerClient({
       {/* Batters + bowler */}
       <section className="mx-3 rounded-lg border border-scoreboard-border bg-scoreboard-panel">
         <BatterRow
-          label={name(inn.strikerId)}
+          label={name(effStriker)}
           stats={strikerStats}
           striker
         />
-        <BatterRow label={name(inn.nonStrikerId)} stats={nonStrikerStats} />
+        <BatterRow label={name(effNonStriker)} stats={nonStrikerStats} />
         <div className="flex items-center justify-between border-t border-scoreboard-border px-4 py-2.5 text-sm">
           <span className="min-w-0 truncate">
             <span className="text-scoreboard-muted">Bowling · </span>
-            <span className="font-medium">{name(inn.currentBowlerId)}</span>
+            <span className="font-medium">{name(effBowler)}</span>
           </span>
           <span className="shrink-0 tabular-nums text-scoreboard-muted">
             {bowlerStats?.wickets ?? 0}/{bowlerStats?.runs ?? 0}{' '}
@@ -267,12 +331,22 @@ export function ScorerClient({
           <p className="mt-0.5 text-sm text-scoreboard-muted">
             {inn.runs}/{inn.wickets} in {formatOversLocal(inn.ballsBowled)} overs
           </p>
-          <Link
-            href={`/m/${matchId}`}
-            className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            View public scorecard
-          </Link>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            {/* Plain anchor: forces a server render so the page can move on
+                to the innings break / match result screen. */}
+            <a
+              href={`/matches/${matchId}/score`}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Continue →
+            </a>
+            <Link
+              href={`/m/${matchId}`}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-scoreboard-border px-5 text-sm font-medium text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+            >
+              Public scorecard
+            </Link>
+          </div>
         </div>
       )}
 
@@ -359,13 +433,40 @@ export function ScorerClient({
 
       {showWicket && (
         <WicketSheet
-          strikerId={inn.strikerId}
-          strikerName={name(inn.strikerId)}
-          nonStrikerId={inn.nonStrikerId}
-          nonStrikerName={name(inn.nonStrikerId)}
+          strikerId={effStriker}
+          strikerName={name(effStriker)}
+          nonStrikerId={effNonStriker}
+          nonStrikerName={name(effNonStriker)}
           players={players}
           onConfirm={handleWicketConfirm}
           onCancel={() => setShowWicket(false)}
+        />
+      )}
+
+      {showBatterSheet && (
+        <NextPlayerSheet
+          title="Next batter"
+          subtitle={`${name(pendingWicketId!)} ${lastBall?.wicketType === 'retired_hurt' ? 'retired hurt' : 'is out'} — who comes in?`}
+          candidates={batterCandidates.map((p) => ({
+            id: p.id,
+            label: p.fullName,
+            tag: state.batting[p.id]?.isRetiredHurt ? 'retired hurt' : undefined,
+          }))}
+          emptyMessage="No batters left in the squad."
+          onSelect={setPendingBatterId}
+          onUndo={undo}
+          onEndInnings={onEndInnings}
+        />
+      )}
+
+      {showBowlerSheet && (
+        <NextPlayerSheet
+          title="New bowler"
+          subtitle={`Over complete — ${name(inn.currentBowlerId)} can't bowl two in a row (Law 16.2).`}
+          candidates={bowlerCandidates.map((p) => ({ id: p.id, label: p.fullName }))}
+          emptyMessage="No other bowler in the squad — add players to the team."
+          onSelect={setPendingBowlerId}
+          onUndo={undo}
         />
       )}
     </div>
@@ -594,6 +695,81 @@ function WicketSheet({
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Mandatory bottom sheet: pick the next batter (after a wicket) or the next
+ * bowler (after an over). No cancel — the laws require the choice — but the
+ * scorer can undo the last ball to back out of a mis-tap.
+ */
+function NextPlayerSheet({
+  title,
+  subtitle,
+  candidates,
+  emptyMessage,
+  onSelect,
+  onUndo,
+  onEndInnings,
+}: {
+  title: string;
+  subtitle: string;
+  candidates: { id: string; label: string; tag?: string }[];
+  emptyMessage: string;
+  onSelect: (id: string) => void;
+  onUndo: () => void;
+  onEndInnings?: () => Promise<void>;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm sm:items-center sm:justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      <div className="safe-bottom w-full animate-slide-up rounded-t-2xl border-t border-scoreboard-border bg-scoreboard-panel p-5 text-scoreboard-text sm:max-w-md sm:rounded-2xl sm:border">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <p className="mb-4 mt-0.5 text-sm text-scoreboard-muted">{subtitle}</p>
+
+        {candidates.length === 0 ? (
+          <div className="rounded-md border border-dashed border-scoreboard-border p-4 text-center text-sm text-scoreboard-muted">
+            {emptyMessage}
+            {onEndInnings && (
+              <form action={onEndInnings} className="mt-3">
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  End innings
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          <div className="max-h-72 space-y-1.5 overflow-y-auto">
+            {candidates.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => onSelect(c.id)}
+                className="flex w-full items-center justify-between rounded-md bg-scoreboard px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-scoreboard/60"
+              >
+                <span className="truncate">{c.label}</span>
+                {c.tag && (
+                  <span className="ml-2 shrink-0 text-xs text-scoreboard-muted">{c.tag}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button
+          onClick={onUndo}
+          className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-scoreboard-border px-4 py-2.5 text-sm text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+        >
+          <Undo2 className="h-4 w-4" /> Undo last ball instead
+        </button>
       </div>
     </div>
   );
