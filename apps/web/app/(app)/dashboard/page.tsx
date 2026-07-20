@@ -1,22 +1,271 @@
-export default function DashboardPage() {
+import Link from 'next/link';
+import { Plus, Swords, Users, Shield, Radio, ArrowRight } from 'lucide-react';
+import { listMatches, listPlayers, listTeams } from '@/lib/db/queries';
+import {
+  ButtonLink,
+  Card,
+  PageHeader,
+  StatTile,
+  StatusBadge,
+  EmptyState,
+} from '@/components/ui';
+
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardPage() {
+  const [matches, players, teams] = await Promise.all([
+    listMatches().catch(() => []),
+    listPlayers().catch(() => []),
+    listTeams().catch(() => []),
+  ]);
+
+  const teamName = new Map(teams.map((t) => [t.id, t.name]));
+  const liveMatches = matches.filter((m) => m.status === 'live');
+  const recentMatches = matches.slice(0, 5);
+  const isEmpty = matches.length === 0 && players.length === 0 && teams.length === 0;
+
   return (
-    <main className="container py-12">
-      <h1 className="mb-6 text-3xl font-bold">Dashboard</h1>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Tile title="Live matches" value="—" hint="Matches you're scoring right now" />
-        <Tile title="Recent" value="—" hint="Your last 5 matches" />
-        <Tile title="Players" value="—" hint="Players in your database" />
+    <div className="container py-8">
+      <PageHeader
+        title="Dashboard"
+        description="Your club at a glance."
+        action={
+          <ButtonLink href="/matches/new">
+            <Plus className="h-4 w-4" /> New match
+          </ButtonLink>
+        }
+      />
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile
+          label="Live now"
+          value={liveMatches.length}
+          hint={liveMatches.length > 0 ? 'Scoring in progress' : 'No match in progress'}
+          icon={<Radio className="h-4 w-4" />}
+        />
+        <StatTile
+          label="Matches"
+          value={matches.length}
+          hint="All time"
+          icon={<Swords className="h-4 w-4" />}
+        />
+        <StatTile
+          label="Teams"
+          value={teams.length}
+          hint="In your club"
+          icon={<Shield className="h-4 w-4" />}
+        />
+        <StatTile
+          label="Players"
+          value={players.length}
+          hint="In your database"
+          icon={<Users className="h-4 w-4" />}
+        />
       </div>
-    </main>
+
+      {isEmpty ? (
+        <div className="mt-8">
+          <GettingStarted hasPlayers={players.length > 0} hasTeams={teams.length >= 2} />
+        </div>
+      ) : (
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          {/* Live + recent matches */}
+          <div className="lg:col-span-2">
+            {liveMatches.length > 0 && (
+              <section className="mb-6">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Live now
+                </h2>
+                <div className="space-y-3">
+                  {liveMatches.map((m) => (
+                    <Card
+                      key={m.id}
+                      className="flex flex-wrap items-center justify-between gap-3 p-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={m.status} />
+                          <p className="truncate font-semibold">
+                            {m.title ??
+                              `${teamName.get(m.teamAId) ?? 'Team A'} vs ${teamName.get(m.teamBId) ?? 'Team B'}`}
+                          </p>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {m.oversPerInnings} overs
+                          {m.venue ? ` · ${m.venue}` : ''}
+                        </p>
+                      </div>
+                      <ButtonLink href={`/matches/${m.id}/score`} size="sm">
+                        Resume scoring <ArrowRight className="h-3.5 w-3.5" />
+                      </ButtonLink>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Recent matches
+                </h2>
+                <Link
+                  href="/matches"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              </div>
+              {recentMatches.length === 0 ? (
+                <EmptyState
+                  icon={<Swords className="h-8 w-8" />}
+                  title="No matches yet"
+                  hint="Start your first match and it will show up here."
+                  action={
+                    <ButtonLink href="/matches/new" size="sm">
+                      <Plus className="h-4 w-4" /> New match
+                    </ButtonLink>
+                  }
+                />
+              ) : (
+                <Card className="divide-y divide-border">
+                  {recentMatches.map((m) => (
+                    <Link
+                      key={m.id}
+                      href={`/matches/${m.id}/score`}
+                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {m.title ??
+                            `${teamName.get(m.teamAId) ?? 'Team A'} vs ${teamName.get(m.teamBId) ?? 'Team B'}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {m.oversPerInnings} overs{m.venue ? ` · ${m.venue}` : ''}
+                        </p>
+                      </div>
+                      <StatusBadge status={m.status} />
+                    </Link>
+                  ))}
+                </Card>
+              )}
+            </section>
+          </div>
+
+          {/* Quick actions */}
+          <aside>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Quick actions
+            </h2>
+            <Card className="divide-y divide-border">
+              <QuickAction
+                href="/matches/new"
+                icon={<Swords className="h-4 w-4" />}
+                title="Start a match"
+                hint="Pick teams, set overs, score"
+              />
+              <QuickAction
+                href="/players/new"
+                icon={<Users className="h-4 w-4" />}
+                title="Add a player"
+                hint="Build your player database"
+              />
+              <QuickAction
+                href="/teams/new"
+                icon={<Shield className="h-4 w-4" />}
+                title="Create a team"
+                hint="Assemble a squad"
+              />
+            </Card>
+          </aside>
+        </div>
+      )}
+    </div>
   );
 }
 
-function Tile({ title, value, hint }: { title: string; value: string; hint: string }) {
+function QuickAction({
+  href,
+  icon,
+  title,
+  hint,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  hint: string;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{title}</p>
-      <p className="my-2 text-3xl font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground">{hint}</p>
-    </div>
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40"
+    >
+      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block font-medium">{title}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+      <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+    </Link>
+  );
+}
+
+/** Three-step onboarding shown when the account has no data yet. */
+function GettingStarted({ hasPlayers, hasTeams }: { hasPlayers: boolean; hasTeams: boolean }) {
+  const steps = [
+    {
+      done: hasPlayers,
+      title: 'Add your players',
+      hint: 'Names are enough to start — styles and roles are optional.',
+      href: '/players/new',
+      cta: 'Add players',
+    },
+    {
+      done: hasTeams,
+      title: 'Create two teams',
+      hint: 'A match needs two sides. Pick squads from your players.',
+      href: '/teams/new',
+      cta: 'Create teams',
+    },
+    {
+      done: false,
+      title: 'Start scoring',
+      hint: 'Set overs, choose openers, and score ball by ball.',
+      href: '/matches/new',
+      cta: 'New match',
+    },
+  ];
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-bold">Welcome to Open Innings 🏏</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Three steps to your first scored match:
+      </p>
+      <ol className="mt-5 space-y-4">
+        {steps.map((s, i) => (
+          <li key={s.title} className="flex items-start gap-4">
+            <span
+              className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                s.done
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground'
+              }`}
+            >
+              {s.done ? '✓' : i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{s.title}</p>
+              <p className="text-sm text-muted-foreground">{s.hint}</p>
+            </div>
+            <ButtonLink href={s.href} variant={i === 0 ? 'primary' : 'outline'} size="sm">
+              {s.cta}
+            </ButtonLink>
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }

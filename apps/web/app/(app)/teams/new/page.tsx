@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { listPlayers } from '@/lib/db/queries';
 import { createTeamAction } from './actions';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  Input,
+  Label,
+  PageHeader,
+  Monogram,
+} from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,62 +18,68 @@ export default async function NewTeamPage() {
 
   return (
     <div className="container max-w-xl py-8">
-      <h1 className="mb-6 text-3xl font-bold">Add team</h1>
-      <form action={createTeamAction} className="space-y-4">
-        <Field label="Team name" name="name" required />
-        <Field label="Short name (e.g. IND)" name="shortName" />
-        <Field label="Home ground" name="homeGround" />
-
-        <div>
-          <label className="mb-2 block text-sm font-medium">Squad (optional)</label>
-          {players.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No players yet.{' '}
-              <Link href="/players/new" className="text-green-600 hover:underline">
-                Add players first
-              </Link>
-              .
-            </p>
-          ) : (
-            <div className="max-h-60 overflow-y-auto rounded-md border border-border bg-card p-3 space-y-1">
-              {players.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" name="playerIds" value={p.id} />
-                  <span>{p.fullName}</span>
-                </label>
-              ))}
+      <PageHeader
+        title="Add team"
+        description="Name the side, then tick the squad members."
+      />
+      <form action={createTeamAction}>
+        <Card className="space-y-4 p-5">
+          <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+            <div>
+              <Label htmlFor="name">Team name</Label>
+              <Input id="name" name="name" required placeholder="e.g. Boundary CC" />
             </div>
-          )}
-        </div>
+            <div>
+              <Label htmlFor="shortName">Short name</Label>
+              <Input id="shortName" name="shortName" placeholder="e.g. BCC" />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="homeGround">Home ground</Label>
+            <Input id="homeGround" name="homeGround" placeholder="e.g. Shivaji Park" />
+          </div>
 
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            className="rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
-          >
-            Save
-          </button>
-          <Link
-            href="/teams"
-            className="rounded-md border border-border px-4 py-2 text-sm hover:bg-muted"
-          >
+          <div>
+            <Label>Squad (optional)</Label>
+            {players.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
+                No players yet.{' '}
+                <Link href="/players/new" className="font-medium text-primary hover:underline">
+                  Add players first
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="max-h-64 space-y-0.5 overflow-y-auto rounded-md border border-border p-2">
+                {players.map((p) => (
+                  <label
+                    key={p.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent/50"
+                  >
+                    <input
+                      type="checkbox"
+                      name="playerIds"
+                      value={p.id}
+                      className="h-4 w-4 rounded border-input accent-[hsl(var(--primary))]"
+                    />
+                    <Monogram name={p.fullName} className="h-7 w-7 text-[10px]" />
+                    <span className="truncate">{p.fullName}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        <div className="mt-5 flex gap-3">
+          <Button type="submit" size="lg">
+            Save team
+          </Button>
+          <ButtonLink href="/teams" variant="outline" size="lg">
             Cancel
-          </Link>
+          </ButtonLink>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({ label, name, required = false }: { label: string; name: string; required?: boolean }) {
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium">{label}</label>
-      <input
-        name={name}
-        required={required}
-        className="w-full rounded-md border border-border bg-card px-3 py-2"
-      />
     </div>
   );
 }

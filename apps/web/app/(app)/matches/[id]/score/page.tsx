@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import {
   loadMatchInProgress,
   getTeamMembers,
+  getTeam,
 } from '@/lib/db/queries';
 import {
   replayInnings,
@@ -20,11 +21,15 @@ export default async function ScorePage({ params }: Props) {
   // With no DB, render an empty state. UI still works visually.
   if (dbDown) {
     return (
-      <div className="container max-w-md py-8 text-center">
-        <h1 className="mb-2 text-2xl font-bold">Database not configured</h1>
-        <p className="text-sm text-muted-foreground">
-          Set <code>DATABASE_URL</code> in <code>.env.local</code> and run migrations to enable scoring.
-        </p>
+      <div className="container flex max-w-md flex-col items-center py-16 text-center">
+        <div className="rounded-lg border border-dashed border-border bg-card/50 px-8 py-10">
+          <h1 className="mb-2 text-2xl font-bold">Database not configured</h1>
+          <p className="text-sm text-muted-foreground">
+            Set <code className="rounded bg-muted px-1.5 py-0.5">DATABASE_URL</code> in{' '}
+            <code className="rounded bg-muted px-1.5 py-0.5">.env.local</code> and run migrations
+            to enable scoring.
+          </p>
+        </div>
       </div>
     );
   }
@@ -68,16 +73,32 @@ export default async function ScorePage({ params }: Props) {
   );
 
   // Gather players from both squads so the wicket dialog has fielder options.
-  const [teamAPlayers, teamBPlayers] = await Promise.all([
+  const [teamAPlayers, teamBPlayers, teamA, teamB] = await Promise.all([
     getTeamMembers(match.teamAId).catch(() => []),
     getTeamMembers(match.teamBId).catch(() => []),
+    getTeam(match.teamAId).catch(() => null),
+    getTeam(match.teamBId).catch(() => null),
   ]);
   const players = [...teamAPlayers, ...teamBPlayers].map((p) => ({
     id: p.id,
     fullName: p.fullName,
   }));
 
+  const battingTeamName =
+    (inning.battingTeamId === match.teamAId ? teamA?.name : teamB?.name) ?? undefined;
+  const bowlingTeamName =
+    (inning.bowlingTeamId === match.teamAId ? teamA?.name : teamB?.name) ?? undefined;
+
   // Lazy import to keep the page a server component (avoid hydration mismatch).
   const { ScorerClient } = await import('@/components/scorer/ScorerClient');
-  return <ScorerClient matchId={id} initialState={state} players={players} />;
+  return (
+    <ScorerClient
+      matchId={id}
+      initialState={state}
+      players={players}
+      matchTitle={match.title ?? undefined}
+      battingTeamName={battingTeamName}
+      bowlingTeamName={bowlingTeamName}
+    />
+  );
 }

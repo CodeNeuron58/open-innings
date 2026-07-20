@@ -1,19 +1,21 @@
-import Link from 'next/link';
+import { ButtonLink, LogoMark } from '@/components/ui';
 
 export default function NotFound() {
   return (
     <main className="container flex min-h-screen flex-col items-center justify-center text-center">
-      <p className="text-6xl">🏏</p>
-      <h1 className="mt-4 text-3xl font-bold">Hit for a duck</h1>
-      <p className="mt-2 text-muted-foreground">
-        We couldn&apos;t find that page. Bowled out.
+      <LogoMark className="h-16 w-16 opacity-80" />
+      <p className="mt-6 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        404 · Out for a duck
       </p>
-      <Link
-        href="/"
-        className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-      >
+      <h1 className="mt-2 text-3xl font-bold tracking-tight">
+        We couldn&apos;t find that page
+      </h1>
+      <p className="mt-2 max-w-sm text-muted-foreground">
+        The umpire&apos;s finger is up — this one&apos;s not in the book.
+      </p>
+      <ButtonLink href="/" className="mt-6">
         Back to the pavilion
-      </Link>
+      </ButtonLink>
     </main>
   );
 }

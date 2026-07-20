@@ -1,5 +1,12 @@
-import Link from 'next/link';
+import { Plus, Shield, MapPin, Users } from 'lucide-react';
 import { listTeams, getTeamMembers } from '@/lib/db/queries';
+import {
+  ButtonLink,
+  Card,
+  PageHeader,
+  EmptyState,
+  Monogram,
+} from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +19,6 @@ export default async function TeamsPage() {
     dbError = err instanceof Error ? err.message : 'Database error';
   }
 
-  // Build member counts
   const memberCounts: Record<string, number> = {};
   for (const t of teams) {
     try {
@@ -25,45 +31,67 @@ export default async function TeamsPage() {
 
   return (
     <div className="container py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Teams</h1>
-        <Link
-          href="/teams/new"
-          className="rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
-        >
-          + Add team
-        </Link>
-      </div>
+      <PageHeader
+        title="Teams"
+        description="Squads you can pick a match XI from."
+        action={
+          <ButtonLink href="/teams/new">
+            <Plus className="h-4 w-4" /> Add team
+          </ButtonLink>
+        }
+      />
 
       {dbError ? (
-        <div className="rounded-md border border-yellow-500 bg-yellow-50 p-4 text-sm text-yellow-900">
+        <Card className="border-extra/40 bg-extra/10 p-4 text-sm">
           <strong>Database not configured.</strong> ({dbError})
-        </div>
+        </Card>
       ) : teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-muted-foreground">No teams yet.</p>
-          <Link href="/teams/new" className="mt-3 inline-block text-green-600 hover:underline">
-            Create your first team
-          </Link>
-        </div>
+        <EmptyState
+          icon={<Shield className="h-8 w-8" />}
+          title="No teams yet"
+          hint="You need two teams for a match. Create the first one now."
+          action={
+            <ButtonLink href="/teams/new" size="sm">
+              <Plus className="h-4 w-4" /> Create your first team
+            </ButtonLink>
+          }
+        />
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {teams.map((t) => (
-            <li
-              key={t.id}
-              className="rounded-lg border border-border bg-card p-4 shadow-sm"
-            >
-              <p className="font-bold">{t.name}</p>
-              {t.shortName && (
-                <p className="text-xs text-muted-foreground">{t.shortName}</p>
-              )}
-              <p className="mt-2 text-xs text-muted-foreground">
-                {memberCounts[t.id] ?? 0} member
-                {(memberCounts[t.id] ?? 0) === 1 ? '' : 's'}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map((t) => {
+            const count = memberCounts[t.id] ?? 0;
+            return (
+              <Card key={t.id} className="p-5 transition-shadow hover:shadow-card-hover">
+                <div className="flex items-center gap-3">
+                  <Monogram
+                    name={t.shortName ?? t.name}
+                    className="h-12 w-12 bg-primary text-base text-primary-foreground"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">{t.name}</p>
+                    {t.shortName && (
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {t.shortName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5" />
+                    {count} member{count === 1 ? '' : 's'}
+                  </span>
+                  {t.homeGround && (
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{t.homeGround}</span>
+                    </span>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );

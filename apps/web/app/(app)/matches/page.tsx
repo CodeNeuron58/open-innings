@@ -1,5 +1,14 @@
 import Link from 'next/link';
-import { listMatches } from '@/lib/db/queries';
+import { Plus, Swords, Share2, Play } from 'lucide-react';
+import { listMatches, listTeams } from '@/lib/db/queries';
+import {
+  ButtonLink,
+  Card,
+  PageHeader,
+  StatusBadge,
+  EmptyState,
+  buttonVariants,
+} from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,57 +20,74 @@ export default async function MatchesPage() {
   } catch (err) {
     dbError = err instanceof Error ? err.message : 'Database error';
   }
+  const teams = await listTeams().catch(() => []);
+  const teamName = new Map(teams.map((t) => [t.id, t.name]));
 
   return (
     <div className="container py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Matches</h1>
-        <Link
-          href="/matches/new"
-          className="rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
-        >
-          + New match
-        </Link>
-      </div>
+      <PageHeader
+        title="Matches"
+        description="Everything you've scored, live and finished."
+        action={
+          <ButtonLink href="/matches/new">
+            <Plus className="h-4 w-4" /> New match
+          </ButtonLink>
+        }
+      />
 
       {dbError ? (
-        <div className="rounded-md border border-yellow-500 bg-yellow-50 p-4 text-sm text-yellow-900">
+        <Card className="border-extra/40 bg-extra/10 p-4 text-sm">
           <strong>Database not configured.</strong> ({dbError})
-        </div>
+        </Card>
       ) : matches.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center">
-          <p className="text-muted-foreground">No matches yet.</p>
-          <Link href="/matches/new" className="mt-3 inline-block text-green-600 hover:underline">
-            Start a new match
-          </Link>
-        </div>
+        <EmptyState
+          icon={<Swords className="h-8 w-8" />}
+          title="No matches yet"
+          hint="Create two teams, then start your first match — scoring takes seconds to set up."
+          action={
+            <ButtonLink href="/matches/new" size="sm">
+              <Plus className="h-4 w-4" /> Start a new match
+            </ButtonLink>
+          }
+        />
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border bg-card">
-          {matches.map((m) => (
-            <li key={m.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="font-medium">{m.title ?? `Match ${m.id.slice(0, 8)}`}</p>
-                <p className="text-xs text-muted-foreground">
-                  {m.oversPerInnings} overs · {m.status}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Link
-                  href={`/matches/${m.id}/score`}
-                  className="text-sm text-green-600 hover:underline"
-                >
-                  Score
-                </Link>
-                <Link
-                  href={`/m/${m.id}`}
-                  className="text-sm text-muted-foreground hover:underline"
-                >
-                  Public
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          {matches.map((m) => {
+            const title =
+              m.title ??
+              `${teamName.get(m.teamAId) ?? 'Team A'} vs ${teamName.get(m.teamBId) ?? 'Team B'}`;
+            return (
+              <Card
+                key={m.id}
+                className="flex flex-wrap items-center justify-between gap-3 p-4 transition-shadow hover:shadow-card-hover"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <StatusBadge status={m.status} />
+                    <p className="truncate font-semibold">{title}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {teamName.get(m.teamAId) ?? 'Team A'} vs {teamName.get(m.teamBId) ?? 'Team B'}{' '}
+                    · {m.oversPerInnings} overs
+                    {m.venue ? ` · ${m.venue}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/m/${m.id}`}
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Share
+                  </Link>
+                  <ButtonLink href={`/matches/${m.id}/score`} size="sm">
+                    <Play className="h-3.5 w-3.5" />
+                    {m.status === 'completed' ? 'Open' : 'Score'}
+                  </ButtonLink>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       )}
     </div>
   );
