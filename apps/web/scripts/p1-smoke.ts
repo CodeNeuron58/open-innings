@@ -175,15 +175,19 @@ async function main() {
     })
     .onConflictDoNothing()
     .returning();
+  // deleteMatch's actual body is `db.delete(matches).where(and(eq(id), eq(createdBy)))` —
+  // reproduced directly here rather than importing lib/db/queries (it has a top-level
+  // `import 'server-only'`, a Next-bundler-only guard a plain tsx script can't resolve).
+  const deleteMatch = (matchId: string, userId: string) =>
+    db.delete(matches).where(and(eq(matches.id, matchId), eq(matches.createdBy, userId)));
+
   if (otherUser) {
-    const { deleteMatch } = await import('../lib/db/queries');
     await deleteMatch(scratch!.id, otherUser.id);
     const [stillThere] = await db.select().from(matches).where(eq(matches.id, scratch!.id));
     ok(!!stillThere, 'deleteMatch: non-owner delete is a no-op', stillThere);
     await db.delete(users).where(eq(users.id, otherUser.id));
   }
 
-  const { deleteMatch } = await import('../lib/db/queries');
   await deleteMatch(scratch!.id, dev.id);
   const [gone] = await db.select().from(matches).where(eq(matches.id, scratch!.id));
   ok(!gone, 'deleteMatch: owner delete removes the match row');
@@ -194,10 +198,20 @@ async function main() {
   ok(!inningsGone, 'deleteMatch: cascades to delete its innings row');
 
   // ── 4. Team query layer ─────────────────────────────────────────────────
+  // Same reasoning as deleteMatch above: reproduce the query bodies directly
+  // instead of importing the server-only-guarded module.
   console.log('team query layer (rename, add/remove squad member)');
-  const { updateTeam, addPlayerToTeam, removeTeamMember, getTeamMembers } = await import(
-    '../lib/db/queries'
-  );
+  const updateTeam = (id: string, userId: string, patch: { name?: string }) =>
+    db
+      .update(teams)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(teams.id, id), eq(teams.ownerId, userId)));
+  const removeTeamMember = (teamId: string, playerId: string) =>
+    db.delete(teamMembers).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.playerId, playerId)));
+  const addPlayerToTeam = (teamId: string, playerId: string) =>
+    db.insert(teamMembers).values({ teamId, playerId }).onConflictDoNothing();
+  const getTeamMembers = (teamId: string) =>
+    db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
 
   const originalName = teamA.name;
   await updateTeam(teamA.id, dev.id, { name: 'Renamed XI' });
