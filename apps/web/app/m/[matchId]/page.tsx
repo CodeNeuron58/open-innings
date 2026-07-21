@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { MapPin } from 'lucide-react';
+import { MapPin, ChevronDown } from 'lucide-react';
 import {
   loadMatchInProgress,
   getTeam,
   getInnings,
+  listBallEvents,
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
 import { formatOvers } from '@/lib/utils';
@@ -12,7 +13,9 @@ import {
   replayInnings,
   asInningsId,
   asPlayerId,
+  type MatchState,
 } from '@/lib/scoring';
+import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';
 import { LiveRefresh } from '@/components/scorecard/LiveRefresh';
@@ -24,14 +27,11 @@ export const revalidate = 0;
 
 type Props = { params: Promise<{ matchId: string }> };
 
-export default async function PublicScorecardPage({ params }: Props) {
-  const { matchId } = await params;
-  const data = await loadMatchInProgress(matchId).catch(() => null);
-  if (!data) notFound();
+type BallRow = Awaited<ReturnType<typeof listBallEvents>>[number];
 
-  const { match, currentInnings: inning, balls } = data;
-
-  const events = balls.map((row) => ({
+/** DB rows → engine event inputs (branded ids, null → undefined). */
+function toEvents(rows: BallRow[]) {
+  return rows.map((row) => ({
     ...row,
     inningsId: asInningsId(row.inningsId),
     batsmanId: asPlayerId(row.batsmanId),
@@ -42,25 +42,41 @@ export default async function PublicScorecardPage({ params }: Props) {
     wicketType: row.wicketType ?? undefined,
     commentary: row.commentary ?? undefined,
   }));
+}
 
-  const state = replayInnings(
+function replayInningsRow(
+  match: { id: string; oversPerInnings: number; teamAId: string; teamBId: string },
+  inn: Innings,
+  rows: BallRow[],
+): MatchState {
+  return replayInnings(
     {
       matchId: match.id,
       oversPerInnings: match.oversPerInnings,
       teamAId: match.teamAId,
       teamBId: match.teamBId,
-      battingTeamId: inning.battingTeamId,
-      bowlingTeamId: inning.bowlingTeamId,
-      inningsId: inning.id,
-      inningsNumber: inning.inningsNumber as 1 | 2 | 3 | 4,
-      strikerId: inning.openingStrikerId ?? '',
-      nonStrikerId: inning.openingNonStrikerId ?? '',
-      bowlerId: inning.openingBowlerId ?? '',
-      maxWickets: inning.maxWickets,
-      target: inning.target ?? undefined,
+      battingTeamId: inn.battingTeamId,
+      bowlingTeamId: inn.bowlingTeamId,
+      inningsId: inn.id,
+      inningsNumber: inn.inningsNumber as 1 | 2 | 3 | 4,
+      strikerId: inn.openingStrikerId ?? '',
+      nonStrikerId: inn.openingNonStrikerId ?? '',
+      bowlerId: inn.openingBowlerId ?? '',
+      maxWickets: inn.maxWickets,
+      target: inn.target ?? undefined,
     },
-    events,
+    toEvents(rows),
   );
+}
+
+export default async function PublicScorecardPage({ params }: Props) {
+  const { matchId } = await params;
+  const data = await loadMatchInProgress(matchId).catch(() => null);
+  if (!data) notFound();
+
+  const { match, currentInnings: inning, balls } = data;
+
+  const state = replayInningsRow(match, inning, balls);
 
   const [teamA, teamB, allInnings] = await Promise.all([
     getTeam(match.teamAId).catch(() => null),
@@ -70,15 +86,23 @@ export default async function PublicScorecardPage({ params }: Props) {
   const priorInnings = allInnings.filter((i) => i.inningsNumber < inning.inningsNumber);
   const matchDone = match.status === 'completed';
 
-  // Resolve every player id in the state to a name.
+  const priorBalls = await Promise.all(
+    priorInnings.map((i) => listBallEvents(i.id).catch(() => [])),
+  );
+  const priorStates = priorInnings.map((i, idx) => replayInningsRow(match, i, priorBalls[idx]!));
+
+  // Resolve every player id (across every innings) to a name.
   const playerIds = Array.from(
-    new Set([
-      ...Object.keys(state.batting),
-      ...Object.keys(state.bowling),
-      inning.openingStrikerId ?? '',
-      inning.openingNonStrikerId ?? '',
-      inning.openingBowlerId ?? '',
-    ].filter(Boolean)),
+    new Set(
+      [
+        ...Object.keys(state.batting),
+        ...Object.keys(state.bowling),
+        inning.openingStrikerId ?? '',
+        inning.openingNonStrikerId ?? '',
+        inning.openingBowlerId ?? '',
+        ...priorStates.flatMap((s) => [...Object.keys(s.batting), ...Object.keys(s.bowling)]),
+      ].filter(Boolean),
+    ),
   );
   const playerNames = await getPlayerNamesByIds(playerIds);
 
@@ -178,19 +202,6 @@ export default async function PublicScorecardPage({ params }: Props) {
                 {reqRate ? ` · RRR ${reqRate}` : ''}
               </p>
             )}
-            {priorInnings.map((i) => {
-              const priorTeam = i.battingTeamId === match.teamAId ? teamA : teamB;
-              return (
-                <p key={i.id} className="mt-3 text-sm text-scoreboard-muted">
-                  {i.inningsNumber === 1 ? '1st innings' : `Innings ${i.inningsNumber}`}:{' '}
-                  {priorTeam?.name ?? 'Team'}{' '}
-                  <span className="font-semibold text-scoreboard-text">
-                    {i.runs}/{i.wickets}
-                  </span>{' '}
-                  ({formatOvers(i.ballsBowled)} ov)
-                </p>
-              );
-            })}
           </div>
 
           {/* Recent balls */}
@@ -226,6 +237,50 @@ export default async function PublicScorecardPage({ params }: Props) {
             <BowlingCard bowling={state.bowling} playerNames={playerNames} />
           </div>
         </section>
+
+        {/* Earlier innings — collapsed by default so the current innings stays the focus */}
+        {priorInnings.map((i, idx) => {
+          const priorTeam = i.battingTeamId === match.teamAId ? teamA : teamB;
+          const priorState = priorStates[idx]!;
+          const priorInn = priorState.currentInnings;
+          return (
+            <details
+              key={i.id}
+              className="group mt-4 overflow-hidden rounded-lg border border-border bg-card shadow-card"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-sm font-medium transition-colors hover:bg-accent/40">
+                <span>
+                  {i.inningsNumber === 1 ? '1st innings' : `Innings ${i.inningsNumber}`}:{' '}
+                  {priorTeam?.name ?? 'Team'}{' '}
+                  <span className="font-semibold">
+                    {i.runs}/{i.wickets}
+                  </span>{' '}
+                  <span className="text-muted-foreground">({formatOvers(i.ballsBowled)} ov)</span>
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="grid gap-6 border-t border-border p-5 md:grid-cols-2">
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Batting
+                  </h3>
+                  <BattingCard
+                    batting={priorState.batting}
+                    strikerId={priorInn.strikerId as string}
+                    nonStrikerId={priorInn.nonStrikerId as string}
+                    playerNames={playerNames}
+                  />
+                </div>
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Bowling
+                  </h3>
+                  <BowlingCard bowling={priorState.bowling} playerNames={playerNames} />
+                </div>
+              </div>
+            </details>
+          );
+        })}
 
         {isLive && (
           <p className="mt-4 text-center text-xs text-muted-foreground">

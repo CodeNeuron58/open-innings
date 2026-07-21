@@ -6,7 +6,7 @@
  */
 
 import 'server-only';
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../client';
 import {
   players,
@@ -142,6 +142,24 @@ export async function addPlayerToTeam(teamId: string, playerId: string): Promise
   await db.insert(teamMembers).values({ teamId, playerId }).onConflictDoNothing();
 }
 
+export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
+  await db
+    .delete(teamMembers)
+    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.playerId, playerId)));
+}
+
+/** Rename or update a team's details. Scoped to the owner — a no-op otherwise. */
+export async function updateTeam(
+  id: string,
+  userId: string,
+  patch: { name?: string; shortName?: string; homeGround?: string },
+): Promise<void> {
+  await db
+    .update(teams)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(teams.id, id), eq(teams.ownerId, userId)));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Matches
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,6 +251,15 @@ export async function reopenMatch(matchId: string): Promise<void> {
       summary: null,
     })
     .where(eq(matches.id, matchId));
+}
+
+/**
+ * Delete a match and everything scored in it. Scoped to the owner.
+ * `innings.matchId` and `ball_events.inningsId` both cascade on delete, so
+ * this one statement is enough — no manual cleanup of innings/ball_events.
+ */
+export async function deleteMatch(matchId: string, userId: string): Promise<void> {
+  await db.delete(matches).where(and(eq(matches.id, matchId), eq(matches.createdBy, userId)));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

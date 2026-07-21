@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { Plus, Swords, Share2, Play } from 'lucide-react';
 import { listMatches, listTeams } from '@/lib/db/queries';
+import { deleteMatchAction } from './[id]/delete/actions';
+import { DeleteMatchButton } from '@/components/matches/DeleteMatchButton';
 import {
   ButtonLink,
   Card,
+  FormError,
   PageHeader,
   StatusBadge,
   EmptyState,
@@ -12,7 +15,12 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export default async function MatchesPage() {
+export default async function MatchesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   let matches: Awaited<ReturnType<typeof listMatches>> = [];
   let dbError: string | null = null;
   try {
@@ -34,6 +42,7 @@ export default async function MatchesPage() {
           </ButtonLink>
         }
       />
+      <FormError message={error} />
 
       {dbError ? (
         <Card className="border-extra/40 bg-extra/10 p-4 text-sm">
@@ -83,6 +92,9 @@ export default async function MatchesPage() {
                     <Play className="h-3.5 w-3.5" />
                     {m.status === 'completed' ? 'Open' : 'Score'}
                   </ButtonLink>
+                  {m.status !== 'live' && (
+                    <DeleteMatchButton matchId={m.id} action={deleteMatchAction} />
+                  )}
                 </div>
               </Card>
             );

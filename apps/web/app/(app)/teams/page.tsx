@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Plus, Shield, MapPin, Users } from 'lucide-react';
 import { listTeams, getTeamMembers } from '@/lib/db/queries';
 import {
@@ -61,34 +62,36 @@ export default async function TeamsPage() {
           {teams.map((t) => {
             const count = memberCounts[t.id] ?? 0;
             return (
-              <Card key={t.id} className="p-5 transition-shadow hover:shadow-card-hover">
-                <div className="flex items-center gap-3">
-                  <Monogram
-                    name={t.shortName ?? t.name}
-                    className="h-12 w-12 bg-primary text-base text-primary-foreground"
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate font-bold">{t.name}</p>
-                    {t.shortName && (
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {t.shortName}
-                      </p>
+              <Link key={t.id} href={`/teams/${t.id}`} className="block">
+                <Card className="p-5 transition-shadow hover:shadow-card-hover">
+                  <div className="flex items-center gap-3">
+                    <Monogram
+                      name={t.shortName ?? t.name}
+                      className="h-12 w-12 bg-primary text-base text-primary-foreground"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">{t.name}</p>
+                      {t.shortName && (
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {t.shortName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5" />
+                      {count} member{count === 1 ? '' : 's'}
+                    </span>
+                    {t.homeGround && (
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{t.homeGround}</span>
+                      </span>
                     )}
                   </div>
-                </div>
-                <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5" />
-                    {count} member{count === 1 ? '' : 's'}
-                  </span>
-                  {t.homeGround && (
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{t.homeGround}</span>
-                    </span>
-                  )}
-                </div>
-              </Card>
+                </Card>
+              </Link>
             );
           })}
         </div>

@@ -162,6 +162,27 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
 // Page scaffolding
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Titled card wrapping a group of form fields — used by multi-section forms. */
+export function FormSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-5">
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        {icon}
+        {title}
+      </h2>
+      <div className="space-y-4">{children}</div>
+    </Card>
+  );
+}
+
 export function PageHeader({
   title,
   description,

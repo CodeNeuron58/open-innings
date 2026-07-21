@@ -7,7 +7,9 @@ import {
   createInning,
   startMatch,
   updateInningCache,
+  getTeamMembers,
 } from '@/lib/db/queries';
+import { resolveBattingSides } from '@/lib/toss';
 
 /** User-facing failures redirect back to the form — never the error page. */
 function fail(message: string): never {
@@ -40,6 +42,29 @@ export async function createMatchAction(formData: FormData): Promise<void> {
     fail('Striker and non-striker must be different');
   }
 
+  const { battingTeamId, bowlingTeamId } = resolveBattingSides(
+    teamAId,
+    teamBId,
+    tossWinnerTeamId,
+    tossDecision,
+  );
+
+  // The client filters opener dropdowns to the right squad, but a request
+  // can be crafted directly — re-check server-side before anything is written.
+  const [battingSquad, bowlingSquad] = await Promise.all([
+    getTeamMembers(battingTeamId),
+    getTeamMembers(bowlingTeamId),
+  ]);
+  const inBattingSquad = (id: string) => battingSquad.some((p) => p.id === id);
+  const inBowlingSquad = (id: string) => bowlingSquad.some((p) => p.id === id);
+  if (
+    !inBattingSquad(openingStrikerId) ||
+    !inBattingSquad(openingNonStrikerId) ||
+    !inBowlingSquad(openingBowlerId)
+  ) {
+    fail('Openers must be from the correct squad');
+  }
+
   const match = await createMatch({
     title,
     venue,
@@ -50,18 +75,6 @@ export async function createMatchAction(formData: FormData): Promise<void> {
     tossDecision,
   });
   if (!match) fail('Could not create match — sign in first');
-
-  let battingTeamId = teamAId;
-  let bowlingTeamId = teamBId;
-  if (tossWinnerTeamId && tossDecision) {
-    if (tossDecision === 'bowl') {
-      battingTeamId = tossWinnerTeamId === teamAId ? teamBId : teamAId;
-      bowlingTeamId = tossWinnerTeamId;
-    } else {
-      battingTeamId = tossWinnerTeamId;
-      bowlingTeamId = tossWinnerTeamId === teamAId ? teamBId : teamAId;
-    }
-  }
 
   await startMatch(match.id);
 

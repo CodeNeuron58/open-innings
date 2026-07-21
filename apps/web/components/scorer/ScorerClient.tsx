@@ -16,6 +16,27 @@ import { LiveBadge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
 type Player = { id: string; fullName: string };
+type ExtraKind = 'wide' | 'no_ball' | 'bye' | 'leg_bye';
+
+/**
+ * Total-run options offered per extra type. A wide/no-ball always carries its
+ * 1-run penalty, so totals start at 1; a no-ball can also have a struck six
+ * on top (1 + 6 = 7). Bye/leg-bye have no penalty, so their minimum is a
+ * genuine single run — "0" isn't a recorded bye, it's just a dot ball.
+ */
+const EXTRA_RUN_OPTIONS: Record<ExtraKind, number[]> = {
+  wide: [1, 2, 3, 4, 5, 6],
+  no_ball: [1, 2, 3, 4, 5, 6, 7],
+  bye: [1, 2, 3, 4, 5, 6],
+  leg_bye: [1, 2, 3, 4, 5, 6],
+};
+
+const EXTRA_LABELS: Record<ExtraKind, string> = {
+  wide: 'Wide',
+  no_ball: 'No ball',
+  bye: 'Bye',
+  leg_bye: 'Leg bye',
+};
 
 type Props = {
   matchId: string;
@@ -50,6 +71,7 @@ export function ScorerClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showWicket, setShowWicket] = useState(false);
+  const [pendingExtra, setPendingExtra] = useState<ExtraKind | null>(null);
   // Replacement chosen in the "next batter" / "next bowler" sheets. Sent with
   // the next ball event (that's how the engine learns about the change) and
   // cleared once the server state reflects it.
@@ -140,22 +162,35 @@ export function ScorerClient({
     });
   }
 
-  function handleExtra(extraType: 'wide' | 'no_ball' | 'bye' | 'leg_bye', runs: number) {
+  function handleExtra(extraType: ExtraKind, totalRuns: number) {
     startTransition(() => {
-      const isExtraBall = extraType === 'wide' || extraType === 'no_ball';
-      const runsOffBat = isExtraBall ? Math.max(0, runs - 1) : 0;
-      const extraRuns = runs - runsOffBat;
+      // A wide is never touched by the bat — every run on it is an extra.
+      // A no-ball carries a fixed 1-run penalty; anything beyond that was
+      // actually struck and belongs to the batter. Byes/leg-byes are all extra.
+      let runsOffBat: number;
+      let extraRuns: number;
+      if (extraType === 'wide') {
+        runsOffBat = 0;
+        extraRuns = totalRuns;
+      } else if (extraType === 'no_ball') {
+        extraRuns = 1;
+        runsOffBat = totalRuns - 1;
+      } else {
+        runsOffBat = 0;
+        extraRuns = totalRuns;
+      }
       const input: BallEventInput = {
         inningsId: state.currentInnings.id,
         eventType: extraType,
         runsOffBat,
         extraRuns,
-        totalRuns: runs,
+        totalRuns,
         batsmanId: effStriker,
         nonStrikerId: effNonStriker,
         bowlerId: effBowler,
       };
       postBall(input);
+      setPendingExtra(null);
     });
   }
 
@@ -190,6 +225,7 @@ export function ScorerClient({
   const showBatterSheet = !completed && !dbDown && pendingWicketId !== null && !pendingBatterId;
   const showBowlerSheet =
     !completed && !dbDown && !showBatterSheet && needsBowlerChange && !pendingBowlerId;
+  const showExtraSheet = !completed && !dbDown && pendingExtra !== null;
 
   const batterCandidates = (battingSquad ?? players).filter(
     (p) =>
@@ -371,21 +407,21 @@ export function ScorerClient({
           <Key onClick={() => handleRuns(6)} disabled={pending || completed} variant="six">
             6
           </Key>
-          <Key onClick={() => handleExtra('wide', 1)} disabled={pending || completed} variant="extra">
+          <Key onClick={() => setPendingExtra('wide')} disabled={pending || completed} variant="extra">
             WD
           </Key>
           <Key
-            onClick={() => handleExtra('no_ball', 1)}
+            onClick={() => setPendingExtra('no_ball')}
             disabled={pending || completed}
             variant="extra"
           >
             NB
           </Key>
-          <Key onClick={() => handleExtra('bye', 1)} disabled={pending || completed} variant="extra">
+          <Key onClick={() => setPendingExtra('bye')} disabled={pending || completed} variant="extra">
             B
           </Key>
           <Key
-            onClick={() => handleExtra('leg_bye', 1)}
+            onClick={() => setPendingExtra('leg_bye')}
             disabled={pending || completed}
             variant="extra"
           >
@@ -440,6 +476,14 @@ export function ScorerClient({
           players={players}
           onConfirm={handleWicketConfirm}
           onCancel={() => setShowWicket(false)}
+        />
+      )}
+
+      {showExtraSheet && pendingExtra && (
+        <ExtraRunsSheet
+          extraType={pendingExtra}
+          onConfirm={(runs) => handleExtra(pendingExtra, runs)}
+          onCancel={() => setPendingExtra(null)}
         />
       )}
 
@@ -695,6 +739,61 @@ function WicketSheet({
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Bottom sheet: pick the total runs off a wide / no-ball / bye / leg-bye. */
+function ExtraRunsSheet({
+  extraType,
+  onConfirm,
+  onCancel,
+}: {
+  extraType: ExtraKind;
+  onConfirm: (totalRuns: number) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm sm:items-center sm:justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${EXTRA_LABELS[extraType]} — total runs`}
+    >
+      <div className="safe-bottom w-full animate-slide-up rounded-t-2xl border-t border-scoreboard-border bg-scoreboard-panel p-5 text-scoreboard-text sm:max-w-md sm:rounded-2xl sm:border">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">{EXTRA_LABELS[extraType]}</h2>
+          <button
+            onClick={onCancel}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-scoreboard-muted hover:bg-scoreboard hover:text-scoreboard-text"
+            aria-label="Cancel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+          Total runs
+        </p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {EXTRA_RUN_OPTIONS[extraType].map((runs) => (
+            <button
+              key={runs}
+              onClick={() => onConfirm(runs)}
+              className="rounded-md bg-scoreboard px-2 py-3 text-lg font-bold tabular-nums transition-colors hover:bg-extra/20 hover:text-extra"
+            >
+              {runs}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={onCancel}
+          className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-scoreboard-border px-4 py-2.5 text-sm text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
