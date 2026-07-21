@@ -7,7 +7,8 @@ export default defineConfig({
   out: './supabase/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgresql://localhost:5432/postgres',
+    // Matches lib/db/client.ts's fallback and .env.example — keep in sync.
+    url: process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/open_innings',
   },
   verbose: true,
   strict: true,

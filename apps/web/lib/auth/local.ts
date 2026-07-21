@@ -31,17 +31,3 @@ export async function getUserId(): Promise<string | null> {
   const user = await getCurrentUser();
   return user?.id ?? null;
 }
-
-/**
- * Server-side guard for routes that require auth. Call at the top of a
- * server component or action. Redirects to /login if not signed in.
- */
-export async function requireUserId(): Promise<string> {
-  const id = await getUserId();
-  if (!id) {
-    // Imported lazily to avoid pulling next/navigation into non-rsc code paths.
-    const { redirect } = await import('next/navigation');
-    redirect('/login');
-  }
-  return id as string;
-}

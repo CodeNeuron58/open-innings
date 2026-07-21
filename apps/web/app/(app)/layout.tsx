@@ -1,9 +1,13 @@
+import { redirect } from 'next/navigation';
 import { Nav } from '@/components/Nav';
 import { MobileTabBar } from '@/components/NavLinks';
-import { requireUserId } from '@/lib/auth/local';
+import { getUserId } from '@/lib/auth/local';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await requireUserId(); // redirects to /login if not signed in
+  const userId = await getUserId();
+  if (!userId) {
+    redirect('/login');
+  }
   return (
     <div className="flex min-h-screen flex-col">
       <Nav />

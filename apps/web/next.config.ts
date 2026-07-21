@@ -2,9 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   // Enable typed routes so we get autocomplete on /m/[matchId] etc.
-  experimental: {
-    typedRoutes: true,
-  },
+  typedRoutes: true,
 
   // Keep server-only packages out of the client bundle
   serverExternalPackages: ['postgres'],

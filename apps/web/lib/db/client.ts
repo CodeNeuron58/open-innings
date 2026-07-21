@@ -16,15 +16,18 @@ declare global {
 }
 
 /**
- * Drizzle client for the Open Innings web app.
+ * Drizzle client for the Open Innings web app. Connects directly to
+ * Postgres — no pooler service, self-hosted or otherwise. For a remote
+ * database, add `?sslmode=require` to DATABASE_URL; postgres.js reads that
+ * straight off the connection string, no extra config needed here.
  *
- * - In production, uses the Supabase transaction pooler URL.
- * - In development, falls back to a local Postgres if DATABASE_URL is unset.
- * - The client is cached on `globalThis` to survive Next.js hot reloads.
+ * The client is cached on `globalThis` in development to survive Next.js
+ * hot reloads without leaking a new connection pool on every edit.
  */
 function getClient() {
+  // Matches .env.example's default local setup — keep these in sync.
   const connectionString =
-    process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/postgres';
+    process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/open_innings';
 
   if (process.env.NODE_ENV === 'production') {
     return postgres(connectionString, { prepare: false, max: 10 });
