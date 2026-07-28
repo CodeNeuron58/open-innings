@@ -44,7 +44,7 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 | Database | Postgres (native) | Free, runs anywhere, no third-party dependency |
 | ORM | Drizzle | Lightweight, type-safe, SQL-first |
 | Auth | Self-hosted (argon2 + session cookies) | No Supabase, no Clerk, no vendor lock-in |
-| Deploy | TBD — likely Oracle Cloud free + Cloudflare | Free tier we control, no surprise billing |
+| Deploy | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control, no surprise billing, no vendor ToS risk |
 | Realtime (v0.1) | Polling | Simplest. WebSockets deferred to v0.3 |
 
 ## Quick start
@@ -104,7 +104,8 @@ open-innings/
 ├── docs/
 │   ├── architecture.md       # Architecture decisions
 │   ├── scoring-rules.md      # Cricket rule references
-│   └── donation-model.md     # How funding works
+│   ├── donation-model.md     # How funding works
+│   └── deployment.md         # Self-hosting plan (Oracle Cloud + Cloudflare)
 └── README.md
 ```
 
@@ -119,12 +120,24 @@ We welcome contributors of all kinds — code, design, documentation, translatio
 
 ## Deployment
 
-Open Innings is designed to run on **free-tier infrastructure**:
+Open Innings runs entirely on **one free-tier VM** — the app and Postgres
+self-hosted together, matching how the code is already built (a single
+long-running Node process with pooled DB connections, not serverless).
 
-- **Database**: Postgres on Oracle Cloud Free Tier ARM VM (free forever, 24GB RAM)
-- **App + bandwidth**: Cloudflare (free) or Vercel (free)
+- **VM**: Oracle Cloud Always Free Ampere A1 (currently 2 OCPU / 12GB RAM /
+  200GB storage / 10TB egress — Oracle cut this from 4 OCPU/24GB in June
+  2026 with no announcement, so treat the exact spec as "generous but not
+  guaranteed to stay put")
+- **In front of it**: Cloudflare (free) for CDN, DDoS protection, and SSL
+- **Not used**: Vercel (its free tier is personal/non-commercial/
+  single-developer only — a bad fit for a donations-funded public project)
+  or managed free-tier Postgres like Neon/Supabase (their free storage
+  caps, ~500MB, get tight well before 1,000 real users; Supabase also
+  pauses inactive projects, which breaks old shared scorecard links)
+- **The one real recurring cost**: a domain name (~$10–15/year)
 
-Detailed deployment instructions are coming once we've validated the local setup end-to-end. If you're an early adopter willing to deploy this yourself, see [docs/deployment.md](docs/deployment.md) (TODO).
+Not deployed yet — that happens once the local build is further along and
+tested. See [docs/deployment.md](docs/deployment.md) for the full plan.
 
 ## Funding
 

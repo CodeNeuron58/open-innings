@@ -8,13 +8,14 @@ For the high-level product plan, see [`/README.md`](../README.md).
 
 | Concern | Choice | Reason |
 |---|---|---|
-| Frontend | Next.js 15 (App Router) + TypeScript | SEO matters for public scorecards; RSC + Server Actions reduce client JS |
-| Styling | Tailwind CSS + shadcn/ui | Fast to ship, accessible by default, no vendor lock-in |
+| Frontend | Next.js (App Router) + TypeScript | SEO matters for public scorecards; RSC + Server Actions reduce client JS |
+| Styling | Tailwind CSS | Fast to ship, no vendor lock-in |
 | Backend | Next.js Route Handlers + Server Actions | Single deploy unit, no separate API service |
-| Database | Supabase (Postgres + Auth + Storage) | RLS gives us auth + permissions; free tier covers MVP |
-| ORM | Drizzle | Type-safe, SQL-first, lightweight runtime, plays well with RLS |
+| Database | Postgres, native, self-hosted | No third-party dependency, no usage-based billing surprises |
+| Auth | Self-hosted (argon2 + session cookies) | No Supabase, no Clerk — dropped Supabase early on to remove the vendor dependency entirely |
+| ORM | Drizzle | Type-safe, SQL-first, lightweight runtime |
 | Monorepo | pnpm workspace + Turbo | Fast installs, single `pnpm dev` for everything |
-| Deploy | Vercel + Supabase Cloud | Free tiers, single-command deploys |
+| Deploy | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control — see [deployment.md](deployment.md) |
 | License | AGPL-3.0 | Like Lichess. Keeps the ecosystem free and open. |
 
 ## The single most important decision
@@ -89,7 +90,7 @@ because the schema for follow-on + declarations is its own project.
 ## Feature cuts
 
 ### v0.1 — "score a match and share it"
-- Email + Google auth (Supabase)
+- Email + password auth (local, self-hosted)
 - Player profiles
 - Teams with squads
 - Ball-by-ball scorer UI (mobile-first)
@@ -103,7 +104,7 @@ because the schema for follow-on + declarations is its own project.
 - Match insights (wagon wheel, partnership chart)
 
 ### v0.3 — "real-time + multiplayer"
-- WebSockets (Supabase Realtime channels)
+- WebSockets
 - Multi-scorer conflict resolution
 - Embedded YouTube/Facebook Live URLs
 - Clubs (multi-user orgs)
@@ -118,9 +119,9 @@ because the schema for follow-on + declarations is its own project.
 
 ## File map (v0.1)
 
-The most important file is `apps/web/lib/scoring/engine.ts` — coming in
-the next milestone. It is a pure function `(state, ballEvent) → newState`
-with comprehensive unit tests against every MCC rule.
+The most important file is `apps/web/lib/scoring/engine.ts`. It is a pure
+function `(state, ballEvent) → newState` with comprehensive unit tests
+against every MCC rule — 48 tests and counting.
 
 | Path | Purpose |
 |---|---|
@@ -129,10 +130,10 @@ with comprehensive unit tests against every MCC rule.
 | `apps/web/components/scorecard/` | Read-only scorecard display |
 | `apps/web/lib/db/schema.ts` | Drizzle schema (source of truth) |
 | `apps/web/lib/db/client.ts` | Drizzle client setup |
-| `apps/web/lib/scoring/` | Scoring engine (next milestone) |
-| `apps/web/lib/auth/` | Supabase auth helpers |
+| `apps/web/lib/scoring/` | Scoring engine |
+| `apps/web/lib/auth/` | Local email/password auth (argon2, session cookies) |
 | `apps/web/lib/rate-limit.ts` | In-process rate limiter |
-| `apps/web/supabase/migrations/` | SQL migrations (RLS, triggers) |
+| `apps/web/supabase/migrations/` | Hand-written SQL migrations, applied by our own runner (`scripts/migrate.ts`) — kept under this folder name for Drizzle tooling, not tied to Supabase-the-service |
 
 ## Data deletion / GDPR
 
@@ -150,21 +151,30 @@ match data, but the user's identity is removed from anything user-facing.
 
 ## Performance considerations
 
-For 0–10k users (v0.1 target):
+`ball_events` is the only table that grows fast — one row per ball bowled,
+everything else (users, teams, players, matches) is small. Roughly 250-300
+bytes/row including index overhead, ~280 rows per T20 match. See
+[deployment.md](deployment.md) for the full sizing math against our
+self-hosted Postgres's free storage — the honest constraint at this scale
+is storage headroom, not compute.
 
-- Vercel free + Supabase free tier is plenty
-- Polling on public scorecard is fine (2–3s interval, 1 row per ball)
+For 0–1k users (v0.1 target):
+
+- One Oracle Cloud Free Tier VM (app + Postgres together) is plenty
+- Polling on public scorecard is fine (10s interval, 1 row per ball)
 - Drizzle queries are sub-10ms on small datasets
 - No caching layer needed
 
-For 10k–100k users (v0.2–v0.3):
+For 1k–10k users (v0.2–v0.3):
 
-- Supabase Pro tier
-- Add Redis for hot match state
+- Still likely fits the free VM; revisit if `ball_events` approaches the
+  200GB free storage ceiling (it won't, at this scale — see the math in
+  deployment.md) or if CPU becomes the bottleneck under concurrent scoring
+- Add Redis for hot match state if polling load becomes noticeable
 - Cache leaderboards in a materialized view, refresh every 5 min
 
-For 100k+ users (later):
+For 10k+ users (later):
 
-- Read replicas
-- CDN for static content
+- A paid VM tier, or splitting app and DB onto separate instances
+- Read replicas, CDN for static content
 - Consider partitioning `ball_events` by `match_id`

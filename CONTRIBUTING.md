@@ -18,7 +18,7 @@ Open Innings is a community project. Every contribution matters — code, design
 
 - Node.js 20+ ([download](https://nodejs.org))
 - pnpm 9+ (`npm install -g pnpm`)
-- A Supabase project — see [SETUP.md](SETUP.md) for step-by-step
+- A local Postgres 16+ install — see [SETUP.md](SETUP.md) for step-by-step
 - Git
 
 ### First run
@@ -33,18 +33,14 @@ pnpm install
 
 # 3. Set up env
 cp apps/web/.env.example apps/web/.env.local
-# Then edit .env.local with your Supabase project URL and keys
+# Defaults work if Postgres is on localhost:5432 with user=postgres,
+# password=postgres, db=open_innings
 
-# 4. Generate + apply database migrations
-pnpm db:generate
+# 4. Apply database migrations + seed data
 pnpm db:migrate
+pnpm db:seed
 
-# 5. Apply RLS policies
-#    Open Supabase SQL editor, paste contents of
-#    apps/web/supabase/migrations/0001_rls_policies.sql
-#    and apps/web/supabase/migrations/0002_auth_users_sync.sql
-
-# 6. Start the dev server
+# 5. Start the dev server
 pnpm dev
 ```
 
@@ -60,13 +56,14 @@ apps/
     lib/
       db/             # Drizzle schema + client
       scoring/        # The scoring engine — pure functions, heavily tested
-      stats/          # Computed statistics
-      auth/           # Supabase client helpers
+      auth/           # Local email/password auth (argon2, session cookies)
     supabase/
-      migrations/     # SQL migrations (RLS, triggers)
+      migrations/     # Hand-written SQL, applied by scripts/migrate.ts
+                       # (kept under this folder name for Drizzle tooling —
+                       # not tied to Supabase-the-service)
 packages/
-  shared/             # Types shared with future mobile apps
-docs/                 # Architecture, rule references, donation model
+  shared/             # Types shared with future mobile apps (not yet created)
+docs/                 # Architecture, rule references, donation model, deployment
 ```
 
 ## Where to start

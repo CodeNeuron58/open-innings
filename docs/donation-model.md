@@ -42,10 +42,10 @@ All expenses are public. Expected annual costs at various scales:
 
 | Scale | Monthly cost | What |
 |---|---|---|
-| **0–1,000 users** | $0 | Vercel free + Supabase free tier |
-| **1k–10k users** | ~$50 | Vercel Pro + Supabase Pro |
-| **10k–100k users** | ~$500 | Vercel Pro + Supabase Team + custom domain + CDN for media |
-| **100k+ users** | ~$2,000+ | + dedicated DB, image optimisation, monitoring, contractor support |
+| **0–1,000 users** | ~$1 (domain only) | One Oracle Cloud Free Tier VM, self-hosted app + Postgres, Cloudflare free CDN in front. See [deployment.md](deployment.md) for the sizing math. |
+| **1k–10k users** | TBD, likely still small | Free VM probably still covers it — revisit if storage or CPU actually gets tight, not before |
+| **10k–100k users** | TBD | A paid VM tier, or splitting app and DB onto separate instances |
+| **100k+ users** | TBD | Dedicated DB, read replicas, monitoring, contractor support |
 
 **We will never spend donations on:**
 
