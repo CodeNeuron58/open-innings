@@ -2,7 +2,7 @@
 
 Open Innings follows the **MCC Laws of Cricket** (2022 edition) for limited-overs matches (T20, T10, ODI). This document is the source of truth for how the scoring engine implements each rule.
 
-> ⚠️ The scoring engine (`lib/scoring/engine.ts`) is the actual source of truth for _implementation_. This document explains the _intent_. When they conflict, the code wins — but file a bug.
+> ⚠️ The scoring engine (`packages/scoring/src/engine.ts`) is the actual source of truth for _implementation_. This document explains the _intent_. When they conflict, the code wins — but file a bug.
 
 ## Law 1–20: The players, umpires, equipment
 

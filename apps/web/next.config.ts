@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   // Keep server-only packages out of the client bundle
   serverExternalPackages: ['postgres'],
 
+  // Workspace packages ship raw TypeScript (no build step) so the same source
+  // is consumed by Next.js here and by Metro in apps/mobile.
+  transpilePackages: ['@open-innings/scoring'],
+
   async headers() {
     return [
       {

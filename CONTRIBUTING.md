@@ -70,7 +70,7 @@ docs/                 # Architecture, rule references, donation model, deploymen
 
 | If you are...         | Start with...                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| New to the codebase   | [docs/architecture.md](docs/architecture.md) → read `lib/db/schema.ts` → read `lib/scoring/engine.ts` (coming in next milestone)      |
+| New to the codebase   | [docs/architecture.md](docs/architecture.md) → read `lib/db/schema.ts` → read `packages/scoring/src/engine.ts`                        |
 | Want to fix a bug     | Check [`good first issue`](https://github.com/open-innings/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) |
 | Want to add a feature | Open an issue first — let's discuss before you code                                                                                   |
 | Cricket expert        | Help us test scoring rules against real matches                                                                                       |

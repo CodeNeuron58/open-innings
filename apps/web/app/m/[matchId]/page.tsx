@@ -9,7 +9,7 @@ import {
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
 import { formatOvers } from '@/lib/utils';
-import { replayInnings, asInningsId, asPlayerId, type MatchState } from '@/lib/scoring';
+import { replayInnings, asInningsId, asPlayerId, type MatchState } from '@open-innings/scoring';
 import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';

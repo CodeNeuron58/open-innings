@@ -1,4 +1,4 @@
-import type { BowlerStats } from '@/lib/scoring';
+import type { BowlerStats } from '@open-innings/scoring';
 
 type Props = {
   bowling: Record<string, BowlerStats>;

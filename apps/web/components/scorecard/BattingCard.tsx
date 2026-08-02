@@ -1,4 +1,4 @@
-import type { BatsmanStats } from '@/lib/scoring';
+import type { BatsmanStats } from '@open-innings/scoring';
 import { cn } from '@/lib/utils';
 
 type Props = {

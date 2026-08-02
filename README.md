@@ -88,22 +88,24 @@ Then go to **Matches** → click **Score** on the seeded match → tap a button 
 
 See [docs/architecture.md](docs/architecture.md) for the full design — domain model, schema, feature cuts, and the reasoning behind each choice.
 
-The single most important file in the codebase is `apps/web/lib/scoring/engine.ts`. It's a pure function that takes `(matchState, ballEvent) → newMatchState` and is unit-tested against every MCC cricket rule. If you get that right with comprehensive tests, every UI bug becomes a presentation problem, not a data corruption problem.
+The single most important file in the codebase is `packages/scoring/src/engine.ts`. It's a pure function that takes `(matchState, ballEvent) → newMatchState` and is unit-tested against every MCC cricket rule. If you get that right with comprehensive tests, every UI bug becomes a presentation problem, not a data corruption problem.
 
 ## Project structure
 
 ```
 open-innings/
 ├── apps/
-│   └── web/                  # Next.js app (the whole product lives here in v0.1)
+│   └── web/                  # Next.js app — REST API, public scorecards, admin
 │       ├── app/              # Routes — App Router
 │       ├── components/       # React components
 │       ├── lib/
 │       │   ├── auth/         # Email/password auth (argon2, sessions)
-│       │   ├── db/           # Drizzle schema + typed queries
-│       │   └── scoring/      # Pure-function scoring engine + 44 tests
-│       ├── scripts/          # migrate.ts, seed.ts, auth-smoke.ts
+│       │   └── db/           # Drizzle schema + typed queries
+│       ├── scripts/          # migrate.ts, seed.ts, smoke tests
 │       └── supabase/         # SQL migrations (kept here for Drizzle tooling)
+├── packages/
+│   └── scoring/              # Pure-function scoring engine + 48 tests.
+│                             # No I/O, no framework — shared by web and mobile.
 ├── docs/
 │   ├── architecture.md       # Architecture decisions
 │   ├── scoring-rules.md      # Cricket rule references

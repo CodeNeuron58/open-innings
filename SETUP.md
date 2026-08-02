@@ -309,7 +309,7 @@ apps/web/
 └── .env.example              # Template (committed)
 ```
 
-The most important file is `lib/scoring/engine.ts` — a pure function `applyBall(state, event) → newState` with 44 tests covering MCC cricket rules.
+The most important file is `packages/scoring/src/engine.ts` — a pure function `applyBall(state, event) → newState` with 48 tests covering MCC cricket rules.
 
 ---
 
@@ -317,5 +317,5 @@ The most important file is `lib/scoring/engine.ts` — a pure function `applyBal
 
 - Read [docs/architecture.md](docs/architecture.md) for the design rationale
 - Try scoring a match manually
-- Look at the unit tests in `lib/scoring/__tests__/` to see how the engine is verified
+- Look at the unit tests in `packages/scoring/src/__tests__/` to see how the engine is verified
 - Check `apps/web/scripts/auth-smoke.ts` to see how the auth layer is tested end-to-end

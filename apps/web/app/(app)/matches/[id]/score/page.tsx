@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Trophy } from 'lucide-react';
 import { loadMatchInProgress, getTeamMembers, getTeam, getInnings } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
-import { replayInnings, asInningsId, asPlayerId } from '@/lib/scoring';
+import { replayInnings, asInningsId, asPlayerId } from '@open-innings/scoring';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { startSecondInningsAction, endInningsAction } from './actions';
 import { UndoLastBallButton } from '@/components/scorer/UndoLastBallButton';

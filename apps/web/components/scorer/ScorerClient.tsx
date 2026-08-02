@@ -10,7 +10,7 @@ import {
   type PlayerId,
   type WicketType,
   asPlayerId,
-} from '@/lib/scoring';
+} from '@open-innings/scoring';
 import { BallChip } from '@/components/BallChip';
 import { LiveBadge } from '@/components/ui';
 import { cn } from '@/lib/utils';

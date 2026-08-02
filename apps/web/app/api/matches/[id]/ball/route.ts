@@ -17,9 +17,16 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { applyBall, initialState, replayEvents, ScoringError } from '@/lib/scoring';
-import type { BallEventInput, MatchState } from '@/lib/scoring/types';
-import { asInningsId, asPlayerId } from '@/lib/scoring/types';
+import {
+  applyBall,
+  initialState,
+  replayEvents,
+  ScoringError,
+  asInningsId,
+  asPlayerId,
+  type BallEventInput,
+  type MatchState,
+} from '@open-innings/scoring';
 import {
   loadMatchInProgress,
   insertBallEvent,

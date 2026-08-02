@@ -123,7 +123,7 @@ because the schema for follow-on + declarations is its own project.
 
 ## File map (v0.1)
 
-The most important file is `apps/web/lib/scoring/engine.ts`. It is a pure
+The most important file is `packages/scoring/src/engine.ts`. It is a pure
 function `(state, ballEvent) → newState` with comprehensive unit tests
 against every MCC rule — 48 tests and counting.
 
@@ -134,7 +134,7 @@ against every MCC rule — 48 tests and counting.
 | `apps/web/components/scorecard/` | Read-only scorecard display                                                                                                                                       |
 | `apps/web/lib/db/schema.ts`      | Drizzle schema (source of truth)                                                                                                                                  |
 | `apps/web/lib/db/client.ts`      | Drizzle client setup                                                                                                                                              |
-| `apps/web/lib/scoring/`          | Scoring engine                                                                                                                                                    |
+| `packages/scoring/src/`          | Scoring engine                                                                                                                                                    |
 | `apps/web/lib/auth/`             | Local email/password auth (argon2, session cookies)                                                                                                               |
 | `apps/web/lib/rate-limit.ts`     | In-process rate limiter                                                                                                                                           |
 | `apps/web/supabase/migrations/`  | Hand-written SQL migrations, applied by our own runner (`scripts/migrate.ts`) — kept under this folder name for Drizzle tooling, not tied to Supabase-the-service |
