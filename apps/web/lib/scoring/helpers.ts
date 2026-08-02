@@ -108,8 +108,11 @@ export function shouldSwapStrike(args: {
 }): boolean {
   if (args.isEndOfOver) return true;
 
-  const isExtra = args.eventType === 'wide' || args.eventType === 'no_ball' ||
-                  args.eventType === 'bye' || args.eventType === 'leg_bye';
+  const isExtra =
+    args.eventType === 'wide' ||
+    args.eventType === 'no_ball' ||
+    args.eventType === 'bye' ||
+    args.eventType === 'leg_bye';
 
   // For extras, swap based on total runs completed
   // For non-extras, swap based on runs off the bat
@@ -137,7 +140,10 @@ export function rotateStrike(
  *
  * @param inningsBeforeLegalIncrement - innings state BEFORE this ball's legal-ball counter increments
  */
-export function isEndOfOver(inningsBeforeLegalIncrement: InningsState, isLegalDelivery: boolean): boolean {
+export function isEndOfOver(
+  inningsBeforeLegalIncrement: InningsState,
+  isLegalDelivery: boolean,
+): boolean {
   if (!isLegalDelivery) return false;
   // An over completes when this legal ball is the 6th in the over.
   // i.e. BEFORE incrementing, ballsBowled % 6 === 5.

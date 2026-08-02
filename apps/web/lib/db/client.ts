@@ -11,7 +11,6 @@ if (!process.env.DATABASE_URL) {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __openInningsPgClient: ReturnType<typeof postgres> | undefined;
 }
 

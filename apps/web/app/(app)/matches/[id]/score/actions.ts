@@ -22,10 +22,7 @@ async function requireOwnedMatch(matchId: string) {
 }
 
 /** Set up the chase: create innings 2 with target = 1st-innings runs + 1. */
-export async function startSecondInningsAction(
-  matchId: string,
-  formData: FormData,
-): Promise<void> {
+export async function startSecondInningsAction(matchId: string, formData: FormData): Promise<void> {
   const match = await requireOwnedMatch(matchId);
 
   const openingStrikerId = formData.get('openingStrikerId') as string;

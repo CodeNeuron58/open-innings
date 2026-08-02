@@ -47,7 +47,6 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          # Build does not need real Supabase credentials
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          # A real connection isn't needed to build — nothing runs a query
+          # at build time, this just satisfies lib/db/client.ts's read of it.
           DATABASE_URL: postgresql://placeholder

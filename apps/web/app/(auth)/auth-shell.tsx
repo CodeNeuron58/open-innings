@@ -17,13 +17,13 @@ export function AuthShell({
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
       {/* Brand panel — desktop only */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-scoreboard p-10 text-scoreboard-text lg:flex">
+      <aside className="bg-scoreboard text-scoreboard-text relative hidden flex-col justify-between overflow-hidden p-10 lg:flex">
         <div
-          className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/25 blur-3xl"
+          className="bg-primary/25 absolute -right-32 -top-32 h-96 w-96 rounded-full blur-3xl"
           aria-hidden
         />
         <div
-          className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-pitch/20 blur-3xl"
+          className="bg-pitch/20 absolute -bottom-40 -left-24 h-96 w-96 rounded-full blur-3xl"
           aria-hidden
         />
         <Link href="/" className="relative">
@@ -34,7 +34,7 @@ export function AuthShell({
           <h2 className="text-balance text-3xl font-bold leading-tight">
             Every club deserves a proper scorebook.
           </h2>
-          <ul className="mt-6 space-y-3 text-sm text-scoreboard-muted">
+          <ul className="text-scoreboard-muted mt-6 space-y-3 text-sm">
             {[
               'Ball-by-ball scoring, one-handed on your phone',
               'Live scorecards your whole team can follow',
@@ -42,13 +42,13 @@ export function AuthShell({
               'Open source, community-owned, donation-funded',
             ].map((line) => (
               <li key={line} className="flex items-start gap-2.5">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <Check className="text-primary mt-0.5 h-4 w-4 shrink-0" />
                 {line}
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-scoreboard-muted">
+        <p className="text-scoreboard-muted relative text-xs">
           AGPL-3.0 · like Lichess, but for cricket
         </p>
       </aside>
@@ -60,7 +60,7 @@ export function AuthShell({
             <Logo />
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-          <p className="mb-8 mt-1.5 text-sm text-muted-foreground">{subtitle}</p>
+          <p className="text-muted-foreground mb-8 mt-1.5 text-sm">{subtitle}</p>
           {children}
         </div>
       </section>

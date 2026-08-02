@@ -68,9 +68,9 @@ export default async function TeamDetailPage({ params, searchParams }: Props) {
 
         <FormSection title={`Squad (${squad.length})`}>
           {squad.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No players on this squad yet.</p>
+            <p className="text-muted-foreground text-sm">No players on this squad yet.</p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-border divide-y">
               {squad.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 py-2">
                   <Monogram name={p.fullName} className="h-8 w-8 text-xs" />
@@ -78,7 +78,7 @@ export default async function TeamDetailPage({ params, searchParams }: Props) {
                   <form action={removeTeamMemberAction.bind(null, id, p.id)}>
                     <button
                       type="submit"
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
                       title={`Remove ${p.fullName}`}
                       aria-label={`Remove ${p.fullName} from squad`}
                     >
@@ -93,7 +93,7 @@ export default async function TeamDetailPage({ params, searchParams }: Props) {
           {availablePlayers.length > 0 && (
             <form
               action={addTeamMemberAction.bind(null, id)}
-              className="flex items-end gap-2 border-t border-border pt-4"
+              className="border-border flex items-end gap-2 border-t pt-4"
             >
               <div className="flex-1">
                 <Label htmlFor="playerId">Add player</Label>
@@ -115,7 +115,7 @@ export default async function TeamDetailPage({ params, searchParams }: Props) {
           )}
 
           {availablePlayers.length === 0 && allPlayers.length === 0 && (
-            <p className="border-t border-border pt-4 text-sm text-muted-foreground">
+            <p className="border-border text-muted-foreground border-t pt-4 text-sm">
               You don&apos;t have any players yet — add some from the Players page first.
             </p>
           )}

@@ -145,7 +145,12 @@ export function isLegalDelivery(eventType: string): boolean {
 }
 
 export function isExtra(eventType: string): boolean {
-  return eventType === 'wide' || eventType === 'no_ball' || eventType === 'bye' || eventType === 'leg_bye';
+  return (
+    eventType === 'wide' ||
+    eventType === 'no_ball' ||
+    eventType === 'bye' ||
+    eventType === 'leg_bye'
+  );
 }
 
 export function isPenaltyExtra(eventType: string): boolean {

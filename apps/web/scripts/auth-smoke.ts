@@ -6,10 +6,9 @@
  *   hash password → create user → create session → look up via token
  */
 import { db } from '../lib/db/client';
-import { users, sessions } from '../lib/db/schema';
+import { users } from '../lib/db/schema';
 import { hashPassword, newSalt, verifyPassword } from '../lib/auth/password';
-import { generateSessionToken, createSession, getUserFromToken, destroySession } from '../lib/auth/session';
-import { createHash } from 'node:crypto';
+import { createSession, getUserFromToken, destroySession } from '../lib/auth/session';
 import { eq } from 'drizzle-orm';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';

@@ -26,7 +26,7 @@ export function DeleteMatchButton({
     >
       <button
         type="submit"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
         title="Delete match"
         aria-label="Delete match"
       >

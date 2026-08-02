@@ -6,12 +6,7 @@
  */
 
 export { applyBall } from './engine';
-export {
-  initialState,
-  replayEvents,
-  replayInnings,
-  replayWithLastRemoved,
-} from './compute';
+export { initialState, replayEvents, replayInnings, replayWithLastRemoved } from './compute';
 export {
   buildScorecard,
   type ScorecardView,

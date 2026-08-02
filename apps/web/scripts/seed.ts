@@ -45,7 +45,13 @@ const TEAM_A_PLAYERS: PlayerSeed[] = [
   { fullName: 'Virat Kohli', shortName: 'VK', role: 'batsman', battingStyle: 'right_hand' },
   { fullName: 'Rohit Sharma', shortName: 'RS', role: 'batsman', battingStyle: 'right_hand' },
   { fullName: 'Jasprit Bumrah', shortName: 'JB', role: 'bowler', bowlingStyle: 'right_arm_fast' },
-  { fullName: 'Ravindra Jadeja', shortName: 'RJ', role: 'all_rounder', battingStyle: 'left_hand', bowlingStyle: 'left_arm_spin' },
+  {
+    fullName: 'Ravindra Jadeja',
+    shortName: 'RJ',
+    role: 'all_rounder',
+    battingStyle: 'left_hand',
+    bowlingStyle: 'left_arm_spin',
+  },
 ];
 
 const TEAM_B_PLAYERS: PlayerSeed[] = [
@@ -56,7 +62,11 @@ const TEAM_B_PLAYERS: PlayerSeed[] = [
 ];
 
 async function getOrCreateDevUser(): Promise<string> {
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, DEV_USER.email)).limit(1);
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, DEV_USER.email))
+    .limit(1);
   if (existing[0]) return existing[0].id;
 
   const salt = newSalt();
@@ -74,7 +84,11 @@ async function getOrCreateDevUser(): Promise<string> {
 }
 
 async function getOrCreateTeam(name: string, shortName: string, ownerId: string): Promise<string> {
-  const existing = await db.select({ id: teams.id }).from(teams).where(eq(teams.name, name)).limit(1);
+  const existing = await db
+    .select({ id: teams.id })
+    .from(teams)
+    .where(eq(teams.name, name))
+    .limit(1);
   if (existing[0]) return existing[0].id;
   const inserted = await db
     .insert(teams)

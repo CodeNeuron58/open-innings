@@ -11,7 +11,14 @@ import { describe, it, expect } from 'vitest';
 import { applyBall } from '../engine';
 import { initialState, replayInnings, replayWithLastRemoved } from '../compute';
 import { buildScorecard } from '../scorecard';
-import { ScoringError, type MatchState, type PlayerId, type BallEventType, type WicketType, asInningsId } from '../types';
+import {
+  ScoringError,
+  type MatchState,
+  type PlayerId,
+  type BallEventType,
+  type WicketType,
+  asInningsId,
+} from '../types';
 import { play, startRotation } from './fixtures';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +57,14 @@ function seed(): MatchState {
 /** Build an event for a given rotation (for tests that bypass `play()`). */
 function ev(
   rot: { striker: string; nonStriker: string; bowler: string },
-  args: { eventType: BallEventType; runsOffBat: number; totalRuns: number; wicketType?: WicketType; wicketPlayerId?: string; fielderId?: string },
+  args: {
+    eventType: BallEventType;
+    runsOffBat: number;
+    totalRuns: number;
+    wicketType?: WicketType;
+    wicketPlayerId?: string;
+    fielderId?: string;
+  },
 ) {
   return {
     inningsId: asInningsId(INNINGS_ID),
@@ -68,18 +82,23 @@ function ev(
 }
 
 /** Apply a sequence of balls to a fresh seed. Returns final state and the rotation after. */
-function applyBalls(balls: Array<{
-  eventType: string;
-  runsOffBat: number;
-  totalRuns: number;
-  wicketType?: string;
-  wicketPlayerId?: string;
-  fielderId?: string;
-}>): MatchState {
+function applyBalls(
+  balls: Array<{
+    eventType: string;
+    runsOffBat: number;
+    totalRuns: number;
+    wicketType?: string;
+    wicketPlayerId?: string;
+    fielderId?: string;
+  }>,
+): MatchState {
   let state = seed();
   let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
   for (const args of balls) {
-    const { event, rotation } = play(rot, { ...args, ballsBowledBefore: state.currentInnings.ballsBowled });
+    const { event, rotation } = play(rot, {
+      ...args,
+      ballsBowledBefore: state.currentInnings.ballsBowled,
+    });
     state = applyBall(state, event);
     rot = rotation;
     // Detect end of over: rotation.lastBowler indicates one just happened,
@@ -209,19 +228,39 @@ describe('applyBall — free hit constraints', () => {
 
   it('rejects bowled dismissal on free hit', () => {
     const { state, rot } = freeHitState();
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: rot.striker });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+      wicketPlayerId: rot.striker,
+    });
     expect(() => applyBall(state, event)).toThrow(ScoringError);
   });
 
   it('rejects caught dismissal on free hit', () => {
     const { state, rot } = freeHitState();
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'caught', wicketPlayerId: rot.striker, fielderId: FIELDER_1 });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'caught',
+      wicketPlayerId: rot.striker,
+      fielderId: FIELDER_1,
+    });
     expect(() => applyBall(state, event)).toThrow(ScoringError);
   });
 
   it('allows run-out on free hit', () => {
     const { state, rot } = freeHitState();
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'run_out', wicketPlayerId: rot.striker, fielderId: FIELDER_1 });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'run_out',
+      wicketPlayerId: rot.striker,
+      fielderId: FIELDER_1,
+    });
     const next = applyBall(state, event);
     expect(next.currentInnings.wickets).toBe(1);
     expect(next.batting[rot.striker]?.isOut).toBe(true);
@@ -229,7 +268,14 @@ describe('applyBall — free hit constraints', () => {
 
   it('run-out on free hit does NOT credit the bowler', () => {
     const { state, rot } = freeHitState();
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'run_out', wicketPlayerId: rot.striker, fielderId: FIELDER_1 });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'run_out',
+      wicketPlayerId: rot.striker,
+      fielderId: FIELDER_1,
+    });
     const next = applyBall(state, event);
     expect(next.bowling[BOWLER]?.wickets).toBe(0);
   });
@@ -265,7 +311,15 @@ describe('applyBall — byes and leg-byes', () => {
 
 describe('applyBall — wickets', () => {
   it('credits bowler for bowled dismissal', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'bowled',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
     expect(state.bowling[BOWLER]?.wickets).toBe(1);
     expect(state.currentInnings.wickets).toBe(1);
     expect(state.batting[STRIKER]?.isOut).toBe(true);
@@ -273,26 +327,60 @@ describe('applyBall — wickets', () => {
   });
 
   it('credits bowler for caught (with fielder)', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 1, totalRuns: 1, wicketType: 'caught', wicketPlayerId: STRIKER, fielderId: FIELDER_1 }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 1,
+        totalRuns: 1,
+        wicketType: 'caught',
+        wicketPlayerId: STRIKER,
+        fielderId: FIELDER_1,
+      },
+    ]);
     expect(state.bowling[BOWLER]?.wickets).toBe(1);
     expect(state.batting[STRIKER]?.fielderId).toBe(FIELDER_1);
   });
 
   it('does NOT credit bowler for run-out', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'run_out', wicketPlayerId: STRIKER, fielderId: FIELDER_1 }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'run_out',
+        wicketPlayerId: STRIKER,
+        fielderId: FIELDER_1,
+      },
+    ]);
     expect(state.bowling[BOWLER]?.wickets).toBe(0);
     expect(state.currentInnings.wickets).toBe(1);
   });
 
   it('records fall of wicket on counted wicket', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'bowled',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
     expect(state.fallOfWickets).toHaveLength(1);
     expect(state.fallOfWickets[0]?.wicketNumber).toBe(1);
     expect(state.fallOfWickets[0]?.batsmanOutId).toBe(STRIKER);
   });
 
   it('retired hurt does NOT count as a wicket', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'retired_hurt', wicketPlayerId: STRIKER }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_hurt',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
     expect(state.currentInnings.wickets).toBe(0);
     expect(state.batting[STRIKER]?.isRetiredHurt).toBe(true);
     expect(state.batting[STRIKER]?.isOut).toBe(false);
@@ -300,7 +388,15 @@ describe('applyBall — wickets', () => {
   });
 
   it('retired out DOES count as a wicket', () => {
-    const state = applyBalls([{ eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'retired_out', wicketPlayerId: STRIKER }]);
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_out',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
     expect(state.currentInnings.wickets).toBe(1);
   });
 });
@@ -319,7 +415,12 @@ describe('applyBall — end of over', () => {
     let state = seed();
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
     for (let i = 0; i < 6; i++) {
-      const { event, rotation } = play(rot, { eventType: 'dot', runsOffBat: 0, totalRuns: 0, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        eventType: 'dot',
+        runsOffBat: 0,
+        totalRuns: 0,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       state = applyBall(state, event);
       rot = rotation;
     }
@@ -333,7 +434,12 @@ describe('applyBall — end of over', () => {
     let state = seed();
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
     for (let i = 0; i < 6; i++) {
-      const { event, rotation } = play(rot, { eventType: 'dot', runsOffBat: 0, totalRuns: 0, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        eventType: 'dot',
+        runsOffBat: 0,
+        totalRuns: 0,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       state = applyBall(state, event);
       rot = rotation;
     }
@@ -366,7 +472,12 @@ describe('applyBall — end of innings', () => {
     });
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
     for (let i = 0; i < 6; i++) {
-      const { event, rotation } = play(rot, { eventType: 'dot', runsOffBat: 0, totalRuns: 0, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        eventType: 'dot',
+        runsOffBat: 0,
+        totalRuns: 0,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       state = applyBall(state, event);
       rot = rotation;
     }
@@ -390,10 +501,20 @@ describe('applyBall — end of innings', () => {
       target: 5,
     });
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
-    let r = play(rot, { eventType: '4', runsOffBat: 4, totalRuns: 4, ballsBowledBefore: state.currentInnings.ballsBowled });
+    let r = play(rot, {
+      eventType: '4',
+      runsOffBat: 4,
+      totalRuns: 4,
+      ballsBowledBefore: state.currentInnings.ballsBowled,
+    });
     state = applyBall(state, r.event);
     rot = r.rotation;
-    r = play(rot, { eventType: '1', runsOffBat: 1, totalRuns: 1, ballsBowledBefore: state.currentInnings.ballsBowled });
+    r = play(rot, {
+      eventType: '1',
+      runsOffBat: 1,
+      totalRuns: 1,
+      ballsBowledBefore: state.currentInnings.ballsBowled,
+    });
     state = applyBall(state, r.event);
     expect(state.currentInnings.runs).toBe(5);
     expect(state.currentInnings.status).toBe('completed');
@@ -402,7 +523,16 @@ describe('applyBall — end of innings', () => {
   it('rejects more balls after innings completed', () => {
     let state = seed();
     state = { ...state, currentInnings: { ...state.currentInnings, status: 'completed' } };
-    expect(() => applyBall(state, ev(startRotation(STRIKER, NON_STRIKER, BOWLER), { eventType: 'dot', runsOffBat: 0, totalRuns: 0 }))).toThrow(ScoringError);
+    expect(() =>
+      applyBall(
+        state,
+        ev(startRotation(STRIKER, NON_STRIKER, BOWLER), {
+          eventType: 'dot',
+          runsOffBat: 0,
+          totalRuns: 0,
+        }),
+      ),
+    ).toThrow(ScoringError);
   });
 });
 
@@ -421,7 +551,10 @@ describe('replay + undo', () => {
       { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
       { eventType: '6', runsOffBat: 6, totalRuns: 6 },
     ]) {
-      const { event, rotation } = play(rot, { ...args, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        ...args,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       events.push(event);
       rot = rotation;
       state = applyBall(state, event);
@@ -456,7 +589,10 @@ describe('replay + undo', () => {
       { eventType: '4', runsOffBat: 4, totalRuns: 4 },
       { eventType: '6', runsOffBat: 6, totalRuns: 6 },
     ]) {
-      const { event, rotation } = play(rot, { ...args, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        ...args,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       events.push(event);
       rot = rotation;
       state = applyBall(state, event);
@@ -524,17 +660,35 @@ describe('Super Over', () => {
     });
     // Wicket 1 — striker out
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
-    let { event, rotation } = play(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER });
+    let { event, rotation } = play(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+      wicketPlayerId: STRIKER,
+    });
     state = applyBall(state, event);
     rot = rotation;
 
     // Wicket 2 — new striker (p_new_0) out
-    ({ event, rotation } = play(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: rot.striker }));
+    ({ event, rotation } = play(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+      wicketPlayerId: rot.striker,
+    }));
     state = applyBall(state, event);
     rot = rotation;
 
     // Try wicket 3 — should throw (maxWickets=2 for super over)
-    ({ event } = play(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: rot.striker }));
+    ({ event } = play(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+      wicketPlayerId: rot.striker,
+    }));
     expect(() => applyBall(state, event)).toThrow(ScoringError);
   });
 });
@@ -570,14 +724,25 @@ describe('edge cases', () => {
   it('rejects caught without fielder', () => {
     const state = seed();
     const rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'caught', wicketPlayerId: rot.striker });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'caught',
+      wicketPlayerId: rot.striker,
+    });
     expect(() => applyBall(state, event)).toThrow(ScoringError);
   });
 
   it('rejects wicket type without wicketPlayerId', () => {
     const state = seed();
     const rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
-    const event = ev(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled' });
+    const event = ev(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+    });
     expect(() => applyBall(state, event)).toThrow(ScoringError);
   });
 });
@@ -599,7 +764,10 @@ describe('cumulative scenarios', () => {
       { eventType: '1', runsOffBat: 1, totalRuns: 1 },
     ];
     for (const args of balls) {
-      const { event, rotation } = play(rot, { ...args, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        ...args,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       state = applyBall(state, event);
       rot = rotation;
     }
@@ -613,11 +781,22 @@ describe('cumulative scenarios', () => {
     let state = seed();
     let rot = startRotation(STRIKER, NON_STRIKER, BOWLER);
     for (let i = 0; i < 5; i++) {
-      const { event, rotation } = play(rot, { eventType: 'dot', runsOffBat: 0, totalRuns: 0, ballsBowledBefore: state.currentInnings.ballsBowled });
+      const { event, rotation } = play(rot, {
+        eventType: 'dot',
+        runsOffBat: 0,
+        totalRuns: 0,
+        ballsBowledBefore: state.currentInnings.ballsBowled,
+      });
       state = applyBall(state, event);
       rot = rotation;
     }
-    const { event } = play(rot, { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: rot.striker });
+    const { event } = play(rot, {
+      eventType: 'wicket',
+      runsOffBat: 0,
+      totalRuns: 0,
+      wicketType: 'bowled',
+      wicketPlayerId: rot.striker,
+    });
     state = applyBall(state, event);
     expect(state.currentInnings.wickets).toBe(1);
     expect(state.currentInnings.ballsBowled).toBe(6);
@@ -668,7 +847,13 @@ describe('new batter after a wicket', () => {
       state,
       ev(
         { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
-        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER },
+        {
+          eventType: 'wicket',
+          runsOffBat: 0,
+          totalRuns: 0,
+          wicketType: 'bowled',
+          wicketPlayerId: STRIKER,
+        },
       ),
     );
     // Dismissed player stays in state until the replacement ball arrives
@@ -692,7 +877,13 @@ describe('new batter after a wicket', () => {
       state,
       ev(
         { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
-        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'bowled', wicketPlayerId: STRIKER },
+        {
+          eventType: 'wicket',
+          runsOffBat: 0,
+          totalRuns: 0,
+          wicketType: 'bowled',
+          wicketPlayerId: STRIKER,
+        },
       ),
     );
     state = applyBall(
@@ -716,7 +907,14 @@ describe('new batter after a wicket', () => {
       state,
       ev(
         { striker: STRIKER, nonStriker: NON_STRIKER, bowler: BOWLER },
-        { eventType: 'wicket', runsOffBat: 0, totalRuns: 0, wicketType: 'run_out', wicketPlayerId: NON_STRIKER, fielderId: FIELDER_1 },
+        {
+          eventType: 'wicket',
+          runsOffBat: 0,
+          totalRuns: 0,
+          wicketType: 'run_out',
+          wicketPlayerId: NON_STRIKER,
+          fielderId: FIELDER_1,
+        },
       ),
     );
     state = applyBall(

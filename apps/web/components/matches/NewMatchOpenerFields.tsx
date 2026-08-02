@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Shield, Coins, Users } from 'lucide-react';
 import { resolveBattingSides } from '@/lib/toss';
 import { FormSection, Label, Select } from '@/components/ui';
@@ -41,15 +41,21 @@ export function NewMatchOpenerFields({
   const [bowlerId, setBowlerId] = useState('');
 
   // A previously-picked opener may no longer be on the (new) batting/bowling
-  // side once teams or the toss change — clear rather than silently submit
-  // a stale, now-invalid id.
-  useEffect(() => {
+  // side once teams or the toss change — clear rather than silently submit a
+  // stale, now-invalid id. Adjusted during render (React's recommended
+  // pattern for resetting state off a prop/derived-value change) rather than
+  // via an effect, which would cause an extra render pass for no benefit.
+  const [prevBattingTeamId, setPrevBattingTeamId] = useState(battingTeamId);
+  if (battingTeamId !== prevBattingTeamId) {
+    setPrevBattingTeamId(battingTeamId);
     setStrikerId('');
     setNonStrikerId('');
-  }, [battingTeamId]);
-  useEffect(() => {
+  }
+  const [prevBowlingTeamId, setPrevBowlingTeamId] = useState(bowlingTeamId);
+  if (bowlingTeamId !== prevBowlingTeamId) {
+    setPrevBowlingTeamId(bowlingTeamId);
     setBowlerId('');
-  }, [bowlingTeamId]);
+  }
 
   return (
     <>
@@ -72,7 +78,7 @@ export function NewMatchOpenerFields({
               ))}
             </Select>
           </div>
-          <span className="pb-2.5 text-xs font-bold uppercase text-muted-foreground">vs</span>
+          <span className="text-muted-foreground pb-2.5 text-xs font-bold uppercase">vs</span>
           <div>
             <Label htmlFor="teamBId">Team B</Label>
             <Select
@@ -127,7 +133,7 @@ export function NewMatchOpenerFields({
             </Select>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-muted-foreground text-xs">
           Leave blank to default to {battingTeamName} batting first.
         </p>
       </FormSection>
@@ -190,7 +196,7 @@ export function NewMatchOpenerFields({
           </Select>
         </div>
         {battingSquad.length === 0 && (
-          <p className="text-xs text-destructive">
+          <p className="text-destructive text-xs">
             {battingTeamName} has no players yet — add some to its squad first.
           </p>
         )}

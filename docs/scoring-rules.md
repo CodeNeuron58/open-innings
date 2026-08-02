@@ -2,7 +2,7 @@
 
 Open Innings follows the **MCC Laws of Cricket** (2022 edition) for limited-overs matches (T20, T10, ODI). This document is the source of truth for how the scoring engine implements each rule.
 
-> ⚠️ The scoring engine (`lib/scoring/engine.ts`) is the actual source of truth for *implementation*. This document explains the *intent*. When they conflict, the code wins — but file a bug.
+> ⚠️ The scoring engine (`lib/scoring/engine.ts`) is the actual source of truth for _implementation_. This document explains the _intent_. When they conflict, the code wins — but file a bug.
 
 ## Law 1–20: The players, umpires, equipment
 
@@ -21,11 +21,13 @@ Out of scope.
 ### Law 18.1 — A run is scored
 
 A run is credited to the batsman when they:
+
 - Hit the ball and run to the other end
 - Run without hitting (called a "bye")
 - Run after hitting but ball didn't touch the bat (still a run off the bat)
 
 **In our schema:**
+
 - `runsOffBat` = runs credited to the batsman (0–6)
 - `extraRuns` = any extras (wides, no-balls, byes, leg-byes)
 - `totalRuns` = `runsOffBat + extraRuns`
@@ -55,6 +57,7 @@ When the ball is "dead" (lost, strike called, etc.), the ball doesn't count. **I
 A no-ball is a delivery that is illegal (overstepping, breaking the popping crease, etc.). The batting team gets +1 penalty plus any runs off the bat. The batsman faces the next ball again ("free hit" in limited-overs).
 
 **In our schema:**
+
 - `eventType: 'no_ball'`
 - `extraRuns: 1 + runsOffBat` (penalty + runs)
 - `isLegalDelivery: false` (doesn't count toward the over)
@@ -68,6 +71,7 @@ A no-ball is a delivery that is illegal (overstepping, breaking the popping crea
 A ball too wide or too high to be reachable. +1 penalty plus any runs off the bat. Re-bowled.
 
 **In our schema:**
+
 - `eventType: 'wide'`
 - `extraRuns: 1 + runsOffBat` (penalty + runs)
 - `isLegalDelivery: false`
@@ -79,6 +83,7 @@ A ball too wide or too high to be reachable. +1 penalty plus any runs off the ba
 Runs completed when the ball hasn't been hit by the bat or hand. Not credited to the batsman.
 
 **In our schema:**
+
 - `eventType: 'bye'`
 - `runsOffBat: 0`
 - `extraRuns: N` (the bye runs)
@@ -89,6 +94,7 @@ Runs completed when the ball hasn't been hit by the bat or hand. Not credited to
 Same as bye, but the ball hit the batsman's body (not the bat) and they ran.
 
 **In our schema:**
+
 - `eventType: 'leg_bye'`
 - `runsOffBat: 0`
 - `extraRuns: N`
@@ -131,6 +137,7 @@ A wicket is one of:
 - **Double hit / hit the ball twice** — batsman hits the ball twice
 
 **In our schema:**
+
 - `wicketType` enum
 - `wicketPlayerId` = who got out (for run-out, this could be either batsman)
 - `fielderId` = who took the catch / threw the ball (nullable)
@@ -193,6 +200,7 @@ Wicketkeeper breaks the stumps while the batsman is out of their crease and not 
 **Retired out:** batsman retires voluntarily without injury. Counts as a wicket. Cannot return.
 
 **In our engine:**
+
 - `wicketType: 'retired_hurt'` → no wicket counted, batsman marked as "retired", can resume
 - `wicketType: 'retired_out'` → wicket counted (does NOT count for bowler)
 
@@ -208,12 +216,14 @@ On the ball immediately following a no-ball in limited-overs cricket, the batsma
 After 6 legal deliveries, the over is complete. Batsmen swap ends (striker becomes non-striker, and vice versa). A new bowler bowls the next over.
 
 **In our engine:** the engine tracks `ballsBowled` per innings. When the 6th legal ball is recorded:
+
 - The bowler changes (scorer must pick a new bowler)
 - The batsmen swap ends
 
 ## End of an innings
 
 An innings ends when:
+
 - 10 wickets fall (all out)
 - The overs run out
 - The target is reached (2nd innings only)
@@ -225,6 +235,7 @@ An innings ends when:
 ## End of a match
 
 A match ends when:
+
 - 2nd innings is completed (one team has more runs)
 - Tied — goes to Super Over (white-ball) or is a draw (Test)
 - Abandoned — no result

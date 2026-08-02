@@ -34,9 +34,9 @@ export default async function LoginPage({
           Sign in
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-6 text-center text-sm">
         New to Open Innings?{' '}
-        <Link href="/signup" className="font-medium text-primary hover:underline">
+        <Link href="/signup" className="text-primary font-medium hover:underline">
           Create an account
         </Link>
       </p>

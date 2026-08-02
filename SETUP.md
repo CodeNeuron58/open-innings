@@ -10,11 +10,11 @@ Step-by-step instructions to get Open Innings running on your laptop. **No cloud
 
 You need three things installed before continuing:
 
-| Tool | Version | Why |
-|---|---|---|
-| **Node.js** | 20+ | Runs the Next.js app and build tools |
-| **pnpm** | 9+ | Package manager (we use pnpm workspaces) |
-| **Postgres** | 16+ | The database (any 16.x or 18.x release works) |
+| Tool         | Version | Why                                           |
+| ------------ | ------- | --------------------------------------------- |
+| **Node.js**  | 20+     | Runs the Next.js app and build tools          |
+| **pnpm**     | 9+      | Package manager (we use pnpm workspaces)      |
+| **Postgres** | 16+     | The database (any 16.x or 18.x release works) |
 
 Optional but recommended: **Docker Desktop** (lets you skip native Postgres install).
 
@@ -23,6 +23,7 @@ Optional but recommended: **Docker Desktop** (lets you skip native Postgres inst
 Download from <https://nodejs.org> (the LTS version, currently 20.x or 22.x).
 
 Verify:
+
 ```bash
 node --version    # should print v20.x or v22.x
 ```
@@ -34,6 +35,7 @@ npm install -g pnpm
 ```
 
 Verify:
+
 ```bash
 pnpm --version    # should print 9.x or 10.x
 ```
@@ -107,6 +109,7 @@ pnpm db:migrate
 This runs all SQL files in `apps/web/supabase/migrations/` in lexical order, tracking applied ones in a `__open_innings_migrations` table. Re-running is a no-op.
 
 You should see:
+
 ```
 → Applying 4 migration(s):
   0000_initial_schema.sql ... ok
@@ -146,6 +149,7 @@ pnpm dev
 Open <http://localhost:3000>. You should land on the homepage.
 
 Click **Sign in** in the top-right and use the seeded credentials:
+
 - **Email**: `dev@local`
 - **Password**: `devpassword123`
 
@@ -155,17 +159,17 @@ You'll land on the dashboard. Navigate to **Matches** → click **Score** on the
 
 ## Useful commands
 
-| Command | What it does |
-|---|---|
-| `pnpm dev` | Start the Next.js dev server with hot reload |
-| `pnpm build` | Production build |
-| `pnpm lint` | ESLint |
-| `pnpm typecheck` | TypeScript validation (no emit) |
-| `pnpm test` | Run all tests (Vitest) |
-| `pnpm db:migrate` | Apply pending SQL migrations |
-| `pnpm db:seed` | Populate the database with dev data |
-| `pnpm db:studio` | Open Drizzle Studio (visual DB browser) |
-| `pnpm tsx apps/web/scripts/auth-smoke.ts` | Run the auth round-trip smoke test |
+| Command                                   | What it does                                 |
+| ----------------------------------------- | -------------------------------------------- |
+| `pnpm dev`                                | Start the Next.js dev server with hot reload |
+| `pnpm build`                              | Production build                             |
+| `pnpm lint`                               | ESLint                                       |
+| `pnpm typecheck`                          | TypeScript validation (no emit)              |
+| `pnpm test`                               | Run all tests (Vitest)                       |
+| `pnpm db:migrate`                         | Apply pending SQL migrations                 |
+| `pnpm db:seed`                            | Populate the database with dev data          |
+| `pnpm db:studio`                          | Open Drizzle Studio (visual DB browser)      |
+| `pnpm tsx apps/web/scripts/auth-smoke.ts` | Run the auth round-trip smoke test           |
 
 ---
 
@@ -174,18 +178,22 @@ You'll land on the dashboard. Navigate to **Matches** → click **Score** on the
 ### `psql: command not found` (or "the term 'psql' is not recognized")
 
 Postgres isn't in your PATH. Either:
+
 - **Native install**: close and reopen PowerShell so PATH refreshes, OR
 - Use the full path: `& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h localhost` (adjust the version number if you installed a different one)
 
 If PATH still won't pick it up after reopening PowerShell, add it manually:
+
 ```powershell
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\PostgreSQL\16\bin", "User")
 ```
+
 Close and reopen PowerShell.
 
 ### `password authentication failed for user "postgres"`
 
 You used a different password during Postgres install than what's in `.env.local`. Either:
+
 - Update `DATABASE_URL` in `.env.local` to use the password you actually set, OR
 - Reset the postgres password (see next section).
 
@@ -225,6 +233,7 @@ You skipped step 6. Run `pnpm db:migrate`.
 ### `Error: connect ECONNREFUSED 127.0.0.1:5432`
 
 Postgres isn't running. Either:
+
 - **Native**: open **Services** (`services.msc`), find `postgresql-x64-16` (or 18), click Start.
 
 ### Sign-in form gives "Invalid email or password"
@@ -234,6 +243,7 @@ You're not using the seeded credentials. The seed creates `dev@local` / `devpass
 ### Dev server says "Another server is running on port 3000"
 
 Either:
+
 - Kill the old process: `taskkill /F /IM node.exe` (Windows) / `pkill node` (macOS/Linux)
 - Or use a different port: `pnpm dev -- -p 3001`
 
@@ -246,6 +256,7 @@ If you don't want to install build tools, you can switch to a pure-JS argon2 imp
 ### `pgAdmin` errors with "PermissionError" on startup
 
 Common on Windows when Postgres is installed in `Program Files` (which requires admin). Either:
+
 - Always run pgAdmin as Administrator, OR
 - Just skip pgAdmin — the `psql` CLI is all you need for everything in this guide.
 

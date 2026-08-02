@@ -18,7 +18,7 @@
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:p1
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import {
   users,
@@ -110,8 +110,7 @@ async function main() {
   });
   ok(wideRes.status === 200, 'wide (total 4) accepted', wideRes.json);
   const wideBall = wideRes.json.state?.balls.at(-1) as
-    | { runsOffBat: number; extraRuns: number; totalRuns: number }
-    | undefined;
+    { runsOffBat: number; extraRuns: number; totalRuns: number } | undefined;
   ok(wideBall?.runsOffBat === 0, 'wide: runsOffBat is 0 (bat never touched it)', wideBall);
   ok(wideBall?.extraRuns === 4, 'wide: all 4 runs recorded as extras', wideBall);
 
@@ -126,8 +125,7 @@ async function main() {
   });
   ok(nbRes.status === 200, 'no-ball (total 5) accepted', nbRes.json);
   const nbBall = nbRes.json.state?.balls.at(-1) as
-    | { runsOffBat: number; extraRuns: number; totalRuns: number }
-    | undefined;
+    { runsOffBat: number; extraRuns: number; totalRuns: number } | undefined;
   ok(nbBall?.runsOffBat === 4, 'no-ball: 4 runs credited to the batter', nbBall);
   ok(nbBall?.extraRuns === 1, 'no-ball: exactly 1 extra (the penalty)', nbBall);
 
@@ -207,7 +205,9 @@ async function main() {
       .set({ ...patch, updatedAt: new Date() })
       .where(and(eq(teams.id, id), eq(teams.ownerId, userId)));
   const removeTeamMember = (teamId: string, playerId: string) =>
-    db.delete(teamMembers).where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.playerId, playerId)));
+    db
+      .delete(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.playerId, playerId)));
   const addPlayerToTeam = (teamId: string, playerId: string) =>
     db.insert(teamMembers).values({ teamId, playerId }).onConflictDoNothing();
   const getTeamMembers = (teamId: string) =>
@@ -219,11 +219,7 @@ async function main() {
   ok(renamed?.name === 'Renamed XI', 'updateTeam: renames the team', renamed);
   await updateTeam(teamA.id, dev.id, { name: originalName });
 
-  const [anyPlayer] = await db
-    .select()
-    .from(players)
-    .where(eq(players.createdBy, dev.id))
-    .limit(1);
+  const [anyPlayer] = await db.select().from(players).where(eq(players.createdBy, dev.id)).limit(1);
   if (!anyPlayer) throw new Error('No seeded players to test squad membership');
   const beforeCount = (await getTeamMembers(teamA.id)).length;
   await removeTeamMember(teamA.id, anyPlayer.id);

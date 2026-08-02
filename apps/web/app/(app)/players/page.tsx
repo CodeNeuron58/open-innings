@@ -1,13 +1,6 @@
 import { Plus, Users } from 'lucide-react';
 import { listPlayers } from '@/lib/db/queries';
-import {
-  ButtonLink,
-  Card,
-  PageHeader,
-  EmptyState,
-  Monogram,
-  Badge,
-} from '@/components/ui';
+import { ButtonLink, Card, PageHeader, EmptyState, Monogram, Badge } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,12 +76,12 @@ export default async function PlayersPage() {
             return (
               <Card
                 key={p.id}
-                className="flex items-center gap-3 p-4 transition-shadow hover:shadow-card-hover"
+                className="hover:shadow-card-hover flex items-center gap-3 p-4 transition-shadow"
               >
                 <Monogram name={p.fullName} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{p.fullName}</p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="text-muted-foreground truncate text-xs">
                     {p.shortName ? `${p.shortName}` : ''}
                     {p.shortName && styles ? ' · ' : ''}
                     {styles || (!p.shortName ? '—' : '')}

@@ -1,0 +1,9 @@
+# Package manager lockfile — pnpm owns this file's exact formatting.
+# Reformatting it churns the diff on every install for no real benefit.
+pnpm-lock.yaml
+
+# Build output / generated
+.next/
+apps/web/.next/
+apps/web/tsconfig.tsbuildinfo
+node_modules/

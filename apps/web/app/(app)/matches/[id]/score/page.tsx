@@ -1,17 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { Trophy } from 'lucide-react';
-import {
-  loadMatchInProgress,
-  getTeamMembers,
-  getTeam,
-  getInnings,
-} from '@/lib/db/queries';
+import { loadMatchInProgress, getTeamMembers, getTeam, getInnings } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
-import {
-  replayInnings,
-  asInningsId,
-  asPlayerId,
-} from '@/lib/scoring';
+import { replayInnings, asInningsId, asPlayerId } from '@/lib/scoring';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { startSecondInningsAction, endInningsAction } from './actions';
 import { UndoLastBallButton } from '@/components/scorer/UndoLastBallButton';
@@ -35,12 +26,12 @@ export default async function ScorePage({ params, searchParams }: Props) {
   if (dbDown) {
     return (
       <div className="container flex max-w-md flex-col items-center py-16 text-center">
-        <div className="rounded-lg border border-dashed border-border bg-card/50 px-8 py-10">
+        <div className="border-border bg-card/50 rounded-lg border border-dashed px-8 py-10">
           <h1 className="mb-2 text-2xl font-bold">Database not configured</h1>
-          <p className="text-sm text-muted-foreground">
-            Set <code className="rounded bg-muted px-1.5 py-0.5">DATABASE_URL</code> in{' '}
-            <code className="rounded bg-muted px-1.5 py-0.5">.env.local</code> and run migrations
-            to enable scoring.
+          <p className="text-muted-foreground text-sm">
+            Set <code className="bg-muted rounded px-1.5 py-0.5">DATABASE_URL</code> in{' '}
+            <code className="bg-muted rounded px-1.5 py-0.5">.env.local</code> and run migrations to
+            enable scoring.
           </p>
         </div>
       </div>
@@ -67,8 +58,7 @@ export default async function ScorePage({ params, searchParams }: Props) {
   // ── Match finished → result screen ────────────────────────────────────────
   const chase = allInnings.find((i) => i.inningsNumber >= 2);
   const matchDone =
-    match.status === 'completed' ||
-    (inning.inningsNumber >= 2 && inning.status === 'completed');
+    match.status === 'completed' || (inning.inningsNumber >= 2 && inning.status === 'completed');
   if (matchDone) {
     return (
       <MatchDone
@@ -94,7 +84,7 @@ export default async function ScorePage({ params, searchParams }: Props) {
           description={`${teamName(inning.battingTeamId)} made ${inning.runs}/${inning.wickets} in ${formatOvers(inning.ballsBowled)} overs.`}
         />
 
-        <Card className="mb-5 border-primary/30 bg-accent/40 p-4 text-sm">
+        <Card className="border-primary/30 bg-accent/40 mb-5 p-4 text-sm">
           <strong>{teamName(inning.bowlingTeamId)}</strong> need{' '}
           <strong className="tabular-nums">{inning.runs + 1}</strong> to win from{' '}
           {match.oversPerInnings} overs.
@@ -102,7 +92,7 @@ export default async function ScorePage({ params, searchParams }: Props) {
 
         {error && (
           <div
-            className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+            className="border-destructive/40 bg-destructive/10 text-destructive mb-4 rounded-md border px-4 py-3 text-sm"
             role="alert"
           >
             {error}
@@ -269,26 +259,26 @@ function MatchDone({
   return (
     <div className="container max-w-xl py-10">
       <div className="mb-6 text-center">
-        <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
+        <span className="bg-accent text-accent-foreground mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full">
           <Trophy className="h-7 w-7" />
         </span>
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        <p className="mt-2 text-lg font-semibold text-primary">{summary}</p>
+        <p className="text-primary mt-2 text-lg font-semibold">{summary}</p>
       </div>
 
-      <Card className="divide-y divide-border">
+      <Card className="divide-border divide-y">
         {innings.map((i) => (
           <div key={i.id} className="flex items-center justify-between px-5 py-4">
             <div>
               <p className="font-semibold">{teamName(i.battingTeamId)}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {i.inningsNumber === 1 ? '1st innings' : '2nd innings'}
                 {i.target != null ? ` · target ${i.target}` : ''}
               </p>
             </div>
             <p className="text-xl font-bold tabular-nums">
               {i.runs}/{i.wickets}
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
+              <span className="text-muted-foreground ml-2 text-sm font-normal">
                 ({formatOvers(i.ballsBowled)})
               </span>
             </p>

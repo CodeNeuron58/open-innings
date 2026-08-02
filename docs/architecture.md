@@ -6,17 +6,17 @@ For the high-level product plan, see [`/README.md`](../README.md).
 
 ## Stack
 
-| Concern | Choice | Reason |
-|---|---|---|
-| Frontend | Next.js (App Router) + TypeScript | SEO matters for public scorecards; RSC + Server Actions reduce client JS |
-| Styling | Tailwind CSS | Fast to ship, no vendor lock-in |
-| Backend | Next.js Route Handlers + Server Actions | Single deploy unit, no separate API service |
-| Database | Postgres, native, self-hosted | No third-party dependency, no usage-based billing surprises |
-| Auth | Self-hosted (argon2 + session cookies) | No Supabase, no Clerk — dropped Supabase early on to remove the vendor dependency entirely |
-| ORM | Drizzle | Type-safe, SQL-first, lightweight runtime |
-| Monorepo | pnpm workspace + Turbo | Fast installs, single `pnpm dev` for everything |
-| Deploy | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control — see [deployment.md](deployment.md) |
-| License | AGPL-3.0 | Like Lichess. Keeps the ecosystem free and open. |
+| Concern  | Choice                                             | Reason                                                                                     |
+| -------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Frontend | Next.js (App Router) + TypeScript                  | SEO matters for public scorecards; RSC + Server Actions reduce client JS                   |
+| Styling  | Tailwind CSS                                       | Fast to ship, no vendor lock-in                                                            |
+| Backend  | Next.js Route Handlers + Server Actions            | Single deploy unit, no separate API service                                                |
+| Database | Postgres, native, self-hosted                      | No third-party dependency, no usage-based billing surprises                                |
+| Auth     | Self-hosted (argon2 + session cookies)             | No Supabase, no Clerk — dropped Supabase early on to remove the vendor dependency entirely |
+| ORM      | Drizzle                                            | Type-safe, SQL-first, lightweight runtime                                                  |
+| Monorepo | pnpm workspace + Turbo                             | Fast installs, single `pnpm dev` for everything                                            |
+| Deploy   | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control — see [deployment.md](deployment.md)                                  |
+| License  | AGPL-3.0                                           | Like Lichess. Keeps the ecosystem free and open.                                           |
 
 ## The single most important decision
 
@@ -69,20 +69,20 @@ Drizzle schema.
 
 ## Cricket rule coverage
 
-| Rule | Status in v0.1 |
-|---|---|
-| Wides | ✅ |
-| No-balls (with free hit) | ✅ |
-| Byes / leg-byes | ✅ |
-| Wickets (all common types) | ✅ |
-| Free hit | ✅ |
-| Retired hurt / retired out | ✅ |
-| Super Over | ✅ |
-| Powerplay (display only) | ⚠️ |
-| DLS | ❌ v0.2 |
-| LBW / caught-behind reviews | ❌ v0.3 |
-| Multi-day / Test | ❌ v0.3 |
-| Drinks / rain delays | ⚠️ simple timer |
+| Rule                        | Status in v0.1  |
+| --------------------------- | --------------- |
+| Wides                       | ✅              |
+| No-balls (with free hit)    | ✅              |
+| Byes / leg-byes             | ✅              |
+| Wickets (all common types)  | ✅              |
+| Free hit                    | ✅              |
+| Retired hurt / retired out  | ✅              |
+| Super Over                  | ✅              |
+| Powerplay (display only)    | ⚠️              |
+| DLS                         | ❌ v0.2         |
+| LBW / caught-behind reviews | ❌ v0.3         |
+| Multi-day / Test            | ❌ v0.3         |
+| Drinks / rain delays        | ⚠️ simple timer |
 
 **v0.1 scope = limited-overs cricket (T20, T10, ODI).** Tests deferred
 because the schema for follow-on + declarations is its own project.
@@ -90,6 +90,7 @@ because the schema for follow-on + declarations is its own project.
 ## Feature cuts
 
 ### v0.1 — "score a match and share it"
+
 - Email + password auth (local, self-hosted)
 - Player profiles
 - Teams with squads
@@ -98,12 +99,14 @@ because the schema for follow-on + declarations is its own project.
 - Polling-based live updates
 
 ### v0.2 — "tournaments + leaderboards"
+
 - Tournament creation + auto-fixtures
 - Points table
 - Leaderboards (per tournament and global)
 - Match insights (wagon wheel, partnership chart)
 
 ### v0.3 — "real-time + multiplayer"
+
 - WebSockets
 - Multi-scorer conflict resolution
 - Embedded YouTube/Facebook Live URLs
@@ -111,6 +114,7 @@ because the schema for follow-on + declarations is its own project.
 - Super Over + DLS
 
 ### v0.4+ (parking lot)
+
 - Native live streaming (CDN-backed)
 - Video highlights
 - AI insights
@@ -123,17 +127,17 @@ The most important file is `apps/web/lib/scoring/engine.ts`. It is a pure
 function `(state, ballEvent) → newState` with comprehensive unit tests
 against every MCC rule — 48 tests and counting.
 
-| Path | Purpose |
-|---|---|
-| `apps/web/app/` | Next.js App Router pages |
-| `apps/web/components/scorer/` | Scorer UI (the hot path) |
-| `apps/web/components/scorecard/` | Read-only scorecard display |
-| `apps/web/lib/db/schema.ts` | Drizzle schema (source of truth) |
-| `apps/web/lib/db/client.ts` | Drizzle client setup |
-| `apps/web/lib/scoring/` | Scoring engine |
-| `apps/web/lib/auth/` | Local email/password auth (argon2, session cookies) |
-| `apps/web/lib/rate-limit.ts` | In-process rate limiter |
-| `apps/web/supabase/migrations/` | Hand-written SQL migrations, applied by our own runner (`scripts/migrate.ts`) — kept under this folder name for Drizzle tooling, not tied to Supabase-the-service |
+| Path                             | Purpose                                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/app/`                  | Next.js App Router pages                                                                                                                                          |
+| `apps/web/components/scorer/`    | Scorer UI (the hot path)                                                                                                                                          |
+| `apps/web/components/scorecard/` | Read-only scorecard display                                                                                                                                       |
+| `apps/web/lib/db/schema.ts`      | Drizzle schema (source of truth)                                                                                                                                  |
+| `apps/web/lib/db/client.ts`      | Drizzle client setup                                                                                                                                              |
+| `apps/web/lib/scoring/`          | Scoring engine                                                                                                                                                    |
+| `apps/web/lib/auth/`             | Local email/password auth (argon2, session cookies)                                                                                                               |
+| `apps/web/lib/rate-limit.ts`     | In-process rate limiter                                                                                                                                           |
+| `apps/web/supabase/migrations/`  | Hand-written SQL migrations, applied by our own runner (`scripts/migrate.ts`) — kept under this folder name for Drizzle tooling, not tied to Supabase-the-service |
 
 ## Data deletion / GDPR
 

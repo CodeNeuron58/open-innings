@@ -7,18 +7,8 @@
  * breaking UI.
  */
 
-import type {
-  MatchState,
-  BatsmanStats,
-  BowlerStats,
-  BallEvent,
-} from './types';
-import {
-  formatOvers,
-  currentRunRate,
-  requiredRunRate,
-  maxLegalBallsForOvers,
-} from './helpers';
+import type { MatchState, BatsmanStats, BowlerStats, BallEvent } from './types';
+import { formatOvers, currentRunRate, requiredRunRate, maxLegalBallsForOvers } from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ScorecardView — what the UI consumes.
@@ -160,12 +150,8 @@ export function buildScorecard(
     target: inn.target,
     extras: inn.extras,
 
-    batting: Object.values(state.batting).map((b) =>
-      buildBattingRow(b, resolveName),
-    ),
-    bowling: Object.values(state.bowling).map((b) =>
-      buildBowlingRow(b, resolveName),
-    ),
+    batting: Object.values(state.batting).map((b) => buildBattingRow(b, resolveName)),
+    bowling: Object.values(state.bowling).map((b) => buildBowlingRow(b, resolveName)),
 
     striker: getCurrentBatsman(state, resolveName, inn.strikerId),
     nonStriker: getCurrentBatsman(state, resolveName, inn.nonStrikerId),
@@ -220,9 +206,7 @@ function formatDismissal(b: BatsmanStats, resolve: NameResolver): string | undef
   const bowler = b.dismissedByPlayerId
     ? resolve(b.dismissedByPlayerId as unknown as string)
     : undefined;
-  const fielder = b.fielderId
-    ? resolve(b.fielderId as unknown as string)
-    : undefined;
+  const fielder = b.fielderId ? resolve(b.fielderId as unknown as string) : undefined;
 
   switch (b.dismissalType) {
     case 'bowled':

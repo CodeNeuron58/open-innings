@@ -79,10 +79,7 @@ export async function getUserFromToken(token: string | undefined): Promise<User 
 
   // Sliding window: extend on every successful read.
   const newExpiry = new Date(Date.now() + SESSION_TTL_MS);
-  await db
-    .update(sessions)
-    .set({ expiresAt: newExpiry })
-    .where(eq(sessions.id, row.session.id));
+  await db.update(sessions).set({ expiresAt: newExpiry }).where(eq(sessions.id, row.session.id));
 
   return row.user;
 }

@@ -68,16 +68,16 @@ export default async function MatchesPage({
             return (
               <Card
                 key={m.id}
-                className="flex flex-wrap items-center justify-between gap-3 p-4 transition-shadow hover:shadow-card-hover"
+                className="hover:shadow-card-hover flex flex-wrap items-center justify-between gap-3 p-4 transition-shadow"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={m.status} />
                     <p className="truncate font-semibold">{title}</p>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {teamName.get(m.teamAId) ?? 'Team A'} vs {teamName.get(m.teamBId) ?? 'Team B'}{' '}
-                    · {m.oversPerInnings} overs
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {teamName.get(m.teamAId) ?? 'Team A'} vs {teamName.get(m.teamBId) ?? 'Team B'} ·{' '}
+                    {m.oversPerInnings} overs
                     {m.venue ? ` · ${m.venue}` : ''}
                   </p>
                 </div>

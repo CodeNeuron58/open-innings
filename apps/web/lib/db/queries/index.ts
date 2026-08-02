@@ -85,11 +85,7 @@ export async function createPlayer(input: {
 export async function listTeams(): Promise<Team[]> {
   const userId = await getUserId();
   if (!userId) return [];
-  return db
-    .select()
-    .from(teams)
-    .where(eq(teams.ownerId, userId))
-    .orderBy(asc(teams.name));
+  return db.select().from(teams).where(eq(teams.ownerId, userId)).orderBy(asc(teams.name));
 }
 
 export async function getTeam(id: string): Promise<Team | null> {

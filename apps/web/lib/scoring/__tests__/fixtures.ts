@@ -61,7 +61,7 @@ export function play(
 
   const ballsBowledBefore = overrides.ballsBowledBefore ?? 0;
   const ballsBowledAfter = ballsBowledBefore + (isLegal ? 1 : 0);
-  const isEndOfOver = isLegal && (ballsBowledAfter % 6 === 0);
+  const isEndOfOver = isLegal && ballsBowledAfter % 6 === 0;
 
   // Build the event with the current batsmen + bowler
   const event: BallEventInput = {

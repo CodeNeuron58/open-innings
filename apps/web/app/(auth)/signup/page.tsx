@@ -34,15 +34,15 @@ export default async function SignupPage({
             minLength={8}
             autoComplete="new-password"
           />
-          <p className="mt-1.5 text-xs text-muted-foreground">At least 8 characters.</p>
+          <p className="text-muted-foreground mt-1.5 text-xs">At least 8 characters.</p>
         </div>
         <Button type="submit" className="w-full" size="lg">
           Create account
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="text-muted-foreground mt-6 text-center text-sm">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-primary hover:underline">
+        <Link href="/login" className="text-primary font-medium hover:underline">
           Sign in
         </Link>
       </p>

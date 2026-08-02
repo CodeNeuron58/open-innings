@@ -227,7 +227,11 @@ async function main() {
   // ── 7. Bowl out the rest of innings 1 ────────────────────────────────────
   console.log('finish innings 1');
   for (let i = 0; i < 500 && inn.status !== 'completed'; i++) {
-    if (inn.ballsBowled > 0 && inn.ballsBowled % 6 === 0 && inn.lastBowlerId === inn.currentBowlerId) {
+    if (
+      inn.ballsBowled > 0 &&
+      inn.ballsBowled % 6 === 0 &&
+      inn.lastBowlerId === inn.currentBowlerId
+    ) {
       nextBowler(inn);
     }
     const r = await post(runBall(0));
@@ -265,7 +269,12 @@ async function main() {
 
   let chase: InnState | undefined;
   for (let i = 0; i < 500; i++) {
-    if (chase && chase.ballsBowled > 0 && chase.ballsBowled % 6 === 0 && chase.lastBowlerId === chase.currentBowlerId) {
+    if (
+      chase &&
+      chase.ballsBowled > 0 &&
+      chase.ballsBowled % 6 === 0 &&
+      chase.lastBowlerId === chase.currentBowlerId
+    ) {
       const candidate = bowlingSquad2.find((p) => p.id !== chase!.lastBowlerId);
       bowler = candidate!.id;
     }

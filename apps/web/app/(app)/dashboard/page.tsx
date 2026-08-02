@@ -1,14 +1,7 @@
 import Link from 'next/link';
 import { Plus, Swords, Users, Shield, Radio, ArrowRight } from 'lucide-react';
 import { listMatches, listPlayers, listTeams } from '@/lib/db/queries';
-import {
-  ButtonLink,
-  Card,
-  PageHeader,
-  StatTile,
-  StatusBadge,
-  EmptyState,
-} from '@/components/ui';
+import { ButtonLink, Card, PageHeader, StatTile, StatusBadge, EmptyState } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +67,7 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2">
             {liveMatches.length > 0 && (
               <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wide">
                   Live now
                 </h2>
                 <div className="space-y-3">
@@ -91,7 +84,7 @@ export default async function DashboardPage() {
                               `${teamName.get(m.teamAId) ?? 'Team A'} vs ${teamName.get(m.teamBId) ?? 'Team B'}`}
                           </p>
                         </div>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="text-muted-foreground mt-1 text-xs">
                           {m.oversPerInnings} overs
                           {m.venue ? ` · ${m.venue}` : ''}
                         </p>
@@ -107,13 +100,10 @@ export default async function DashboardPage() {
 
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <h2 className="text-muted-foreground text-sm font-semibold uppercase tracking-wide">
                   Recent matches
                 </h2>
-                <Link
-                  href="/matches"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
+                <Link href="/matches" className="text-primary text-sm font-medium hover:underline">
                   View all
                 </Link>
               </div>
@@ -129,19 +119,19 @@ export default async function DashboardPage() {
                   }
                 />
               ) : (
-                <Card className="divide-y divide-border">
+                <Card className="divide-border divide-y">
                   {recentMatches.map((m) => (
                     <Link
                       key={m.id}
                       href={`/matches/${m.id}/score`}
-                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent/40"
+                      className="hover:bg-accent/40 flex items-center justify-between gap-3 px-4 py-3 transition-colors"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-medium">
                           {m.title ??
                             `${teamName.get(m.teamAId) ?? 'Team A'} vs ${teamName.get(m.teamBId) ?? 'Team B'}`}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-muted-foreground text-xs">
                           {m.oversPerInnings} overs{m.venue ? ` · ${m.venue}` : ''}
                         </p>
                       </div>
@@ -155,10 +145,10 @@ export default async function DashboardPage() {
 
           {/* Quick actions */}
           <aside>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-muted-foreground mb-3 text-sm font-semibold uppercase tracking-wide">
               Quick actions
             </h2>
-            <Card className="divide-y divide-border">
+            <Card className="divide-border divide-y">
               <QuickAction
                 href="/matches/new"
                 icon={<Swords className="h-4 w-4" />}
@@ -199,16 +189,16 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-accent/40"
+      className="hover:bg-accent/40 flex items-center gap-3 px-4 py-3.5 transition-colors"
     >
-      <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+      <span className="bg-accent text-accent-foreground inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md">
         {icon}
       </span>
       <span className="min-w-0">
         <span className="block font-medium">{title}</span>
-        <span className="block text-xs text-muted-foreground">{hint}</span>
+        <span className="text-muted-foreground block text-xs">{hint}</span>
       </span>
-      <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
+      <ArrowRight className="text-muted-foreground ml-auto h-4 w-4" />
     </Link>
   );
 }
@@ -241,9 +231,7 @@ function GettingStarted({ hasPlayers, hasTeams }: { hasPlayers: boolean; hasTeam
   return (
     <Card className="p-6">
       <h2 className="text-lg font-bold">Welcome to Open Innings 🏏</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Three steps to your first scored match:
-      </p>
+      <p className="text-muted-foreground mt-1 text-sm">Three steps to your first scored match:</p>
       <ol className="mt-5 space-y-4">
         {steps.map((s, i) => (
           <li key={s.title} className="flex items-start gap-4">
@@ -258,7 +246,7 @@ function GettingStarted({ hasPlayers, hasTeams }: { hasPlayers: boolean; hasTeam
             </span>
             <div className="min-w-0 flex-1">
               <p className="font-medium">{s.title}</p>
-              <p className="text-sm text-muted-foreground">{s.hint}</p>
+              <p className="text-muted-foreground text-sm">{s.hint}</p>
             </div>
             <ButtonLink href={s.href} variant={i === 0 ? 'primary' : 'outline'} size="sm">
               {s.cta}

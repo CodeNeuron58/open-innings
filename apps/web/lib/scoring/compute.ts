@@ -49,9 +49,9 @@ export function initialState(input: InitialStateInput): MatchState {
   const matchId = asMatchId(input.matchId);
   const inningsId = asInningsId(input.inningsId);
 
-  const maxWickets = input.maxWickets ?? (
-    input.inningsNumber === 3 || input.inningsNumber === 4 ? 2 : STANDARD_MAX_WICKETS
-  );
+  const maxWickets =
+    input.maxWickets ??
+    (input.inningsNumber === 3 || input.inningsNumber === 4 ? 2 : STANDARD_MAX_WICKETS);
 
   const innings: InningsState = {
     id: inningsId,
@@ -97,10 +97,7 @@ export function initialState(input: InitialStateInput): MatchState {
  * If the list includes events from multiple innings, only the last innings
  * is reflected in `currentInnings`. (For multi-innings, use replayMatch.)
  */
-export function replayEvents(
-  seed: MatchState,
-  events: readonly BallEventInput[],
-): MatchState {
+export function replayEvents(seed: MatchState, events: readonly BallEventInput[]): MatchState {
   return events.reduce<MatchState>((state, event) => applyBall(state, event), seed);
 }
 

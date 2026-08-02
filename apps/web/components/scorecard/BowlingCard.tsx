@@ -9,9 +9,9 @@ export function BowlingCard({ bowling, playerNames }: Props) {
   const rows = Object.values(bowling).sort((a, b) => a.balls - b.balls);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+    <div className="border-border bg-card shadow-card overflow-hidden rounded-lg border">
       <table className="w-full text-sm">
-        <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className="border-border text-muted-foreground border-b text-xs uppercase tracking-wide">
           <tr>
             <th className="px-3 py-2.5 text-left font-medium">Bowler</th>
             <th className="px-3 py-2.5 text-right font-medium">O</th>
@@ -21,10 +21,10 @@ export function BowlingCard({ bowling, playerNames }: Props) {
             <th className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">Econ</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border/60">
+        <tbody className="divide-border/60 divide-y">
           {rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+              <td colSpan={6} className="text-muted-foreground px-3 py-6 text-center">
                 No bowlers yet
               </td>
             </tr>
@@ -37,17 +37,17 @@ export function BowlingCard({ bowling, playerNames }: Props) {
                 <td className="px-3 py-2.5 font-medium">
                   {playerNames[bw.playerId] ?? bw.playerId.slice(0, 6)}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
                   {overs}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
                   {bw.maidens}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
                   {bw.runs}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{bw.wickets}</td>
-                <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell">
+                <td className="text-muted-foreground hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">
                   {er}
                 </td>
               </tr>

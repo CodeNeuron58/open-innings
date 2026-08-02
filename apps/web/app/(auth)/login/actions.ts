@@ -35,11 +35,7 @@ export async function loginAction(formData: FormData): Promise<void> {
     fail(parsed.error.issues[0]?.message ?? 'Invalid input');
   }
 
-  const rows = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, parsed.data.email))
-    .limit(1);
+  const rows = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1);
 
   const user = rows[0];
 

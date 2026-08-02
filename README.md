@@ -15,6 +15,7 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 ## Features
 
 ### v0.1 (current — in development)
+
 - 📱 Ball-by-ball scorer (mobile-first, one-handed usable)
 - 📊 Public scorecards — shareable links, no login to view
 - 👥 Player database — career stats, photos, teams
@@ -23,11 +24,13 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 - 🔐 Local email/password auth (no third-party login required)
 
 ### v0.2
+
 - 🏆 Tournament organisation — round-robin, knockout, group+KO
 - 📈 Leaderboards — most runs, most wickets, best SR, best economy
 - 🗺️ Match insights — wagon wheel, pitch map, run progression
 
 ### v0.3
+
 - ⚡ Real-time updates (WebSockets)
 - 👥 Multi-user clubs
 - 🎥 Embedded YouTube/Facebook Live URLs
@@ -37,15 +40,15 @@ There is **no community-owned, free-forever, feature-complete alternative** in c
 
 ## Tech stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Frontend | Next.js 15 (App Router) + TypeScript | SEO for public scorecards, RSC pairs well with our server-first design |
-| Styling | Tailwind CSS | Fast to ship, no design-system lock-in |
-| Database | Postgres (native) | Free, runs anywhere, no third-party dependency |
-| ORM | Drizzle | Lightweight, type-safe, SQL-first |
-| Auth | Self-hosted (argon2 + session cookies) | No Supabase, no Clerk, no vendor lock-in |
-| Deploy | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control, no surprise billing, no vendor ToS risk |
-| Realtime (v0.1) | Polling | Simplest. WebSockets deferred to v0.3 |
+| Layer           | Choice                                             | Why                                                                    |
+| --------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| Frontend        | Next.js 15 (App Router) + TypeScript               | SEO for public scorecards, RSC pairs well with our server-first design |
+| Styling         | Tailwind CSS                                       | Fast to ship, no design-system lock-in                                 |
+| Database        | Postgres (native)                                  | Free, runs anywhere, no third-party dependency                         |
+| ORM             | Drizzle                                            | Lightweight, type-safe, SQL-first                                      |
+| Auth            | Self-hosted (argon2 + session cookies)             | No Supabase, no Clerk, no vendor lock-in                               |
+| Deploy          | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control, no surprise billing, no vendor ToS risk          |
+| Realtime (v0.1) | Polling                                            | Simplest. WebSockets deferred to v0.3                                  |
 
 ## Quick start
 

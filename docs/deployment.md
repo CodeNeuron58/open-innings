@@ -10,13 +10,13 @@ VM, with Cloudflare in front.** This matches how the code is already
 built: a single long-running Node process with pooled `postgres.js`
 connections (`apps/web/lib/db/client.ts`), not a serverless architecture.
 
-| Piece | Choice |
-|---|---|
-| Compute + DB | Oracle Cloud Always Free — Ampere A1 VM |
-| In front | Cloudflare (free) — CDN, DDoS protection, SSL |
-| Domain | Whatever registrar — the one real recurring cost |
-| App process | `pnpm build && pnpm start`, kept alive (systemd or pm2) |
-| DB | Postgres running on the same VM, not a managed service |
+| Piece        | Choice                                                  |
+| ------------ | ------------------------------------------------------- |
+| Compute + DB | Oracle Cloud Always Free — Ampere A1 VM                 |
+| In front     | Cloudflare (free) — CDN, DDoS protection, SSL           |
+| Domain       | Whatever registrar — the one real recurring cost        |
+| App process  | `pnpm build && pnpm start`, kept alive (systemd or pm2) |
+| DB           | Postgres running on the same VM, not a managed service  |
 
 ## Why not the obvious alternatives
 

@@ -19,7 +19,8 @@ const buttonBase =
 const buttonVariantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-  outline: 'border border-input bg-card text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground',
+  outline:
+    'border border-input bg-card text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground',
   ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
   destructive: 'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
 };
@@ -74,7 +75,10 @@ export function ButtonLink({
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-lg border border-border bg-card text-card-foreground shadow-card', className)}
+      className={cn(
+        'border-border bg-card text-card-foreground shadow-card rounded-lg border',
+        className,
+      )}
       {...props}
     />
   );
@@ -116,7 +120,7 @@ export function Badge({
 export function LiveBadge({ className }: { className?: string }) {
   return (
     <Badge variant="live" className={className}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse-live" aria-hidden />
+      <span className="animate-pulse-live h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
       Live
     </Badge>
   );
@@ -128,7 +132,10 @@ export function LiveBadge({ className }: { className?: string }) {
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
-    <label className={cn('mb-1.5 block text-sm font-medium text-foreground', className)} {...props} />
+    <label
+      className={cn('text-foreground mb-1.5 block text-sm font-medium', className)}
+      {...props}
+    />
   );
 }
 
@@ -136,8 +143,8 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
   return (
     <input
       className={cn(
-        'h-10 w-full rounded-md border border-input bg-card px-3 text-sm shadow-sm transition-colors',
-        'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'border-input bg-card h-10 w-full rounded-md border px-3 text-sm shadow-sm transition-colors',
+        'placeholder:text-muted-foreground focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2',
         className,
       )}
       {...props}
@@ -149,8 +156,8 @@ export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLS
   return (
     <select
       className={cn(
-        'h-10 w-full appearance-none rounded-md border border-input bg-card px-3 text-sm shadow-sm transition-colors',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'border-input bg-card h-10 w-full appearance-none rounded-md border px-3 text-sm shadow-sm transition-colors',
+        'focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-2',
         className,
       )}
       {...props}
@@ -174,7 +181,7 @@ export function FormSection({
 }) {
   return (
     <Card className="p-5">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="text-muted-foreground mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide">
         {icon}
         {title}
       </h2>
@@ -196,7 +203,7 @@ export function PageHeader({
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+        {description && <p className="text-muted-foreground mt-1 text-sm">{description}</p>}
       </div>
       {action}
     </div>
@@ -208,7 +215,7 @@ export function FormError({ message }: { message?: string | null }) {
   if (!message) return null;
   return (
     <div
-      className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      className="border-destructive/40 bg-destructive/10 text-destructive mb-4 rounded-md border px-4 py-3 text-sm"
       role="alert"
     >
       {message}
@@ -228,10 +235,10 @@ export function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-12 text-center">
-      {icon && <div className="mb-3 text-muted-foreground/60">{icon}</div>}
+    <div className="border-border bg-card/50 flex flex-col items-center rounded-lg border border-dashed px-6 py-12 text-center">
+      {icon && <div className="text-muted-foreground/60 mb-3">{icon}</div>}
       <p className="font-medium">{title}</p>
-      {hint && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-muted-foreground mt-1 max-w-sm text-sm">{hint}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -252,11 +259,11 @@ export function StatTile({
   return (
     <Card className="p-5">
       <div className="flex items-start justify-between">
-        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-muted-foreground text-sm">{label}</p>
         {icon && <span className="text-muted-foreground/50">{icon}</span>}
       </div>
       <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{value}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-muted-foreground mt-1 text-xs">{hint}</p>}
     </Card>
   );
 }
@@ -306,13 +313,7 @@ export function Logo({ className, textClassName }: { className?: string; textCla
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Initials monogram for players/teams (deterministic tint from the name). */
-export function Monogram({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
+export function Monogram({ name, className }: { name: string; className?: string }) {
   const initials = name
     .split(/\s+/)
     .map((w) => w[0])
@@ -323,7 +324,7 @@ export function Monogram({
   return (
     <span
       className={cn(
-        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground',
+        'bg-accent text-accent-foreground inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold',
         className,
       )}
     >

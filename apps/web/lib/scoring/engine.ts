@@ -101,7 +101,7 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
   const legal = isLegalDelivery(input.eventType);
 
   // Auto-fill totalRuns if the caller didn't compute it
-  const totalRuns = (input.totalRuns ?? input.runsOffBat + input.extraRuns);
+  const totalRuns = input.totalRuns ?? input.runsOffBat + input.extraRuns;
 
   // Auto-fill isLegalDelivery
   const isLegal = input.isLegalDelivery ?? legal;
@@ -163,7 +163,10 @@ function validate(state: MatchState, event: BallEvent): void {
 
   // Runs off bat must be 0..6
   if (event.runsOffBat < 0 || event.runsOffBat > 6) {
-    throw new ScoringError('INVALID_RUNS_OFF_BAT', `runsOffBat must be 0..6, got ${event.runsOffBat}`);
+    throw new ScoringError(
+      'INVALID_RUNS_OFF_BAT',
+      `runsOffBat must be 0..6, got ${event.runsOffBat}`,
+    );
   }
 
   // Wicket types that require a fielder
@@ -176,7 +179,10 @@ function validate(state: MatchState, event: BallEvent): void {
 
   // Wicket type present without wicketPlayerId
   if (event.wicketType && !event.wicketPlayerId) {
-    throw new ScoringError('WICKET_TYPE_MISSING', 'wicketPlayerId is required when wicketType is set');
+    throw new ScoringError(
+      'WICKET_TYPE_MISSING',
+      'wicketPlayerId is required when wicketType is set',
+    );
   }
 
   // Wickets exhausted
@@ -196,11 +202,7 @@ function validate(state: MatchState, event: BallEvent): void {
   // This checks the FIRST ball of a new over (or any ball when the same
   // bowler is bowling again). We compare the bowler on this event with
   // the last bowler of the previous over (lastBowlerId).
-  if (
-    NO_CONSECUTIVE_OVERS &&
-    inn.lastBowlerId !== null &&
-    inn.lastBowlerId === event.bowlerId
-  ) {
+  if (NO_CONSECUTIVE_OVERS && inn.lastBowlerId !== null && inn.lastBowlerId === event.bowlerId) {
     throw new ScoringError(
       'BOWLER_BOWLED_CONSECUTIVE_OVERS',
       'A bowler may not bowl two consecutive overs (Law 16.2)',
@@ -224,10 +226,7 @@ function validate(state: MatchState, event: BallEvent): void {
     (event.batsmanId !== previousStriker || event.nonStrikerId !== inn.nonStrikerId);
 
   if (!replacingAfterWicket) {
-    if (
-      event.batsmanId !== inn.strikerId ||
-      event.nonStrikerId !== inn.nonStrikerId
-    ) {
+    if (event.batsmanId !== inn.strikerId || event.nonStrikerId !== inn.nonStrikerId) {
       throw new ScoringError(
         'BATSMAN_NOT_ON_FIELD',
         `Batsmen on event (${playerIdKey(event.batsmanId)}, ${playerIdKey(event.nonStrikerId)}) ` +
@@ -407,7 +406,8 @@ function updatePartnershipAndFall(
 
   // Handle wicket → end partnership
   if (event.wicketType && event.wicketPlayerId) {
-    const wicketsSoFar = state.currentInnings.wickets + (TEAM_WICKET_COUNTED.has(event.wicketType) ? 1 : 0);
+    const wicketsSoFar =
+      state.currentInnings.wickets + (TEAM_WICKET_COUNTED.has(event.wicketType) ? 1 : 0);
 
     if (TEAM_WICKET_COUNTED.has(event.wicketType)) {
       const newRuns = state.currentInnings.runs + event.totalRuns;
@@ -469,11 +469,7 @@ function updateInnings(
   // actually faced the ball, so a replacement is swapped in BEFORE rotating
   // (rotating first and patching after scrambles ends when the new batter
   // takes an odd run on their first ball).
-  const { strikerId, nonStrikerId } = rotateStrike(
-    event.batsmanId,
-    event.nonStrikerId,
-    shouldSwap,
-  );
+  const { strikerId, nonStrikerId } = rotateStrike(event.batsmanId, event.nonStrikerId, shouldSwap);
 
   // Bowler change at end of over:
   // - `lastBowlerId` tracks the bowler of the PREVIOUS over (null if no
@@ -491,8 +487,7 @@ function updateInnings(
   const maxBalls = maxLegalBallsForOvers(state.match.oversPerInnings);
   const isAllOut = wickets >= inn.maxWickets;
   const oversDone = ballsBowled >= maxBalls;
-  const targetReached =
-    inn.target !== undefined && runs >= inn.target;
+  const targetReached = inn.target !== undefined && runs >= inn.target;
 
   let status: InningsState['status'] = inn.status;
   if (isAllOut || oversDone || targetReached) {

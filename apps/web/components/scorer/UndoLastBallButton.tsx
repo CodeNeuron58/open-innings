@@ -34,12 +34,12 @@ export function UndoLastBallButton({ matchId }: { matchId: string }) {
       <button
         onClick={undo}
         disabled={busy}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors disabled:opacity-50"
       >
         <Undo2 className="h-4 w-4" />
         Wrong call? Undo the last ball
       </button>
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="text-destructive mt-1 text-xs">{error}</p>}
     </div>
   );
 }

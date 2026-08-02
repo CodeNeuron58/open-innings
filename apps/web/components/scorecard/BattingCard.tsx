@@ -29,9 +29,9 @@ export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, lim
   const visible = limit ? rows.slice(0, limit) : rows;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
+    <div className="border-border bg-card shadow-card overflow-hidden rounded-lg border">
       <table className="w-full text-sm">
-        <thead className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+        <thead className="border-border text-muted-foreground border-b text-xs uppercase tracking-wide">
           <tr>
             <th className="px-3 py-2.5 text-left font-medium">Batter</th>
             <th className="px-3 py-2.5 text-right font-medium">R</th>
@@ -41,10 +41,10 @@ export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, lim
             <th className="px-3 py-2.5 text-right font-medium">SR</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-border/60">
+        <tbody className="divide-border/60 divide-y">
           {visible.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+              <td colSpan={6} className="text-muted-foreground px-3 py-6 text-center">
                 No balls bowled yet
               </td>
             </tr>
@@ -54,9 +54,7 @@ export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, lim
             const isNonStriker = b.playerId === nonStrikerId;
             const atCrease = isStriker || isNonStriker;
             const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : '0.0';
-            const status = b.isOut
-              ? (dismissalLabels[b.dismissalType ?? ''] ?? 'out')
-              : 'not out';
+            const status = b.isOut ? (dismissalLabels[b.dismissalType ?? ''] ?? 'out') : 'not out';
             return (
               <tr key={b.playerId} className={cn(atCrease && 'bg-accent/30')}>
                 <td className="px-3 py-2.5">
@@ -64,19 +62,19 @@ export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, lim
                     {playerNames[b.playerId] ?? b.playerId.slice(0, 6)}
                     {isStriker && <span aria-label="on strike"> *</span>}
                   </span>
-                  <span className="ml-1.5 text-xs text-muted-foreground">{status}</span>
+                  <span className="text-muted-foreground ml-1.5 text-xs">{status}</span>
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{b.runs}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">
                   {b.balls}
                 </td>
-                <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell">
+                <td className="text-muted-foreground hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">
                   {b.fours}
                 </td>
-                <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground sm:table-cell">
+                <td className="text-muted-foreground hidden px-3 py-2.5 text-right tabular-nums sm:table-cell">
                   {b.sixes}
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{sr}</td>
+                <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">{sr}</td>
               </tr>
             );
           })}

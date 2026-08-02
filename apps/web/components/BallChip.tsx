@@ -42,8 +42,7 @@ export function ballChipParts(ball: BallLike): { label: string; className: strin
   }
   if (ball.runsOffBat === 4) return { label: '4', className: 'bg-four text-four-foreground' };
   if (ball.runsOffBat === 6) return { label: '6', className: 'bg-six text-six-foreground' };
-  if (ball.runsOffBat === 0)
-    return { label: '•', className: 'bg-muted text-muted-foreground' };
+  if (ball.runsOffBat === 0) return { label: '•', className: 'bg-muted text-muted-foreground' };
   return { label: String(ball.runsOffBat), className: 'bg-secondary text-secondary-foreground' };
 }
 

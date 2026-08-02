@@ -38,9 +38,7 @@ async function main() {
       )
     `;
 
-    const allFiles = (await readdir(MIGRATIONS_DIR))
-      .filter((f) => f.endsWith('.sql'))
-      .sort();
+    const allFiles = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
 
     const applied = new Set(
       (await sql<{ name: string }[]>`select name from __open_innings_migrations`).map(

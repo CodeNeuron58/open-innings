@@ -254,12 +254,12 @@ export function ScorerClient({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-scoreboard text-scoreboard-text">
+    <div className="bg-scoreboard text-scoreboard-text flex min-h-screen flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-2 border-b border-scoreboard-border px-3 py-2.5">
+      <div className="border-scoreboard-border flex items-center justify-between gap-2 border-b px-3 py-2.5">
         <Link
           href="/matches"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-scoreboard-muted transition-colors hover:bg-scoreboard-panel hover:text-scoreboard-text"
+          className="text-scoreboard-muted hover:bg-scoreboard-panel hover:text-scoreboard-text inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors"
           aria-label="Back to matches"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -276,7 +276,7 @@ export function ScorerClient({
           {!completed && <LiveBadge />}
           <Link
             href={`/m/${matchId}`}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-scoreboard-muted transition-colors hover:bg-scoreboard-panel hover:text-scoreboard-text"
+            className="text-scoreboard-muted hover:bg-scoreboard-panel hover:text-scoreboard-text inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors"
             aria-label="Public scorecard"
             title="Open public scorecard"
           >
@@ -290,7 +290,7 @@ export function ScorerClient({
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             {battingTeamName && (
-              <p className="truncate text-sm font-medium text-scoreboard-muted">
+              <p className="text-scoreboard-muted truncate text-sm font-medium">
                 {battingTeamName}
               </p>
             )}
@@ -303,7 +303,7 @@ export function ScorerClient({
               {inn.wickets}
             </p>
           </div>
-          <div className="pb-1 text-right text-sm text-scoreboard-muted">
+          <div className="text-scoreboard-muted pb-1 text-right text-sm">
             <p className="tabular-nums">
               {formatOversLocal(inn.ballsBowled)}
               <span className="text-scoreboard-muted/70"> / {state.match.oversPerInnings} ov</span>
@@ -313,34 +313,30 @@ export function ScorerClient({
         </div>
 
         {inn.target !== undefined && !completed && (
-          <p className="mt-2 text-sm font-medium text-scoreboard-accent">
+          <p className="text-scoreboard-accent mt-2 text-sm font-medium">
             Target {inn.target} · need {runsNeeded} off {ballsLeft}
             {reqRate ? ` · RRR ${reqRate}` : ''}
           </p>
         )}
 
         {isFreeHitNext && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-extra px-3 py-1 text-xs font-bold uppercase tracking-wide text-extra-foreground">
-            <span className="h-1.5 w-1.5 animate-pulse-live rounded-full bg-current" aria-hidden />
+          <div className="bg-extra text-extra-foreground mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide">
+            <span className="animate-pulse-live h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
             Free hit next
           </div>
         )}
       </header>
 
       {/* Batters + bowler */}
-      <section className="mx-3 rounded-lg border border-scoreboard-border bg-scoreboard-panel">
-        <BatterRow
-          label={name(effStriker)}
-          stats={strikerStats}
-          striker
-        />
+      <section className="border-scoreboard-border bg-scoreboard-panel mx-3 rounded-lg border">
+        <BatterRow label={name(effStriker)} stats={strikerStats} striker />
         <BatterRow label={name(effNonStriker)} stats={nonStrikerStats} />
-        <div className="flex items-center justify-between border-t border-scoreboard-border px-4 py-2.5 text-sm">
+        <div className="border-scoreboard-border flex items-center justify-between border-t px-4 py-2.5 text-sm">
           <span className="min-w-0 truncate">
             <span className="text-scoreboard-muted">Bowling · </span>
             <span className="font-medium">{name(effBowler)}</span>
           </span>
-          <span className="shrink-0 tabular-nums text-scoreboard-muted">
+          <span className="text-scoreboard-muted shrink-0 tabular-nums">
             {bowlerStats?.wickets ?? 0}/{bowlerStats?.runs ?? 0}{' '}
             <span className="text-scoreboard-muted/70">
               ({formatOversLocal(bowlerStats?.balls ?? 0)})
@@ -351,20 +347,23 @@ export function ScorerClient({
 
       {/* Notices */}
       {error && (
-        <div className="mx-3 mt-2 rounded-md bg-wicket/15 px-3 py-2 text-sm text-wicket" role="alert">
+        <div
+          className="bg-wicket/15 text-wicket mx-3 mt-2 rounded-md px-3 py-2 text-sm"
+          role="alert"
+        >
           {error}
         </div>
       )}
       {dbDown && (
-        <div className="mx-3 mt-2 rounded-md bg-extra/15 px-3 py-2 text-sm text-extra">
+        <div className="bg-extra/15 text-extra mx-3 mt-2 rounded-md px-3 py-2 text-sm">
           DB not configured — buttons are visual only. Set <code>DATABASE_URL</code> to enable
           scoring.
         </div>
       )}
       {completed && (
-        <div className="mx-3 mt-2 rounded-lg border border-scoreboard-border bg-scoreboard-panel p-4 text-center">
+        <div className="border-scoreboard-border bg-scoreboard-panel mx-3 mt-2 rounded-lg border p-4 text-center">
           <p className="text-lg font-bold">Innings complete</p>
-          <p className="mt-0.5 text-sm text-scoreboard-muted">
+          <p className="text-scoreboard-muted mt-0.5 text-sm">
             {inn.runs}/{inn.wickets} in {formatOversLocal(inn.ballsBowled)} overs
           </p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -372,13 +371,13 @@ export function ScorerClient({
                 to the innings break / match result screen. */}
             <a
               href={`/matches/${matchId}/score`}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-5 text-sm font-medium transition-colors"
             >
               Continue →
             </a>
             <Link
               href={`/m/${matchId}`}
-              className="inline-flex h-10 items-center justify-center rounded-md border border-scoreboard-border px-5 text-sm font-medium text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+              className="border-scoreboard-border text-scoreboard-muted hover:text-scoreboard-text inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-medium transition-colors"
             >
               Public scorecard
             </Link>
@@ -407,7 +406,11 @@ export function ScorerClient({
           <Key onClick={() => handleRuns(6)} disabled={pending || completed} variant="six">
             6
           </Key>
-          <Key onClick={() => setPendingExtra('wide')} disabled={pending || completed} variant="extra">
+          <Key
+            onClick={() => setPendingExtra('wide')}
+            disabled={pending || completed}
+            variant="extra"
+          >
             WD
           </Key>
           <Key
@@ -417,7 +420,11 @@ export function ScorerClient({
           >
             NB
           </Key>
-          <Key onClick={() => setPendingExtra('bye')} disabled={pending || completed} variant="extra">
+          <Key
+            onClick={() => setPendingExtra('bye')}
+            disabled={pending || completed}
+            variant="extra"
+          >
             B
           </Key>
           <Key
@@ -438,31 +445,26 @@ export function ScorerClient({
       </main>
 
       {/* Over strips */}
-      <footer className="safe-bottom border-t border-scoreboard-border bg-scoreboard-panel/60 px-4 py-3">
+      <footer className="safe-bottom border-scoreboard-border bg-scoreboard-panel/60 border-t px-4 py-3">
         <div className="mb-2 flex items-center gap-2 overflow-x-auto">
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+          <span className="text-scoreboard-muted shrink-0 text-xs font-semibold uppercase tracking-wide">
             {overLabel}
           </span>
           {overBalls.length === 0 ? (
-            <span className="text-xs text-scoreboard-muted/70">New over — no balls yet</span>
+            <span className="text-scoreboard-muted/70 text-xs">New over — no balls yet</span>
           ) : (
             overBalls.map((b, i) => <BallChip key={`${b.overNumber}-${i}`} ball={b} size="sm" />)
           )}
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted/70">
+          <span className="text-scoreboard-muted/70 shrink-0 text-xs font-semibold uppercase tracking-wide">
             Recent
           </span>
           {state.balls
             .slice(-12)
             .reverse()
             .map((b, i) => (
-              <BallChip
-                key={state.balls.length - i}
-                ball={b}
-                size="sm"
-                className="opacity-80"
-              />
+              <BallChip key={state.balls.length - i} ball={b} size="sm" className="opacity-80" />
             ))}
         </div>
       </footer>
@@ -526,8 +528,7 @@ function BatterRow({
   stats?: { runs: number; balls: number; fours: number; sixes: number };
   striker?: boolean;
 }) {
-  const sr =
-    stats && stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(0) : '—';
+  const sr = stats && stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(0) : '—';
   return (
     <div className="flex items-center justify-between px-4 py-2.5 text-sm">
       <span className="flex min-w-0 items-center gap-2">
@@ -548,7 +549,7 @@ function BatterRow({
           {stats?.runs ?? 0}
           <span className="text-scoreboard-muted">({stats?.balls ?? 0})</span>
         </span>
-        <span className="ml-2 text-xs text-scoreboard-muted">
+        <span className="text-scoreboard-muted ml-2 text-xs">
           {stats ? `${stats.fours}×4 ${stats.sixes}×6 · SR ${sr}` : ''}
         </span>
       </span>
@@ -574,8 +575,7 @@ function Key({
     dot: 'bg-scoreboard-panel border border-scoreboard-border text-scoreboard-muted hover:border-scoreboard-muted/50',
     four: 'bg-four text-four-foreground shadow-lg shadow-four/25 hover:brightness-110',
     six: 'bg-six text-six-foreground shadow-lg shadow-six/25 hover:brightness-110',
-    extra:
-      'bg-scoreboard-panel border border-extra/40 text-extra hover:border-extra/70 text-xl',
+    extra: 'bg-scoreboard-panel border border-extra/40 text-extra hover:border-extra/70 text-xl',
     wicket: 'bg-wicket text-wicket-foreground shadow-lg shadow-wicket/25 hover:brightness-110',
     undo: 'bg-transparent border border-scoreboard-border text-scoreboard-muted hover:text-scoreboard-text hover:border-scoreboard-muted/50',
   };
@@ -586,7 +586,7 @@ function Key({
       className={cn(
         'flex min-h-14 items-center justify-center rounded-xl text-2xl font-bold transition-all',
         'active:scale-95 disabled:pointer-events-none disabled:opacity-40',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+        'focus-visible:ring-primary focus-visible:outline-none focus-visible:ring-2',
         styles[variant],
       )}
     >
@@ -638,24 +638,24 @@ function WicketSheet({
       aria-modal="true"
       aria-label="Record wicket"
     >
-      <div className="safe-bottom w-full animate-slide-up rounded-t-2xl border-t border-scoreboard-border bg-scoreboard-panel p-5 text-scoreboard-text sm:max-w-md sm:rounded-2xl sm:border">
+      <div className="safe-bottom animate-slide-up border-scoreboard-border bg-scoreboard-panel text-scoreboard-text w-full rounded-t-2xl border-t p-5 sm:max-w-md sm:rounded-2xl sm:border">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">
-            <span className="mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-wicket text-sm font-bold text-wicket-foreground">
+            <span className="bg-wicket text-wicket-foreground mr-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold">
               W
             </span>
             Wicket
           </h2>
           <button
             onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-scoreboard-muted hover:bg-scoreboard hover:text-scoreboard-text"
+            className="text-scoreboard-muted hover:bg-scoreboard hover:text-scoreboard-text inline-flex h-8 w-8 items-center justify-center rounded-md"
             aria-label="Cancel"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+        <p className="text-scoreboard-muted mb-2 text-xs font-semibold uppercase tracking-wide">
           How out
         </p>
         <div className="mb-4 grid grid-cols-3 gap-1.5">
@@ -675,7 +675,7 @@ function WicketSheet({
           ))}
         </div>
 
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+        <p className="text-scoreboard-muted mb-2 text-xs font-semibold uppercase tracking-wide">
           Batter out
         </p>
         <div className="mb-4 grid grid-cols-2 gap-1.5">
@@ -705,13 +705,13 @@ function WicketSheet({
 
         {needsFielder && (
           <div className="mb-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+            <p className="text-scoreboard-muted mb-2 text-xs font-semibold uppercase tracking-wide">
               Fielder
             </p>
             <select
               value={fielderId}
               onChange={(e) => setFielderId(e.target.value)}
-              className="h-11 w-full rounded-md border border-scoreboard-border bg-scoreboard px-3 text-sm text-scoreboard-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="border-scoreboard-border bg-scoreboard text-scoreboard-text focus-visible:ring-primary h-11 w-full rounded-md border px-3 text-sm focus-visible:outline-none focus-visible:ring-2"
             >
               <option value="">—</option>
               {players.map((p) => (
@@ -728,13 +728,13 @@ function WicketSheet({
             onClick={() =>
               onConfirm(type, outBatsman, needsFielder && fielderId ? fielderId : undefined)
             }
-            className="flex-1 rounded-md bg-wicket px-4 py-3.5 font-bold text-wicket-foreground transition-all hover:brightness-110 active:scale-[0.98]"
+            className="bg-wicket text-wicket-foreground flex-1 rounded-md px-4 py-3.5 font-bold transition-all hover:brightness-110 active:scale-[0.98]"
           >
             Confirm wicket
           </button>
           <button
             onClick={onCancel}
-            className="rounded-md border border-scoreboard-border px-4 py-3.5 text-sm text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+            className="border-scoreboard-border text-scoreboard-muted hover:text-scoreboard-text rounded-md border px-4 py-3.5 text-sm transition-colors"
           >
             Cancel
           </button>
@@ -761,19 +761,19 @@ function ExtraRunsSheet({
       aria-modal="true"
       aria-label={`${EXTRA_LABELS[extraType]} — total runs`}
     >
-      <div className="safe-bottom w-full animate-slide-up rounded-t-2xl border-t border-scoreboard-border bg-scoreboard-panel p-5 text-scoreboard-text sm:max-w-md sm:rounded-2xl sm:border">
+      <div className="safe-bottom animate-slide-up border-scoreboard-border bg-scoreboard-panel text-scoreboard-text w-full rounded-t-2xl border-t p-5 sm:max-w-md sm:rounded-2xl sm:border">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">{EXTRA_LABELS[extraType]}</h2>
           <button
             onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-scoreboard-muted hover:bg-scoreboard hover:text-scoreboard-text"
+            className="text-scoreboard-muted hover:bg-scoreboard hover:text-scoreboard-text inline-flex h-8 w-8 items-center justify-center rounded-md"
             aria-label="Cancel"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+        <p className="text-scoreboard-muted mb-3 text-xs font-semibold uppercase tracking-wide">
           Total runs
         </p>
         <div className="grid grid-cols-4 gap-1.5">
@@ -781,7 +781,7 @@ function ExtraRunsSheet({
             <button
               key={runs}
               onClick={() => onConfirm(runs)}
-              className="rounded-md bg-scoreboard px-2 py-3 text-lg font-bold tabular-nums transition-colors hover:bg-extra/20 hover:text-extra"
+              className="bg-scoreboard hover:bg-extra/20 hover:text-extra rounded-md px-2 py-3 text-lg font-bold tabular-nums transition-colors"
             >
               {runs}
             </button>
@@ -790,7 +790,7 @@ function ExtraRunsSheet({
 
         <button
           onClick={onCancel}
-          className="mt-4 inline-flex w-full items-center justify-center rounded-md border border-scoreboard-border px-4 py-2.5 text-sm text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+          className="border-scoreboard-border text-scoreboard-muted hover:text-scoreboard-text mt-4 inline-flex w-full items-center justify-center rounded-md border px-4 py-2.5 text-sm transition-colors"
         >
           Cancel
         </button>
@@ -828,18 +828,18 @@ function NextPlayerSheet({
       aria-modal="true"
       aria-label={title}
     >
-      <div className="safe-bottom w-full animate-slide-up rounded-t-2xl border-t border-scoreboard-border bg-scoreboard-panel p-5 text-scoreboard-text sm:max-w-md sm:rounded-2xl sm:border">
+      <div className="safe-bottom animate-slide-up border-scoreboard-border bg-scoreboard-panel text-scoreboard-text w-full rounded-t-2xl border-t p-5 sm:max-w-md sm:rounded-2xl sm:border">
         <h2 className="text-lg font-bold">{title}</h2>
-        <p className="mb-4 mt-0.5 text-sm text-scoreboard-muted">{subtitle}</p>
+        <p className="text-scoreboard-muted mb-4 mt-0.5 text-sm">{subtitle}</p>
 
         {candidates.length === 0 ? (
-          <div className="rounded-md border border-dashed border-scoreboard-border p-4 text-center text-sm text-scoreboard-muted">
+          <div className="border-scoreboard-border text-scoreboard-muted rounded-md border border-dashed p-4 text-center text-sm">
             {emptyMessage}
             {onEndInnings && (
               <form action={onEndInnings} className="mt-3">
                 <button
                   type="submit"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-10 items-center justify-center rounded-md px-5 text-sm font-medium transition-colors"
                 >
                   End innings
                 </button>
@@ -852,11 +852,11 @@ function NextPlayerSheet({
               <button
                 key={c.id}
                 onClick={() => onSelect(c.id)}
-                className="flex w-full items-center justify-between rounded-md bg-scoreboard px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-scoreboard/60"
+                className="bg-scoreboard hover:bg-scoreboard/60 flex w-full items-center justify-between rounded-md px-4 py-3 text-left text-sm font-medium transition-colors"
               >
                 <span className="truncate">{c.label}</span>
                 {c.tag && (
-                  <span className="ml-2 shrink-0 text-xs text-scoreboard-muted">{c.tag}</span>
+                  <span className="text-scoreboard-muted ml-2 shrink-0 text-xs">{c.tag}</span>
                 )}
               </button>
             ))}
@@ -865,7 +865,7 @@ function NextPlayerSheet({
 
         <button
           onClick={onUndo}
-          className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-scoreboard-border px-4 py-2.5 text-sm text-scoreboard-muted transition-colors hover:text-scoreboard-text"
+          className="border-scoreboard-border text-scoreboard-muted hover:text-scoreboard-text mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-md border px-4 py-2.5 text-sm transition-colors"
         >
           <Undo2 className="h-4 w-4" /> Undo last ball instead
         </button>

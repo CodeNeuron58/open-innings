@@ -34,10 +34,7 @@ import { relations, sql } from 'drizzle-orm';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** How a player holds the bat. */
-export const battingStyle = pgEnum('batting_style', [
-  'right_hand',
-  'left_hand',
-]);
+export const battingStyle = pgEnum('batting_style', ['right_hand', 'left_hand']);
 
 /** How a player bowls. */
 export const bowlingStyle = pgEnum('bowling_style', [
@@ -80,11 +77,7 @@ export const tossDecision = pgEnum('toss_decision', ['bat', 'bowl']);
 export const ballType = pgEnum('ball_type', ['leather', 'tennis', 'synthetic']);
 
 /** Innings status. */
-export const inningsStatus = pgEnum('innings_status', [
-  'not_started',
-  'in_progress',
-  'completed',
-]);
+export const inningsStatus = pgEnum('innings_status', ['not_started', 'in_progress', 'completed']);
 
 /**
  * Type of ball event. The heart of the scoring engine.

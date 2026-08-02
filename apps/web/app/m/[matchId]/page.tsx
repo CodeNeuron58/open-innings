@@ -9,12 +9,7 @@ import {
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
 import { formatOvers } from '@/lib/utils';
-import {
-  replayInnings,
-  asInningsId,
-  asPlayerId,
-  type MatchState,
-} from '@/lib/scoring';
+import { replayInnings, asInningsId, asPlayerId, type MatchState } from '@/lib/scoring';
 import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';
@@ -124,7 +119,7 @@ export default async function PublicScorecardPage({ params }: Props) {
       {isLive && <LiveRefresh />}
 
       {/* Public top bar */}
-      <header className="border-b border-border bg-background/80 backdrop-blur">
+      <header className="border-border bg-background/80 border-b backdrop-blur">
         <div className="container flex h-14 max-w-3xl items-center justify-between">
           <Link href="/" aria-label="Open Innings home">
             <Logo />
@@ -137,13 +132,13 @@ export default async function PublicScorecardPage({ params }: Props) {
 
       <main className="container max-w-3xl flex-1 py-6">
         {/* Scoreboard hero */}
-        <section className="overflow-hidden rounded-lg border border-scoreboard-border bg-scoreboard text-scoreboard-text shadow-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-scoreboard-border px-5 py-3">
+        <section className="border-scoreboard-border bg-scoreboard text-scoreboard-text shadow-card overflow-hidden rounded-lg border">
+          <div className="border-scoreboard-border flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">
                 {match.title ?? `${teamA?.name ?? 'Team A'} vs ${teamB?.name ?? 'Team B'}`}
               </p>
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-scoreboard-muted">
+              <p className="text-scoreboard-muted mt-0.5 flex items-center gap-1 text-xs">
                 {teamA?.name ?? 'Team A'} vs {teamB?.name ?? 'Team B'} · {match.oversPerInnings}{' '}
                 overs
                 {match.venue && (
@@ -172,7 +167,7 @@ export default async function PublicScorecardPage({ params }: Props) {
           </div>
 
           {matchDone && match.summary && (
-            <div className="border-b border-scoreboard-border bg-scoreboard-panel/60 px-5 py-2.5 text-sm font-semibold text-scoreboard-accent">
+            <div className="border-scoreboard-border bg-scoreboard-panel/60 text-scoreboard-accent border-b px-5 py-2.5 text-sm font-semibold">
               🏆 {match.summary}
             </div>
           )}
@@ -180,7 +175,7 @@ export default async function PublicScorecardPage({ params }: Props) {
           <div className="px-5 py-6">
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm text-scoreboard-muted">
+                <p className="text-scoreboard-muted truncate text-sm">
                   {battingTeam?.name ?? 'Batting'}
                 </p>
                 <p className="text-6xl font-bold tabular-nums tracking-tight">
@@ -189,7 +184,7 @@ export default async function PublicScorecardPage({ params }: Props) {
                   {inn.wickets}
                 </p>
               </div>
-              <div className="pb-1 text-right text-sm text-scoreboard-muted">
+              <div className="text-scoreboard-muted pb-1 text-right text-sm">
                 <p className="tabular-nums">
                   {overs} ov · CRR {rr}
                 </p>
@@ -197,7 +192,7 @@ export default async function PublicScorecardPage({ params }: Props) {
               </div>
             </div>
             {inn.target !== undefined && isLive && (
-              <p className="mt-3 text-sm font-medium text-scoreboard-accent">
+              <p className="text-scoreboard-accent mt-3 text-sm font-medium">
                 Target {inn.target} · need {runsNeeded} off {ballsLeft}
                 {reqRate ? ` · RRR ${reqRate}` : ''}
               </p>
@@ -206,8 +201,8 @@ export default async function PublicScorecardPage({ params }: Props) {
 
           {/* Recent balls */}
           {state.balls.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto border-t border-scoreboard-border px-5 py-3">
-              <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-scoreboard-muted">
+            <div className="border-scoreboard-border flex items-center gap-1.5 overflow-x-auto border-t px-5 py-3">
+              <span className="text-scoreboard-muted shrink-0 text-xs font-semibold uppercase tracking-wide">
                 Recent
               </span>
               {state.balls.slice(-18).map((b, i) => (
@@ -220,7 +215,7 @@ export default async function PublicScorecardPage({ params }: Props) {
         {/* Batting + bowling side by side on desktop */}
         <section className="mt-6 grid gap-6 md:grid-cols-2">
           <div>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
               Batting
             </h2>
             <BattingCard
@@ -231,7 +226,7 @@ export default async function PublicScorecardPage({ params }: Props) {
             />
           </div>
           <div>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
               Bowling
             </h2>
             <BowlingCard bowling={state.bowling} playerNames={playerNames} />
@@ -246,9 +241,9 @@ export default async function PublicScorecardPage({ params }: Props) {
           return (
             <details
               key={i.id}
-              className="group mt-4 overflow-hidden rounded-lg border border-border bg-card shadow-card"
+              className="border-border bg-card shadow-card group mt-4 overflow-hidden rounded-lg border"
             >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-sm font-medium transition-colors hover:bg-accent/40">
+              <summary className="hover:bg-accent/40 flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-sm font-medium transition-colors">
                 <span>
                   {i.inningsNumber === 1 ? '1st innings' : `Innings ${i.inningsNumber}`}:{' '}
                   {priorTeam?.name ?? 'Team'}{' '}
@@ -257,11 +252,11 @@ export default async function PublicScorecardPage({ params }: Props) {
                   </span>{' '}
                   <span className="text-muted-foreground">({formatOvers(i.ballsBowled)} ov)</span>
                 </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+                <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
               </summary>
-              <div className="grid gap-6 border-t border-border p-5 md:grid-cols-2">
+              <div className="border-border grid gap-6 border-t p-5 md:grid-cols-2">
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
                     Batting
                   </h3>
                   <BattingCard
@@ -272,7 +267,7 @@ export default async function PublicScorecardPage({ params }: Props) {
                   />
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
                     Bowling
                   </h3>
                   <BowlingCard bowling={priorState.bowling} playerNames={playerNames} />
@@ -283,17 +278,17 @@ export default async function PublicScorecardPage({ params }: Props) {
         })}
 
         {isLive && (
-          <p className="mt-4 text-center text-xs text-muted-foreground">
+          <p className="text-muted-foreground mt-4 text-center text-xs">
             Updates automatically every few seconds.
           </p>
         )}
       </main>
 
-      <footer className="border-t border-border py-6">
-        <div className="container flex max-w-3xl flex-col items-center gap-2 text-center text-xs text-muted-foreground">
+      <footer className="border-border border-t py-6">
+        <div className="text-muted-foreground container flex max-w-3xl flex-col items-center gap-2 text-center text-xs">
           <p>
             Scored with{' '}
-            <Link href="/" className="font-medium text-primary hover:underline">
+            <Link href="/" className="text-primary font-medium hover:underline">
               Open Innings
             </Link>{' '}
             — free, open-source cricket scoring. Forever.

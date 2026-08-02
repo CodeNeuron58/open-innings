@@ -31,17 +31,7 @@ export const asTeamId = (s: string): TeamId => s as TeamId;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BallEventType =
-  | 'dot'
-  | '1'
-  | '2'
-  | '3'
-  | '4'
-  | '6'
-  | 'wide'
-  | 'no_ball'
-  | 'bye'
-  | 'leg_bye'
-  | 'wicket'; // synthetic — always paired with wicketType
+  'dot' | '1' | '2' | '3' | '4' | '6' | 'wide' | 'no_ball' | 'bye' | 'leg_bye' | 'wicket'; // synthetic — always paired with wicketType
 
 export type WicketType =
   | 'bowled'
