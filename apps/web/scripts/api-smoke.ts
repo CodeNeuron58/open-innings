@@ -16,21 +16,27 @@
  * Prereqs: app running, DB seeded.
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:api
  */
-import { eq, inArray } from 'drizzle-orm';
+import { eq, like } from 'drizzle-orm';
 import { db } from '../lib/db/client';
-import { users, players, teams, matches } from '../lib/db/schema';
+import { users, players, teams, matches, sessions } from '../lib/db/schema';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
+
+class AssertionFailed extends Error {}
 
 let passed = 0;
 function ok(cond: boolean, label: string, extra?: unknown) {
   if (cond) {
     passed += 1;
     console.log(`  ✓ ${label}`);
-  } else {
-    console.error(`  ✗ FAIL: ${label}`, extra ?? '');
-    process.exit(1);
+    return;
   }
+  console.error(`  ✗ FAIL: ${label}`, extra ?? '');
+  // Throw rather than `process.exit(1)`. This script creates a user, players
+  // and teams, and cleans them up in a `finally` — but `process.exit` tears
+  // the process down without unwinding, so an exit here would leak that data
+  // on exactly the runs where something already went wrong.
+  throw new AssertionFailed(label);
 }
 
 // Responses are probed field by field with optional chaining. Modelling each
@@ -291,14 +297,17 @@ async function main() {
 
     console.log(`\n🏏 api-smoke: all ${passed} checks passed`);
   } finally {
-    // Clean up whatever got as far as existing, newest first.
-    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    if (user) {
+    // Sweep every api-smoke identity, not just this run's. A run that died
+    // before this block existed — or one killed outright — leaves rows
+    // behind, and they'd accumulate in the dev database forever otherwise.
+    // Deleting by owner rather than by tracked id also catches anything
+    // created after the failure point.
+    const stale = await db.select().from(users).where(like(users.email, 'api-smoke-%'));
+    for (const user of stale) {
       await db.delete(matches).where(eq(matches.createdBy, user.id));
       await db.delete(teams).where(eq(teams.ownerId, user.id));
-      if (createdPlayerIds.length > 0) {
-        await db.delete(players).where(inArray(players.id, createdPlayerIds));
-      }
+      await db.delete(players).where(eq(players.createdBy, user.id));
+      await db.delete(sessions).where(eq(sessions.userId, user.id));
       await db.delete(users).where(eq(users.id, user.id));
     }
   }
@@ -307,6 +316,12 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('✗ api-smoke failed:', err);
+  // An assertion failure already printed what broke; anything else is a
+  // genuine crash and deserves the stack.
+  if (err instanceof AssertionFailed) {
+    console.error('\n✗ api-smoke failed');
+  } else {
+    console.error('✗ api-smoke crashed:', err);
+  }
   process.exit(1);
 });
