@@ -21,6 +21,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "smoke:score": "pnpm --filter web smoke:score",
+    "smoke:p1": "pnpm --filter web smoke:p1",
     "db:generate": "pnpm --filter web db:generate",
     "db:migrate": "pnpm --filter web db:migrate",
     "db:seed": "pnpm --filter web db:seed",

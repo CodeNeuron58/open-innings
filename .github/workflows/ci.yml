@@ -50,3 +50,78 @@ jobs:
           # A real connection isn't needed to build — nothing runs a query
           # at build time, this just satisfies lib/db/client.ts's read of it.
           DATABASE_URL: postgresql://placeholder
+
+  smoke:
+    name: Smoke tests (live DB + running server)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: open_innings
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/open_innings
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # score-smoke.ts and p1-smoke.ts both play out a full match against the
+      # one seeded live match, so they can't share a database — each gets its
+      # own reset/migrate/seed and its own server instance (different ports,
+      # so there's no race waiting for the previous one to release its port).
+      # `next start` reads PORT from the environment — passing -p through two
+      # layers of pnpm filtering (root -> --filter web -> next) mangles the
+      # flag, PORT sidesteps that entirely.
+      - name: score-smoke — reset, seed, run
+        run: |
+          pnpm db:reset
+          pnpm db:migrate
+          pnpm db:seed
+          PORT=3000 pnpm start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/health > /dev/null && break
+            sleep 1
+          done
+          SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:score
+          fuser -k 3000/tcp || true
+
+      - name: p1-smoke — reset, seed, run
+        run: |
+          pnpm db:reset
+          pnpm db:migrate
+          pnpm db:seed
+          PORT=3001 pnpm start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3001/api/health > /dev/null && break
+            sleep 1
+          done
+          SMOKE_BASE_URL=http://localhost:3001 pnpm smoke:p1
+          fuser -k 3001/tcp || true
