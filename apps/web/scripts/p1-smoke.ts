@@ -18,7 +18,7 @@
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:p1
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import {
   users,
@@ -28,6 +28,7 @@ import {
   teamMembers,
   matches,
   innings as inningsTable,
+  ballEvents,
 } from '../lib/db/schema';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
@@ -70,10 +71,27 @@ async function main() {
   const signedIn = await fetch(`${BASE}/dashboard`, { headers: { cookie }, redirect: 'manual' });
   ok(signedIn.status === 200, 'signed-in /dashboard → 200 (guard is a no-op)', signedIn.status);
 
+  // Every form page imports its server action module. If an action fails to
+  // load — a bad import, a broken re-export — the page 500s at render rather
+  // than on submit, so rendering them all is a cheap smoke test of the action
+  // layer that a pure API test can't give us.
+  console.log('form pages render');
+  for (const path of ['/matches/new', '/teams/new', '/players/new', '/login', '/signup']) {
+    const res = await fetch(`${BASE}${path}`, { headers: { cookie }, redirect: 'manual' });
+    ok(res.status === 200 || res.status === 307, `${path} renders`, res.status);
+  }
+
   // ── 2. Extras with variable runs ────────────────────────────────────────────
   console.log('extras with variable runs');
-  const [match] = await db.select().from(matches).where(eq(matches.status, 'live')).limit(1);
-  if (!match) throw new Error('No live match — reseed the DB');
+  // The seeded fixture, by age rather than status — score-smoke leaves the
+  // match completed, and these two scripts share one database in CI.
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.createdBy, dev.id))
+    .orderBy(asc(matches.createdAt))
+    .limit(1);
+  if (!match) throw new Error('No seeded match — run: pnpm db:seed');
   const [inn1] = await db
     .select()
     .from(inningsTable)
@@ -82,6 +100,29 @@ async function main() {
   if (!inn1?.openingStrikerId || !inn1.openingNonStrikerId || !inn1.openingBowlerId) {
     throw new Error('Seeded innings is missing openers');
   }
+
+  // Start from a pristine innings — the extras assertions below all bowl to
+  // the opening pair, so any leftover ball would have rotated the strike.
+  // score-smoke runs first in CI and leaves this match completed, so the
+  // match status has to come back too.
+  const stale2 = await db
+    .select()
+    .from(inningsTable)
+    .where(and(eq(inningsTable.matchId, match.id), eq(inningsTable.inningsNumber, 2)))
+    .limit(1);
+  if (stale2[0]) {
+    await db.delete(ballEvents).where(eq(ballEvents.inningsId, stale2[0].id));
+    await db.delete(inningsTable).where(eq(inningsTable.id, stale2[0].id));
+  }
+  await db.delete(ballEvents).where(eq(ballEvents.inningsId, inn1.id));
+  await db
+    .update(inningsTable)
+    .set({ runs: 0, wickets: 0, ballsBowled: 0, extras: 0, status: 'in_progress' })
+    .where(eq(inningsTable.id, inn1.id));
+  await db
+    .update(matches)
+    .set({ status: 'live', completedAt: null, result: null, winningTeamId: null, summary: null })
+    .where(eq(matches.id, match.id));
 
   const url = `${BASE}/api/matches/${match.id}/ball`;
   const post = async (body: Record<string, unknown>) => {

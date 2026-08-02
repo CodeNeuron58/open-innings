@@ -125,3 +125,17 @@ jobs:
           done
           SMOKE_BASE_URL=http://localhost:3001 pnpm smoke:p1
           fuser -k 3001/tcp || true
+
+      # api-smoke drives the REST surface the mobile app uses, authenticating
+      # with Authorization: Bearer rather than a cookie. It creates its own
+      # user and deletes everything it made, so unlike the two above it needs
+      # no reset — it can run against whatever state p1-smoke left behind.
+      - name: api-smoke — run
+        run: |
+          PORT=3002 pnpm start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3002/api/health > /dev/null && break
+            sleep 1
+          done
+          SMOKE_BASE_URL=http://localhost:3002 pnpm smoke:api
+          fuser -k 3002/tcp || true

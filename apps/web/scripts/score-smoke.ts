@@ -26,6 +26,7 @@ import {
   teamMembers,
   matches,
   innings as inningsTable,
+  ballEvents,
 } from '../lib/db/schema';
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
@@ -68,8 +69,16 @@ async function main() {
   });
   const cookie = `oi_session=${token}`;
 
-  const [match] = await db.select().from(matches).where(eq(matches.status, 'live')).limit(1);
-  if (!match) throw new Error('No live match — reseed the DB');
+  // Take the seeded fixture (oldest match owned by the dev user) rather than
+  // "any live match". This script finishes by completing the match, so a
+  // status filter here would find nothing on the second run.
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.createdBy, dev.id))
+    .orderBy(asc(matches.createdAt))
+    .limit(1);
+  if (!match) throw new Error('No seeded match — run: pnpm db:seed');
   const [inn1] = await db
     .select()
     .from(inningsTable)
@@ -78,6 +87,37 @@ async function main() {
   if (!inn1?.openingStrikerId || !inn1.openingNonStrikerId || !inn1.openingBowlerId) {
     throw new Error('Seeded innings is missing openers');
   }
+
+  // Start from a pristine innings.
+  //
+  // Everything below assumes the opening pair is still at the crease, so any
+  // ball left over from an earlier run shifts the strike and the first
+  // assertion fails with a confusing BATSMAN_NOT_ON_FIELD. A run that dies
+  // part-way used to poison every subsequent run until someone reseeded by
+  // hand; clearing here makes the script re-runnable and keeps CI honest.
+  await db.delete(ballEvents).where(eq(ballEvents.inningsId, inn1.id));
+  await db
+    .update(inningsTable)
+    .set({ runs: 0, wickets: 0, ballsBowled: 0, extras: 0, status: 'in_progress' })
+    .where(eq(inningsTable.id, inn1.id));
+
+  // A second innings from an earlier run would make the chase assertions
+  // pass against stale rows.
+  const staleInnings = await db
+    .select()
+    .from(inningsTable)
+    .where(and(eq(inningsTable.matchId, match.id), eq(inningsTable.inningsNumber, 2)))
+    .limit(1);
+  if (staleInnings[0]) {
+    await db.delete(ballEvents).where(eq(ballEvents.inningsId, staleInnings[0].id));
+    await db.delete(inningsTable).where(eq(inningsTable.id, staleInnings[0].id));
+  }
+
+  // The match itself may have been completed by a previous run's chase.
+  await db
+    .update(matches)
+    .set({ status: 'live', completedAt: null, result: null, winningTeamId: null, summary: null })
+    .where(eq(matches.id, match.id));
 
   const squad = async (teamId: string) =>
     db

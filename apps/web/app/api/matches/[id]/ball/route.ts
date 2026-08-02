@@ -38,6 +38,8 @@ import {
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
+import { enforceRateLimit } from '@/lib/api/request-meta';
+import { toErrorResponse } from '@/lib/api/respond';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,6 +51,11 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
     if (!userId) {
       return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
     }
+
+    // Keyed on the scorer, not the IP — a whole club shares one IP behind
+    // NAT, and throttling the second scorer in the room would be a bug.
+    // Generous: a real over is six taps, this allows a sustained two a second.
+    enforceRateLimit(request, 'ball', { max: 120, windowMs: 60_000, identity: userId });
 
     const body = (await request.json()) as BallEventInput;
 
@@ -157,8 +164,9 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
 
     return NextResponse.json({ state: nextState });
   } catch (err) {
-    console.error('POST /api/matches/[id]/ball failed', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    // Shared mapper so a rate-limit rejection surfaces as 429 rather than
+    // being flattened into a 500 alongside genuine faults.
+    return toErrorResponse(err);
   }
 }
 

@@ -1,25 +1,41 @@
 /**
- * Open Innings — local auth (email + password).
+ * Open Innings — resolving "who is asking?" on the server.
  *
- * Drop-in replacement for the previous Supabase-based `getSupabaseServerClient`.
- * Reads the session cookie, looks up the user, returns the user (or null).
+ * Two transports carry the same credential:
  *
- * For DB queries that need a "current user id", use `getUserId()`.
+ *   - the web sends the session cookie,
+ *   - native clients send `Authorization: Bearer <token>`.
+ *
+ * Both are the same opaque token issued by `createSession`, so both resolve
+ * through `getUserFromToken`. There is no separate mobile credential: revoking
+ * a session logs the user out everywhere.
+ *
+ * Resolution lives here rather than in each route handler because the whole
+ * query layer (`lib/db/queries`) calls `getUserId()` for its ownership scoping.
+ * Teaching this one function about bearer tokens makes every existing query
+ * work for mobile without touching a single call site.
  */
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { SESSION_COOKIE, getUserFromToken, readBearerToken } from '@/lib/auth/session';
 import type { User } from '@/lib/db/schema';
 
 /**
- * Get the user behind the current request's session cookie.
- * Returns null if not signed in or session is invalid.
+ * Get the user behind the current request, from either transport.
+ * Returns null if not signed in or the session is invalid.
  *
- * Use in server components, route handlers, and server actions.
+ * Bearer wins when both are present: an explicit header is a deliberate act,
+ * a cookie is ambient.
+ *
+ * Works in server components, route handlers, and server actions — `headers()`
+ * and `cookies()` are both available in all three.
  */
 export async function getCurrentUser(): Promise<User | null> {
+  const hdrs = await headers();
+  const bearer = readBearerToken(hdrs);
+  if (bearer) return getUserFromToken(bearer);
+
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  return getUserFromToken(token);
+  return getUserFromToken(cookieStore.get(SESSION_COOKIE)?.value);
 }
 
 /**
@@ -33,25 +49,14 @@ export async function getUserId(): Promise<string | null> {
 }
 
 /**
- * Get the user behind an API request, accepting either transport:
- * `Authorization: Bearer <token>` (native clients) or the session cookie
- * (the web app). Both carry the same opaque token, so both resolve through
- * `getUserFromToken` — there is no separate mobile credential to revoke.
- *
- * Bearer wins when both are present: an explicit header is a deliberate act,
- * a cookie is ambient.
- *
- * Use in route handlers. Server components and actions should keep using
- * `getCurrentUser()` — they have no Request to read.
+ * The raw session token for the current request, whichever transport carried
+ * it. Sign-out needs this to destroy the right row.
  */
-export async function getCurrentUserForRequest(request: Request): Promise<User | null> {
-  const bearer = readBearerToken(request);
-  if (bearer) return getUserFromToken(bearer);
-  return getCurrentUser();
-}
+export async function getSessionToken(): Promise<string | undefined> {
+  const hdrs = await headers();
+  const bearer = readBearerToken(hdrs);
+  if (bearer) return bearer;
 
-/** Shorthand for `getCurrentUserForRequest`, when only the id is needed. */
-export async function getUserIdForRequest(request: Request): Promise<string | null> {
-  const user = await getCurrentUserForRequest(request);
-  return user?.id ?? null;
+  const cookieStore = await cookies();
+  return cookieStore.get(SESSION_COOKIE)?.value;
 }

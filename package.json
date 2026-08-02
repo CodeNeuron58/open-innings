@@ -29,7 +29,8 @@
     "db:reset": "pnpm --filter web db:reset",
     "db:studio": "pnpm --filter web db:studio",
     "format": "prettier --write \"**/*.{ts,tsx,md,json,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,yml,yaml}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,md,json,yml,yaml}\"",
+    "smoke:api": "pnpm --filter web smoke:api"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",

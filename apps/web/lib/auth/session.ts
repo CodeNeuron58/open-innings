@@ -30,9 +30,12 @@ export function generateSessionToken(): string {
  * Native clients can't use cookies, so they send the same opaque token this
  * module already issues — there is no second credential type, just a second
  * transport. Returns undefined if the header is absent or malformed.
+ *
+ * Takes anything header-shaped so it works with both a `Request.headers` and
+ * the `headers()` object from `next/headers`.
  */
-export function readBearerToken(request: Request): string | undefined {
-  const header = request.headers.get('authorization');
+export function readBearerToken(headers: { get(name: string): string | null }): string | undefined {
+  const header = headers.get('authorization');
   if (!header) return undefined;
 
   const [scheme, ...rest] = header.split(' ');

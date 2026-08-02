@@ -2,51 +2,58 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { getTeam, updateTeam, addPlayerToTeam, removeTeamMember } from '@/lib/db/queries';
-import { getUserId } from '@/lib/auth/local';
-
-/** User-facing failures redirect back to the team detail page. */
-function fail(teamId: string, message: string): never {
-  redirect(`/teams/${teamId}?error=${encodeURIComponent(message)}`);
-}
-
-async function requireOwnedTeam(teamId: string) {
-  const userId = await getUserId();
-  if (!userId) redirect('/login');
-  const team = await getTeam(teamId);
-  if (!team || team.ownerId !== userId) redirect('/teams');
-  return { team, userId };
-}
+import { updateTeamSchema, teamMemberSchema } from '@open-innings/shared';
+import {
+  updateOwnedTeam,
+  addMemberToOwnedTeam,
+  removeMemberFromOwnedTeam,
+} from '@/lib/services/squads';
+import { formValues, parseForm, redirectWithError } from '@/lib/api/form';
 
 export async function updateTeamAction(teamId: string, formData: FormData): Promise<void> {
-  const { userId } = await requireOwnedTeam(teamId);
+  const page = `/teams/${teamId}`;
 
-  const name = (formData.get('name') as string)?.trim();
-  if (!name) fail(teamId, 'Team name is required');
-  const shortName = (formData.get('shortName') as string)?.trim() || undefined;
-  const homeGround = (formData.get('homeGround') as string)?.trim() || undefined;
+  const input = parseForm(
+    updateTeamSchema,
+    formValues(formData, ['name', 'shortName', 'homeGround']),
+    page,
+  );
 
-  await updateTeam(teamId, userId, { name, shortName, homeGround });
-  revalidatePath(`/teams/${teamId}`);
+  try {
+    await updateOwnedTeam(teamId, input);
+  } catch (error) {
+    redirectWithError(page, error);
+  }
+
+  revalidatePath(page);
   revalidatePath('/teams');
-  redirect(`/teams/${teamId}`);
+  redirect(page);
 }
 
 export async function addTeamMemberAction(teamId: string, formData: FormData): Promise<void> {
-  await requireOwnedTeam(teamId);
+  const page = `/teams/${teamId}`;
 
-  const playerId = formData.get('playerId') as string;
-  if (!playerId) fail(teamId, 'Pick a player to add');
+  const { playerId } = parseForm(teamMemberSchema, formValues(formData, ['playerId']), page);
 
-  await addPlayerToTeam(teamId, playerId);
-  revalidatePath(`/teams/${teamId}`);
-  redirect(`/teams/${teamId}`);
+  try {
+    await addMemberToOwnedTeam(teamId, playerId);
+  } catch (error) {
+    redirectWithError(page, error);
+  }
+
+  revalidatePath(page);
+  redirect(page);
 }
 
 export async function removeTeamMemberAction(teamId: string, playerId: string): Promise<void> {
-  await requireOwnedTeam(teamId);
+  const page = `/teams/${teamId}`;
 
-  await removeTeamMember(teamId, playerId);
-  revalidatePath(`/teams/${teamId}`);
-  redirect(`/teams/${teamId}`);
+  try {
+    await removeMemberFromOwnedTeam(teamId, playerId);
+  } catch (error) {
+    redirectWithError(page, error);
+  }
+
+  revalidatePath(page);
+  redirect(page);
 }

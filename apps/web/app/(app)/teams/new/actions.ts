@@ -2,26 +2,26 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createTeam, addPlayerToTeam } from '@/lib/db/queries';
+import { createTeamSchema } from '@open-innings/shared';
+import { createTeamFor } from '@/lib/services/squads';
+import { formValues, parseForm, redirectWithError } from '@/lib/api/form';
 
-/** User-facing failures redirect back to the form — never the error page. */
-function fail(message: string): never {
-  redirect(`/teams/new?error=${encodeURIComponent(message)}`);
-}
+const FORM = '/teams/new';
 
 export async function createTeamAction(formData: FormData): Promise<void> {
-  const name = (formData.get('name') as string)?.trim();
-  if (!name) fail('Team name is required');
+  const input = parseForm(
+    createTeamSchema,
+    formValues(formData, ['name', 'shortName', 'homeGround']),
+    FORM,
+  );
 
-  const shortName = (formData.get('shortName') as string)?.trim() || undefined;
-  const homeGround = (formData.get('homeGround') as string)?.trim() || undefined;
+  // Multi-value field, so it can't come from `formValues`.
+  const playerIds = (formData.getAll('playerIds') as string[]).filter(Boolean);
 
-  const team = await createTeam({ name, shortName, homeGround });
-  if (!team) fail('Could not create team — make sure you are signed in');
-
-  const playerIds = formData.getAll('playerIds') as string[];
-  for (const playerId of playerIds) {
-    if (playerId) await addPlayerToTeam(team.id, playerId);
+  try {
+    await createTeamFor(input, playerIds);
+  } catch (error) {
+    redirectWithError(FORM, error);
   }
 
   revalidatePath('/teams');
