@@ -9,7 +9,7 @@ import {
   updateInningCache,
   getTeamMembers,
 } from '@/lib/db/queries';
-import { resolveBattingSides } from '@/lib/toss';
+import { resolveBattingSides } from '@open-innings/shared';
 
 /** User-facing failures redirect back to the form — never the error page. */
 function fail(message: string): never {

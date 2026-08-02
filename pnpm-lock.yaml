@@ -32,6 +32,9 @@ importers:
       '@open-innings/scoring':
         specifier: workspace:*
         version: link:../../packages/scoring
+      '@open-innings/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -107,6 +110,19 @@ importers:
         version: 2.1.9(@types/node@24.13.3)
 
   packages/scoring:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@24.13.3)
+
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.6.3

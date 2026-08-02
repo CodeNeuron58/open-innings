@@ -7,7 +7,7 @@
  * For DB queries that need a "current user id", use `getUserId()`.
  */
 import { cookies } from 'next/headers';
-import { SESSION_COOKIE, getUserFromToken } from '@/lib/auth/session';
+import { SESSION_COOKIE, getUserFromToken, readBearerToken } from '@/lib/auth/session';
 import type { User } from '@/lib/db/schema';
 
 /**
@@ -29,5 +29,29 @@ export async function getCurrentUser(): Promise<User | null> {
  */
 export async function getUserId(): Promise<string | null> {
   const user = await getCurrentUser();
+  return user?.id ?? null;
+}
+
+/**
+ * Get the user behind an API request, accepting either transport:
+ * `Authorization: Bearer <token>` (native clients) or the session cookie
+ * (the web app). Both carry the same opaque token, so both resolve through
+ * `getUserFromToken` — there is no separate mobile credential to revoke.
+ *
+ * Bearer wins when both are present: an explicit header is a deliberate act,
+ * a cookie is ambient.
+ *
+ * Use in route handlers. Server components and actions should keep using
+ * `getCurrentUser()` — they have no Request to read.
+ */
+export async function getCurrentUserForRequest(request: Request): Promise<User | null> {
+  const bearer = readBearerToken(request);
+  if (bearer) return getUserFromToken(bearer);
+  return getCurrentUser();
+}
+
+/** Shorthand for `getCurrentUserForRequest`, when only the id is needed. */
+export async function getUserIdForRequest(request: Request): Promise<string | null> {
+  const user = await getCurrentUserForRequest(request);
   return user?.id ?? null;
 }

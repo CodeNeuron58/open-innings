@@ -25,6 +25,24 @@ export function generateSessionToken(): string {
 }
 
 /**
+ * Pull the session token out of an `Authorization: Bearer <token>` header.
+ *
+ * Native clients can't use cookies, so they send the same opaque token this
+ * module already issues — there is no second credential type, just a second
+ * transport. Returns undefined if the header is absent or malformed.
+ */
+export function readBearerToken(request: Request): string | undefined {
+  const header = request.headers.get('authorization');
+  if (!header) return undefined;
+
+  const [scheme, ...rest] = header.split(' ');
+  if (scheme?.toLowerCase() !== 'bearer') return undefined;
+
+  const token = rest.join(' ').trim();
+  return token.length > 0 ? token : undefined;
+}
+
+/**
  * Create a new session for `userId`. Returns the raw token — store this in
  * the cookie. The DB stores the SHA-256 hash, never the raw token.
  */

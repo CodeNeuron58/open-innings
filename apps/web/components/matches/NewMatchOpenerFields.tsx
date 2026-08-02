@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Shield, Coins, Users } from 'lucide-react';
-import { resolveBattingSides } from '@/lib/toss';
+import { resolveBattingSides } from '@open-innings/shared';
 import { FormSection, Label, Select } from '@/components/ui';
 
 type Team = { id: string; name: string };

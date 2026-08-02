@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
 
   // Workspace packages ship raw TypeScript (no build step) so the same source
   // is consumed by Next.js here and by Metro in apps/mobile.
-  transpilePackages: ['@open-innings/scoring'],
+  transpilePackages: ['@open-innings/scoring', '@open-innings/shared'],
 
   async headers() {
     return [
