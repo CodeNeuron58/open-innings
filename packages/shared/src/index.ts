@@ -55,6 +55,14 @@ export {
   type NextBatterInput,
 } from './schemas';
 
-export { isApiError, HTTP, type ApiError, type AuthResponse, type SessionResponse } from './api';
+export {
+  isApiError,
+  HTTP,
+  type ApiError,
+  type AuthResponse,
+  type SessionResponse,
+  type MatchSummary,
+  type MatchListResponse,
+} from './api';
 
 export { resolveBattingSides } from './toss';

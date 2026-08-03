@@ -44,6 +44,36 @@ export type SessionResponse = {
   user: AuthResponse['user'] | null;
 };
 
+/**
+ * A match as the list and detail endpoints return it.
+ *
+ * A structural subset of the `matches` row. The mobile client can't import the
+ * Drizzle type — that would pull the `postgres` driver into a React Native
+ * bundle — so the fields it actually reads are declared here instead.
+ *
+ * Narrower than the row on purpose: adding a column shouldn't oblige the app
+ * to know about it. But renaming one the app *does* read must break
+ * compilation, which is why this lives in shared rather than in apps/mobile.
+ */
+export type MatchSummary = {
+  id: string;
+  title: string | null;
+  venue: string | null;
+  status: string;
+  oversPerInnings: number;
+  teamAId: string;
+  teamBId: string;
+  result: string | null;
+  summary: string | null;
+  startedAt: string | null;
+  createdAt: string;
+};
+
+/** `GET /api/matches` */
+export type MatchListResponse = {
+  matches: MatchSummary[];
+};
+
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */
 export const HTTP = {
   ok: 200,
