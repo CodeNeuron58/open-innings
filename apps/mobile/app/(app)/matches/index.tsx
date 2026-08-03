@@ -5,60 +5,25 @@
  * authenticated path end to end: a bearer token out of the keystore, an
  * authorised request, and rows scoped server-side to this user.
  */
-import { useCallback, useEffect, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import type { MatchSummary } from '@open-innings/shared';
-import { useSession } from '../../lib/session';
-import { api, ApiError, NetworkError } from '../../lib/api';
-import { Button, ErrorBanner, LoadingScreen } from '../../components/ui';
+import { useSession } from '../../../lib/session';
+import { api } from '../../../lib/api';
+import { useApiQuery } from '../../../lib/use-api';
+import { Button, ErrorBanner, LoadingScreen } from '../../../components/ui';
 
 export default function Matches() {
-  const { user, token, signOut } = useSession();
-
-  const [matches, setMatches] = useState<MatchSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(
-    async (signal?: AbortSignal) => {
-      if (!token) return;
-      setError(null);
-      try {
-        const result = await api.matches(token, signal);
-        setMatches(result.matches);
-      } catch (err) {
-        if (signal?.aborted) return;
-        // A 401 means the session died while the app was open — sign out so
-        // the guard sends them to login rather than leaving a dead screen.
-        if (err instanceof ApiError && err.isUnauthenticated) {
-          await signOut();
-          return;
-        }
-        setError(
-          err instanceof NetworkError || err instanceof ApiError
-            ? err.message
-            : 'Could not load matches.',
-        );
-        setMatches([]);
-      }
-    },
-    [token, signOut],
+  const router = useRouter();
+  const { user, signOut } = useSession();
+  const { data, error, isLoading, isRefreshing, refresh } = useApiQuery((token, signal) =>
+    api.matches(token, signal),
   );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+  const matches = data?.matches ?? null;
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
-
-  if (matches === null && !error) return <LoadingScreen />;
+  if (isLoading) return <LoadingScreen />;
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -87,19 +52,32 @@ export default function Matches() {
         data={matches ?? []}
         keyExtractor={(m) => m.id}
         contentContainerClassName="px-5 pb-8 gap-3"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         ListEmptyComponent={
           error ? null : (
-            <View className="border-border bg-card mt-6 rounded-2xl border p-6">
+            <View className="border-border bg-card mt-6 gap-3 rounded-2xl border p-6">
               <Text className="text-foreground text-base font-semibold">No matches yet</Text>
-              <Text className="text-muted-foreground mt-1 text-sm">
-                Matches you create will appear here. Creating and scoring them from the app is next.
+              <Text className="text-muted-foreground text-sm">
+                You&apos;ll need players and two teams first, then you can start scoring.
               </Text>
+              <Button label="Start a match" onPress={() => router.push('/matches/new')} />
             </View>
           )
         }
         renderItem={({ item }) => <MatchRow match={item} />}
       />
+
+      <View className="border-border gap-3 border-t px-5 py-3">
+        <Button label="Start a match" onPress={() => router.push('/matches/new')} />
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Button label="Teams" variant="secondary" onPress={() => router.push('/teams')} />
+          </View>
+          <View className="flex-1">
+            <Button label="Players" variant="secondary" onPress={() => router.push('/players')} />
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }

@@ -1,3 +1,5 @@
+import type { BattingStyle, BowlingStyle, PlayerRole } from './enums';
+
 /**
  * The API's error contract.
  *
@@ -72,6 +74,70 @@ export type MatchSummary = {
 /** `GET /api/matches` */
 export type MatchListResponse = {
   matches: MatchSummary[];
+};
+
+/** A player as the API returns it. Structural subset of the `players` row. */
+export type PlayerSummary = {
+  id: string;
+  fullName: string;
+  shortName: string | null;
+  battingStyle: BattingStyle | null;
+  bowlingStyle: BowlingStyle | null;
+  role: PlayerRole | null;
+};
+
+export type PlayerListResponse = { players: PlayerSummary[] };
+export type PlayerResponse = { player: PlayerSummary };
+
+/** A team as the API returns it. Structural subset of the `teams` row. */
+export type TeamSummary = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  homeGround: string | null;
+};
+
+export type TeamListResponse = { teams: TeamSummary[] };
+export type TeamResponse = { team: TeamSummary };
+
+/** `GET /api/teams/[id]` — the team plus its squad. */
+export type TeamDetailResponse = {
+  team: TeamSummary;
+  members: PlayerSummary[];
+};
+
+/** Squad mutations return the squad as it now stands, so the client can't drift. */
+export type TeamMembersResponse = { members: PlayerSummary[] };
+
+/** An innings as the API returns it. */
+export type InningsSummary = {
+  id: string;
+  matchId: string;
+  inningsNumber: number;
+  battingTeamId: string;
+  bowlingTeamId: string;
+  runs: number;
+  wickets: number;
+  ballsBowled: number;
+  extras: number;
+  target: number | null;
+  status: string;
+  maxWickets: number;
+  openingStrikerId: string | null;
+  openingNonStrikerId: string | null;
+  openingBowlerId: string | null;
+};
+
+/** `POST /api/matches` */
+export type CreateMatchResponse = {
+  match: MatchSummary;
+  inning: InningsSummary;
+};
+
+/** `GET /api/matches/[id]` */
+export type MatchDetailResponse = {
+  match: MatchSummary;
+  innings: InningsSummary[];
 };
 
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */

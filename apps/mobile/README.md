@@ -74,10 +74,21 @@ Expo's own internals with errors like `Unable to resolve module whatwg-fetch`.
 `nativewind`, but the Babel JSX transform emits that import from _application_
 code, so this package has to resolve it directly. Don't remove it.
 
-**Route types are generated, and gitignored.** `.expo/types/router.d.ts` is
-written by the dev server, so on a fresh clone `tsc` accepts any `href` string
-without checking it. Run `pnpm start` once before trusting a typecheck to catch
-a bad route.
+**Route types are generated, gitignored, and go stale.**
+`.expo/types/router.d.ts` is written by `expo start` / `expo export`, so on a
+fresh clone `tsc` accepts any `href` string without checking it.
+
+The nastier case is staleness: **add a screen and the existing type file does
+not update**, so every `href` to your new route fails typecheck against the old
+route list — which looks like you wrote the path wrong. If that happens:
+
+```sh
+rm -rf .expo/types && pnpm start   # or: npx expo export --platform android
+```
+
+Regenerating on a schedule isn't automatic. Treat a sudden burst of "not
+assignable to parameter of type" errors on routes you know exist as stale
+types, not as a real error.
 
 **iOS is not configured, and won't be.** AGPL-3.0 is incompatible with the App
 Store's terms — Apple pulled VLC and GNU Go over exactly this. Google Play and

@@ -15,6 +15,17 @@ import {
   type AuthResponse,
   type SessionResponse,
   type MatchListResponse,
+  type MatchDetailResponse,
+  type CreateMatchInput,
+  type CreateMatchResponse,
+  type PlayerListResponse,
+  type PlayerResponse,
+  type CreatePlayerInput,
+  type TeamListResponse,
+  type TeamResponse,
+  type TeamDetailResponse,
+  type TeamMembersResponse,
+  type CreateTeamInput,
 } from '@open-innings/shared';
 import { API_BASE, MISSING_API_BASE_MESSAGE } from './config';
 
@@ -120,4 +131,39 @@ export const api = {
 
   matches: (token: string, signal?: AbortSignal) =>
     apiFetch<MatchListResponse>('/api/matches', { token, signal }),
+
+  match: (token: string, id: string, signal?: AbortSignal) =>
+    apiFetch<MatchDetailResponse>(`/api/matches/${id}`, { token, signal }),
+
+  createMatch: (token: string, body: CreateMatchInput) =>
+    apiFetch<CreateMatchResponse>('/api/matches', { method: 'POST', body, token }),
+
+  players: (token: string, signal?: AbortSignal) =>
+    apiFetch<PlayerListResponse>('/api/players', { token, signal }),
+
+  createPlayer: (token: string, body: CreatePlayerInput) =>
+    apiFetch<PlayerResponse>('/api/players', { method: 'POST', body, token }),
+
+  teams: (token: string, signal?: AbortSignal) =>
+    apiFetch<TeamListResponse>('/api/teams', { token, signal }),
+
+  createTeam: (token: string, body: CreateTeamInput & { playerIds?: string[] }) =>
+    apiFetch<TeamResponse>('/api/teams', { method: 'POST', body, token }),
+
+  team: (token: string, id: string, signal?: AbortSignal) =>
+    apiFetch<TeamDetailResponse>(`/api/teams/${id}`, { token, signal }),
+
+  addTeamMember: (token: string, teamId: string, playerId: string) =>
+    apiFetch<TeamMembersResponse>(`/api/teams/${teamId}/members`, {
+      method: 'POST',
+      body: { playerId },
+      token,
+    }),
+
+  removeTeamMember: (token: string, teamId: string, playerId: string) =>
+    apiFetch<TeamMembersResponse>(`/api/teams/${teamId}/members`, {
+      method: 'DELETE',
+      body: { playerId },
+      token,
+    }),
 };
