@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Open Innings",
+    "slug": "open-innings",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "openinnings",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "app.openinnings",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F2A20"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

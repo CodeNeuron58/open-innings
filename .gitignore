@@ -53,3 +53,12 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Expo / React Native (apps/mobile)
+.expo/
+.expo-export/
+android/
+ios/
+*.keystore
+!debug.keystore
+expo-env.d.ts
