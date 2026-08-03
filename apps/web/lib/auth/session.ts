@@ -9,12 +9,26 @@
  * (via middleware) gives a sliding window without forcing re-login.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { sessions, users, type User } from '@/lib/db/schema';
 
 export const SESSION_COOKIE = 'oi_session';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * How far the expiry must have drifted before a read bothers to extend it.
+ *
+ * The sliding window used to be refreshed on *every* lookup, which made every
+ * authenticated read a write. The ownership scoping in lib/db/queries calls
+ * `getUserId()` per query, so one dashboard render issued three UPDATEs
+ * against the same row — concurrently, so they contended on its lock too. A
+ * mobile client polling a live match would do that every few seconds.
+ *
+ * A day of granularity is invisible against a 30-day window: the session still
+ * slides, it just stops rewriting a row to move an expiry by milliseconds.
+ */
+const SESSION_REFRESH_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 1 day
 
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
@@ -65,7 +79,31 @@ export async function createSession(
     expiresAt,
   });
 
+  // Opportunistic sweep. Expired rows are otherwise only removed when someone
+  // happens to present one, so a user who signs in on a new device every month
+  // and never returns to the old one leaves those rows forever.
+  //
+  // Hooked to session creation rather than a cron because it needs no
+  // infrastructure and logins are rare enough that an indexed DELETE here is
+  // free. Deliberately not awaited — a slow sweep must never delay a sign-in.
+  void purgeExpiredSessions();
+
   return { token, expiresAt };
+}
+
+/**
+ * Delete every session past its expiry.
+ *
+ * Uses the `sessions_expires_idx` index. Safe to call concurrently and safe to
+ * call often; it only ever removes rows `getUserFromToken` would have rejected.
+ */
+export async function purgeExpiredSessions(): Promise<void> {
+  try {
+    await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
+  } catch (error) {
+    // Housekeeping must never break the request that triggered it.
+    console.error('[session] failed to purge expired sessions', error);
+  }
 }
 
 /**
@@ -98,9 +136,15 @@ export async function getUserFromToken(token: string | undefined): Promise<User 
     return null;
   }
 
-  // Sliding window: extend on every successful read.
-  const newExpiry = new Date(Date.now() + SESSION_TTL_MS);
-  await db.update(sessions).set({ expiresAt: newExpiry }).where(eq(sessions.id, row.session.id));
+  // Sliding window, but only when the expiry has actually drifted — see
+  // SESSION_REFRESH_THRESHOLD_MS. Most reads skip the write entirely.
+  const target = Date.now() + SESSION_TTL_MS;
+  if (target - row.session.expiresAt.getTime() > SESSION_REFRESH_THRESHOLD_MS) {
+    await db
+      .update(sessions)
+      .set({ expiresAt: new Date(target) })
+      .where(eq(sessions.id, row.session.id));
+  }
 
   return row.user;
 }

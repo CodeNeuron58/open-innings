@@ -14,6 +14,22 @@
  * query layer (`lib/db/queries`) calls `getUserId()` for its ownership scoping.
  * Teaching this one function about bearer tokens makes every existing query
  * work for mobile without touching a single call site.
+ *
+ * That does mean one request can resolve the session several times — a
+ * dashboard listing matches, players and teams resolves it three times.
+ *
+ * Do not reach for React's `cache()` to fix that. It is the documented answer
+ * for Server Components, but it is a **no-op in route handlers**: measured on
+ * this codebase, two calls inside one handler both executed and the counter
+ * rose by two on every request. (It doesn't leak between requests either, so
+ * it's inert rather than dangerous — just useless here, and route handlers are
+ * the entire mobile surface.)
+ *
+ * The cost that actually mattered was the write, not the read: the sliding
+ * window used to UPDATE on every lookup. `session.ts` now only writes when the
+ * expiry has genuinely drifted, so repeat lookups are cheap indexed SELECTs.
+ * If those ever show up in a profile, the fix is AsyncLocalStorage, not
+ * `cache()`.
  */
 import { cookies, headers } from 'next/headers';
 import { SESSION_COOKIE, getUserFromToken, readBearerToken } from '@/lib/auth/session';

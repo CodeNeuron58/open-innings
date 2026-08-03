@@ -16,9 +16,13 @@
  * Prereqs: app running, DB seeded.
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:api
  */
+import { createHash } from 'node:crypto';
 import { eq, like } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import { users, players, teams, matches, sessions } from '../lib/db/schema';
+
+/** Mirrors the hashing in lib/auth/session.ts — the DB never stores raw tokens. */
+const sha256 = (input: string) => createHash('sha256').update(input).digest('hex');
 
 const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
 
@@ -117,6 +121,71 @@ async function main() {
 
     const unauth = await call('POST', '/api/players', { fullName: 'X' }, false);
     ok(unauth.status === 401, 'unauthenticated create → 401', unauth);
+
+    // ── 2b. Reads must not write ────────────────────────────────────────────
+    // The sliding window used to extend expiresAt on every session lookup,
+    // which made every authenticated read a write — and since the query layer
+    // resolves the session once per query, a single screen issued several
+    // UPDATEs against one row. A polling scorer would do that continuously.
+    // session.ts now only writes when the expiry has genuinely drifted; this
+    // asserts that, so the amplification can't quietly come back.
+    const sessionRowBefore = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.tokenHash, sha256(token)))
+      .limit(1);
+    const expiryBefore = sessionRowBefore[0]?.expiresAt.getTime();
+    ok(expiryBefore !== undefined, 'session row is findable by token hash');
+
+    for (let i = 0; i < 5; i++) await call('GET', '/api/auth/session');
+
+    const sessionRowAfter = await db
+      .select()
+      .from(sessions)
+      .where(eq(sessions.tokenHash, sha256(token)))
+      .limit(1);
+    ok(
+      sessionRowAfter[0]?.expiresAt.getTime() === expiryBefore,
+      '5 authenticated reads performed 0 session writes',
+      { before: expiryBefore, after: sessionRowAfter[0]?.expiresAt.getTime() },
+    );
+
+    // ── 2c. Expired sessions get swept ──────────────────────────────────────
+    // Expired rows used to be removed only when someone happened to present
+    // one, so sessions from devices a user never returns to accumulated
+    // forever. createSession now fires an opportunistic purge.
+    const [expired] = await db
+      .insert(sessions)
+      .values({
+        userId: signup.json.user.id as string,
+        tokenHash: sha256(`expired-${Date.now()}`),
+        expiresAt: new Date(Date.now() - 60_000),
+      })
+      .returning();
+
+    // Trigger createSession → purge with a second signup rather than a login.
+    // Section 8 deliberately exhausts the login limiter, and that bucket
+    // outlives the run by 15 minutes — driving this through /login would make
+    // the test pass or fail depending on how recently it last ran.
+    const secondEmail = `api-smoke-${Date.now()}-b@local`;
+    const purgeTrigger = await call(
+      'POST',
+      '/api/auth/signup',
+      { email: secondEmail, password },
+      false,
+    );
+    ok(purgeTrigger.status === 201, 'second signup (purge trigger) → 201', purgeTrigger);
+
+    // The purge is deliberately not awaited server-side — housekeeping must
+    // not delay a sign-in — so poll rather than assert immediately.
+
+    let swept = false;
+    for (let i = 0; i < 15 && !swept; i++) {
+      const rows = await db.select().from(sessions).where(eq(sessions.id, expired!.id)).limit(1);
+      swept = rows.length === 0;
+      if (!swept) await new Promise((r) => setTimeout(r, 200));
+    }
+    ok(swept, 'expired sessions are purged on sign-in');
 
     // ── 3. Players ──────────────────────────────────────────────────────────
     console.log('players');
