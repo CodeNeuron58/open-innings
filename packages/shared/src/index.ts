@@ -74,6 +74,9 @@ export {
   type InningsSummary,
   type CreateMatchResponse,
   type MatchDetailResponse,
+  type ScorerPlayer,
+  type ScorerResponse,
+  type BallResponse,
 } from './api';
 
 export { resolveBattingSides } from './toss';

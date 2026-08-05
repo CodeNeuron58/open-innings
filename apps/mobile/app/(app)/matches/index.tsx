@@ -5,7 +5,7 @@
  * authenticated path end to end: a bearer token out of the keystore, an
  * authorised request, and rows scoped server-side to this user.
  */
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { MatchSummary } from '@open-innings/shared';
@@ -64,7 +64,9 @@ export default function Matches() {
             </View>
           )
         }
-        renderItem={({ item }) => <MatchRow match={item} />}
+        renderItem={({ item }) => (
+          <MatchRow match={item} onPress={() => router.push(`/matches/${item.id}/score`)} />
+        )}
       />
 
       <View className="border-border gap-3 border-t px-5 py-3">
@@ -82,11 +84,16 @@ export default function Matches() {
   );
 }
 
-function MatchRow({ match }: { match: MatchSummary }) {
+function MatchRow({ match, onPress }: { match: MatchSummary; onPress: () => void }) {
   const isLive = match.status === 'live';
 
   return (
-    <View className="border-border bg-card rounded-2xl border p-4">
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Score ${match.title ?? 'match'}`}
+      onPress={onPress}
+      className="border-border bg-card rounded-2xl border p-4 active:opacity-70"
+    >
       <View className="flex-row items-center justify-between">
         <Text className="text-foreground flex-1 text-base font-semibold" numberOfLines={1}>
           {match.title ?? 'Untitled match'}
@@ -108,6 +115,6 @@ function MatchRow({ match }: { match: MatchSummary }) {
       {match.summary ? (
         <Text className="text-foreground mt-2 text-sm font-medium">{match.summary}</Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 }

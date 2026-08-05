@@ -26,7 +26,11 @@ import {
   type TeamDetailResponse,
   type TeamMembersResponse,
   type CreateTeamInput,
+  type ScorerResponse,
+  type BallResponse,
+  type StartSecondInningsInput,
 } from '@open-innings/shared';
+import type { BallEventInput, MatchState } from '@open-innings/scoring';
 import { API_BASE, MISSING_API_BASE_MESSAGE } from './config';
 
 /** A non-2xx response, carrying the server's `{ error }` contract. */
@@ -166,4 +170,34 @@ export const api = {
       body: { playerId },
       token,
     }),
+
+  // ── Scoring ────────────────────────────────────────────────────────────────
+
+  scorer: (token: string, matchId: string, signal?: AbortSignal) =>
+    apiFetch<ScorerResponse>(`/api/matches/${matchId}/scorer`, { token, signal }),
+
+  /** Record a delivery. Returns the replayed state — never patch locally. */
+  postBall: async (token: string, matchId: string, ball: BallEventInput): Promise<MatchState> => {
+    const result = await apiFetch<BallResponse>(`/api/matches/${matchId}/ball`, {
+      method: 'POST',
+      body: ball,
+      token,
+    });
+    return result.state as MatchState;
+  },
+
+  /** Undo the last delivery. The engine drops the event and replays. */
+  undoBall: async (token: string, matchId: string): Promise<MatchState> => {
+    const result = await apiFetch<BallResponse>(`/api/matches/${matchId}/ball`, {
+      method: 'DELETE',
+      token,
+    });
+    return result.state as MatchState;
+  },
+
+  startSecondInnings: (token: string, matchId: string, body: StartSecondInningsInput) =>
+    apiFetch<unknown>(`/api/matches/${matchId}/innings`, { method: 'POST', body, token }),
+
+  endInnings: (token: string, matchId: string) =>
+    apiFetch<unknown>(`/api/matches/${matchId}/innings/end`, { method: 'POST', token }),
 };

@@ -296,6 +296,59 @@ async function main() {
       detailMatch.json.innings?.length,
     );
 
+    // ── 5b. Scorer payload ──────────────────────────────────────────────────
+    // The native scorer loads from one endpoint, so a missing field here is a
+    // blank screen at a ground rather than a caught error.
+    console.log('scorer');
+    const scorer = await call('GET', `/api/matches/${matchId}/scorer`);
+    ok(scorer.status === 200, 'GET scorer → 200', scorer);
+
+    const scorerState = scorer.json.state as {
+      currentInnings?: { strikerId?: string; nonStrikerId?: string; currentBowlerId?: string };
+      balls?: unknown[];
+    };
+    ok(scorerState?.currentInnings !== undefined, 'scorer returns replayed state', scorer.json);
+    ok(
+      scorerState.currentInnings?.strikerId === openers.openingStrikerId,
+      'state seeded with the opening striker',
+      scorerState.currentInnings,
+    );
+    ok(
+      scorerState.currentInnings?.currentBowlerId === openers.openingBowlerId,
+      'state seeded with the opening bowler',
+      scorerState.currentInnings,
+    );
+
+    const batting = scorer.json.battingSquad as unknown[];
+    const bowling = scorer.json.bowlingSquad as unknown[];
+    const everyone = scorer.json.players as unknown[];
+
+    ok(Array.isArray(batting) && batting.length > 0, 'scorer returns the batting squad', batting);
+    ok(Array.isArray(bowling) && bowling.length > 0, 'scorer returns the bowling squad', bowling);
+
+    // The wicket sheet offers any fielder, so `players` must be BOTH squads,
+    // not just the fielding side. Asserting the sum rather than a fixed count
+    // keeps this true whatever the fixture squads look like.
+    ok(
+      Array.isArray(everyone) && everyone.length === batting.length + bowling.length,
+      'scorer returns players from both squads combined',
+      { players: everyone?.length, batting: batting.length, bowling: bowling.length },
+    );
+    ok(
+      typeof scorer.json.battingTeamName === 'string' &&
+        typeof scorer.json.bowlingTeamName === 'string',
+      'scorer returns both team names',
+      scorer.json,
+    );
+    ok(
+      scorer.json.awaitingSecondInnings === false,
+      'not at the innings break mid-first-innings',
+      scorer.json.awaitingSecondInnings,
+    );
+
+    const strangerScorer = await call('GET', `/api/matches/${matchId}/scorer`, undefined, false);
+    ok(strangerScorer.status === 401, 'scorer without a token → 401', strangerScorer);
+
     // ── 6. Innings endpoints ────────────────────────────────────────────────
     console.log('innings');
     const earlySecond = await call('POST', `/api/matches/${matchId}/innings`, openers);
@@ -303,6 +356,20 @@ async function main() {
 
     const ended = await call('POST', `/api/matches/${matchId}/innings/end`);
     ok(ended.status === 200, 'end innings → 200', ended);
+
+    // With innings 1 closed and no chase yet, the scorer must render the
+    // innings-break screen instead of a keypad with no batters on it.
+    const atBreak = await call('GET', `/api/matches/${matchId}/scorer`);
+    ok(
+      atBreak.json.awaitingSecondInnings === true,
+      'scorer reports the innings break once innings 1 ends',
+      atBreak.json.awaitingSecondInnings,
+    );
+    ok(
+      Array.isArray(atBreak.json.nextBattingSquad) && atBreak.json.nextBattingSquad.length > 0,
+      'innings break offers the chasing side as next batters',
+      atBreak.json.nextBattingSquad?.length,
+    );
 
     const second = await call('POST', `/api/matches/${matchId}/innings`, {
       openingStrikerId: createdPlayerIds[2],

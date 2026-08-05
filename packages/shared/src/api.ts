@@ -140,6 +140,46 @@ export type MatchDetailResponse = {
   innings: InningsSummary[];
 };
 
+/** A player as the scorer screen needs them — id and a name to show. */
+export type ScorerPlayer = {
+  id: string;
+  fullName: string;
+};
+
+/**
+ * `GET /api/matches/[id]/scorer` — one call, everything the scorer renders.
+ *
+ * `state` is deliberately typed as `unknown` here rather than importing
+ * `MatchState` from @open-innings/scoring. This package is the API contract
+ * and must not depend on the engine; the client casts it after import. The
+ * engine owns that type, and duplicating it here is how the two drift.
+ */
+export type ScorerResponse = {
+  /** MatchState from @open-innings/scoring — cast on the client. */
+  state: unknown;
+  /** Both squads, so the wicket sheet can offer any fielder. */
+  players: ScorerPlayer[];
+  battingSquad: ScorerPlayer[];
+  bowlingSquad: ScorerPlayer[];
+  battingTeamName: string;
+  bowlingTeamName: string;
+  matchTitle: string | null;
+  matchStatus: string;
+  matchSummary: string | null;
+  /** Innings 1 is complete and the chase hasn't been opened yet. */
+  awaitingSecondInnings: boolean;
+  /** Openers for the chase come from the sides swapped round. */
+  nextBattingSquad: ScorerPlayer[];
+  nextBowlingSquad: ScorerPlayer[];
+  firstInningsRuns: number | null;
+};
+
+/** `POST`/`DELETE /api/matches/[id]/ball` — the replayed state after the change. */
+export type BallResponse = {
+  /** MatchState from @open-innings/scoring — cast on the client. */
+  state: unknown;
+};
+
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */
 export const HTTP = {
   ok: 200,
