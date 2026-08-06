@@ -17,15 +17,50 @@ pnpm dev
 pnpm start
 ```
 
-Then scan the QR code with Expo Go, or press `a` for an emulator.
+Then open the **development build** on your phone — not Expo Go, which can't
+run this project (see [Builds](#builds)). Scan the QR code or press `a` for an
+emulator.
 
 **You don't need to configure an API URL for local development.** A phone can't
 reach `localhost` — that's the phone itself — but it is on the same wifi as
-your machine, and Metro already knows your machine's LAN address. `lib/config.ts`
-derives the API host from it.
+your machine, and Metro already knows your machine's LAN address.
+`lib/config.ts` derives the API host from it, so there's no IP to hardcode and
+later forget about.
 
-For a real build, set `EXPO_PUBLIC_API_URL` to the deployed server. Expo inlines
-`EXPO_PUBLIC_*` at build time.
+If the app loads but every request fails, check Windows Firewall isn't blocking
+port 3000 from the LAN. Open `http://<your-PC-IP>:3000` in the phone's browser
+to tell the two apart.
+
+## Builds
+
+**Expo Go does not work for this project and never will.** RevenueCat
+(`react-native-purchases`) and AdMob are native modules, and Expo Go only ships
+the modules Expo chose. You need a development build.
+
+```sh
+npm install -g eas-cli
+eas login                 # free Expo account
+eas init                  # writes extra.eas.projectId into app.json
+eas build --profile development --platform android
+```
+
+Install the resulting APK on your phone, then `pnpm start` and it connects the
+same way Expo Go did — fast refresh included, native modules working.
+
+Three profiles in `eas.json`:
+
+| Profile       | Output          | For                                   |
+| ------------- | --------------- | ------------------------------------- |
+| `development` | APK, dev client | Day-to-day work against a local Metro |
+| `preview`     | APK             | Handing a build to testers            |
+| `production`  | AAB             | Play Store upload                     |
+
+⚠️ **`EXPO_PUBLIC_API_URL` is empty in every profile and must be filled in for
+`preview` and `production`.** A `development` build is fine without it — it
+derives the API host from Metro (see below). A standalone build has no Metro,
+so with the variable unset it starts with no API URL at all and every request
+fails with "No API URL". Set it to the deployed server before building anything
+you hand to someone else.
 
 ## Layout
 
