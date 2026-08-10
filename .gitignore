@@ -62,3 +62,6 @@ ios/
 *.keystore
 !debug.keystore
 expo-env.d.ts
+
+# Personal learning notes — not part of the project
+learn/
