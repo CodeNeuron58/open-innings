@@ -37,7 +37,7 @@ export default function Matches() {
             <Text className="text-muted-foreground text-sm">{user.displayName ?? user.email}</Text>
           ) : null}
         </View>
-        <View className="w-24">
+        <View className="shrink-0">
           <Button label="Sign out" variant="ghost" onPress={() => void signOut()} />
         </View>
       </View>

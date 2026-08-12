@@ -79,7 +79,7 @@ function Chip({
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       onPress={onPress}
-      className={`min-h-12 justify-center rounded-xl px-4 ${
+      className={`min-h-12 shrink-0 justify-center rounded-xl px-4 ${
         selected ? selectedBg : 'bg-scoreboard border-scoreboard-border border'
       }`}
     >

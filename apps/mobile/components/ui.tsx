@@ -62,7 +62,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? 'white' : undefined} />
       ) : (
-        <Text className={`${text} text-base font-semibold`}>{label}</Text>
+        <Text className={`${text} shrink-0 text-base font-semibold`}>{label}</Text>
       )}
     </Pressable>
   );

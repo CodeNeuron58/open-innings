@@ -357,6 +357,13 @@ async function main() {
     const ended = await call('POST', `/api/matches/${matchId}/innings/end`);
     ok(ended.status === 200, 'end innings → 200', ended);
 
+    // The "End the innings" button sits on the mandatory next-batter sheet,
+    // so it is tapped by someone who has just been told their innings is over
+    // — a nervous second tap is the norm. It must not surface "No innings is
+    // in progress" on the innings-break screen that follows.
+    const endedAgain = await call('POST', `/api/matches/${matchId}/innings/end`);
+    ok(endedAgain.status === 200, 'repeat end-innings → 200, not an error', endedAgain);
+
     // With innings 1 closed and no chase yet, the scorer must render the
     // innings-break screen instead of a keypad with no batters on it.
     const atBreak = await call('GET', `/api/matches/${matchId}/scorer`);

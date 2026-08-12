@@ -110,10 +110,12 @@ export default function Players() {
 
 function PlayerRow({ player }: { player: PlayerSummary }) {
   return (
-    <View className="border-border bg-card flex-row items-center justify-between rounded-xl border px-4 py-3">
-      <Text className="text-foreground text-base font-medium">{player.fullName}</Text>
+    <View className="border-border bg-card flex-row items-center justify-between gap-3 rounded-xl border px-4 py-3">
+      <Text className="text-foreground flex-1 text-base font-medium" numberOfLines={1}>
+        {player.fullName}
+      </Text>
       {player.role ? (
-        <Text className="text-muted-foreground text-xs uppercase">
+        <Text className="text-muted-foreground shrink-0 text-xs uppercase">
           {player.role.replace(/_/g, ' ')}
         </Text>
       ) : null}

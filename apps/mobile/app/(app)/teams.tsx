@@ -174,7 +174,7 @@ function SquadChip({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      className={`rounded-full border px-3 py-2 ${
+      className={`shrink-0 rounded-full border px-3 py-2 ${
         selected ? 'bg-primary border-primary' : 'border-border bg-card'
       }`}
     >

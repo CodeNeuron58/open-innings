@@ -6,13 +6,11 @@
     "orientation": "portrait",
     "scheme": "openinnings",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "android": {
       "package": "app.openinnings",
       "adaptiveIcon": {
         "backgroundColor": "#0F2A20"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "web": {
       "bundler": "metro",
@@ -21,6 +19,13 @@
     "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ad94ee2d-b6e3-4aac-a6eb-761c8d698f15"
+      }
+    },
+    "owner": "biprayanc"
   }
 }

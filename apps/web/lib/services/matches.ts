@@ -144,13 +144,25 @@ export async function startSecondInnings(matchId: string, input: StartSecondInni
  *
  * Used when a side has no batters left to replace a dismissed one — a short
  * squad can't lose ten wickets. Ending the chase early also settles the match.
+ *
+ * Idempotent on double-submit, like `startSecondInnings`. The button lives on
+ * the mandatory next-batter sheet, so it gets tapped by someone who has just
+ * been told their innings is over — a second tap must not surface "No innings
+ * is in progress" on the innings-break screen that follows.
  */
 export async function endCurrentInnings(matchId: string) {
   const { match } = await requireOwnedMatch(matchId);
 
   const allInnings = await getInnings(matchId);
   const current = allInnings.find((i) => i.status === 'in_progress');
-  if (!current) throw invalid('No innings is in progress');
+
+  if (!current) {
+    // Nothing in progress means the innings is already closed — the caller's
+    // desired state. Report the most recent one rather than failing.
+    const last = allInnings[allInnings.length - 1];
+    if (!last) throw invalid('This match has no innings yet');
+    return { match, inning: last, alreadyEnded: true as const };
+  }
 
   await updateInningCache(current.id, { status: 'completed', completedAt: new Date() });
 
@@ -178,7 +190,7 @@ export async function endCurrentInnings(matchId: string) {
     });
   }
 
-  return { match, inning: current };
+  return { match, inning: current, alreadyEnded: false as const };
 }
 
 /** Delete a match and everything scored in it. Blocked while it's live. */

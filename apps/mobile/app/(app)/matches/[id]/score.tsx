@@ -269,11 +269,16 @@ export default function Scorer() {
           <Text className="text-scoreboard-muted text-xs font-bold uppercase tracking-widest">
             {data.battingTeamName}
           </Text>
+          {/* shrink-0 on both: React Native gives Text inside a flex-row an
+              implicit flexShrink, which silently clips it mid-word rather than
+              wrapping or ellipsising. "(0.0)" rendered as "(0.0". */}
           <View className="mt-1 flex-row items-baseline gap-3">
-            <Text className="text-scoreboard-text text-5xl font-bold">
+            <Text className="text-scoreboard-text shrink-0 text-5xl font-bold">
               {inn.runs}-{inn.wickets}
             </Text>
-            <Text className="text-scoreboard-muted text-xl">({formatOvers(inn.ballsBowled)})</Text>
+            <Text className="text-scoreboard-muted shrink-0 text-xl">
+              ({formatOvers(inn.ballsBowled)})
+            </Text>
           </View>
 
           {runsNeeded !== undefined && !completed ? (
@@ -302,9 +307,13 @@ export default function Scorer() {
             runs={nonStrikerStats?.runs ?? 0}
             balls={nonStrikerStats?.balls ?? 0}
           />
-          <View className="border-scoreboard-border flex-row items-center justify-between border-t px-4 py-3">
-            <Text className="text-scoreboard-muted text-sm">{nameOf(effBowler)}</Text>
-            <Text className="text-scoreboard-text text-sm font-semibold">
+          <View className="border-scoreboard-border flex-row items-center justify-between gap-3 border-t px-4 py-3">
+            {/* The name may legitimately be long, so let it ellipsise rather
+                than clip; the figures must never shrink. */}
+            <Text className="text-scoreboard-muted flex-1 text-sm" numberOfLines={1}>
+              {nameOf(effBowler)}
+            </Text>
+            <Text className="text-scoreboard-text shrink-0 text-sm font-semibold">
               {bowlerStats?.wickets ?? 0}-{bowlerStats?.runs ?? 0} (
               {formatOvers(bowlerStats?.balls ?? 0)})
             </Text>
@@ -318,7 +327,7 @@ export default function Scorer() {
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {overBalls.length === 0 ? (
-              <Text className="text-scoreboard-muted text-sm">No balls yet.</Text>
+              <Text className="text-scoreboard-muted shrink-0 text-sm">No balls yet.</Text>
             ) : (
               overBalls.map((b, i) => <BallChip key={`${b.ballNumber}-${i}`} ball={b} />)
             )}
@@ -455,16 +464,18 @@ function BatterRow({
   balls: number;
 }) {
   return (
-    <View className="flex-row items-center justify-between px-4 py-3">
-      <View className="flex-row items-center gap-2">
-        {onStrike ? <View className="bg-scoreboard-accent h-2 w-2 rounded-full" /> : null}
+    <View className="flex-row items-center justify-between gap-3 px-4 py-3">
+      <View className="min-w-0 flex-1 flex-row items-center gap-2">
+        {onStrike ? <View className="bg-scoreboard-accent h-2 w-2 shrink-0 rounded-full" /> : null}
         <Text
-          className={`text-sm ${onStrike ? 'text-scoreboard-text font-semibold' : 'text-scoreboard-muted'}`}
+          numberOfLines={1}
+          className={`flex-1 text-sm ${onStrike ? 'text-scoreboard-text font-semibold' : 'text-scoreboard-muted'}`}
         >
           {name}
         </Text>
       </View>
-      <Text className="text-scoreboard-text text-sm">
+      {/* The figures are the point of the row — never let them be clipped. */}
+      <Text className="text-scoreboard-text shrink-0 text-sm">
         {runs} <Text className="text-scoreboard-muted">({balls})</Text>
       </Text>
     </View>
@@ -665,7 +676,7 @@ function OpenerPicker({
               accessibilityState={{ selected: isSelected, disabled: isDisabled }}
               disabled={isDisabled}
               onPress={() => onSelect(p.id)}
-              className={`min-h-12 justify-center rounded-xl px-4 ${
+              className={`min-h-12 shrink-0 justify-center rounded-xl px-4 ${
                 isSelected ? 'bg-primary' : 'bg-scoreboard-panel'
               } ${isDisabled ? 'opacity-40' : ''}`}
             >

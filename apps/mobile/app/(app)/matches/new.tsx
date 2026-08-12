@@ -322,7 +322,7 @@ function Picker({
                 accessibilityState={{ selected: isSelected, disabled: isDisabled }}
                 disabled={isDisabled}
                 onPress={() => onSelect(option.id)}
-                className={`min-h-12 justify-center rounded-xl border px-4 ${
+                className={`min-h-12 shrink-0 justify-center rounded-xl border px-4 ${
                   isSelected ? 'bg-primary border-primary' : 'border-border bg-card'
                 } ${isDisabled ? 'opacity-40' : ''}`}
               >

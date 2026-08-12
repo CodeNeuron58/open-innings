@@ -14,6 +14,11 @@
     "pnpm": ">=9.0.0"
   },
   "packageManager": "pnpm@9.12.0",
+  "pnpm": {
+    "overrides": {
+      "react-dom": "19.2.3"
+    }
+  },
   "scripts": {
     "dev": "pnpm --filter web dev",
     "build": "pnpm --filter web build",
