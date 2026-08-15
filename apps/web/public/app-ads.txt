@@ -1,0 +1,13 @@
+# Authorized Sellers for Apps — https://iabtechlab.com/app-ads-txt/
+#
+# Declares who is allowed to sell ad inventory in the Open Innings Android app.
+# AdMob crawls this from the developer website named in the Play Store listing
+# (Play Console -> Store presence -> Store settings -> store listing contact
+# details), so that field must point at openinnings.com and not the account
+# default. It must stay reachable at exactly /app-ads.txt on the bare domain.
+#
+# Format: <ad system>, <publisher id>, <relationship>, <certification authority>
+# f08c47fec0942fa0 is Google's TAG certification authority ID and is constant
+# for every publisher.
+
+google.com, pub-8954748975838698, DIRECT, f08c47fec0942fa0

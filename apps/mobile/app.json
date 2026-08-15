@@ -16,7 +16,16 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-8954748975838698~4371071953"
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
