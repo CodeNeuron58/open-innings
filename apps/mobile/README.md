@@ -62,6 +62,22 @@ so with the variable unset it starts with no API URL at all and every request
 fails with "No API URL". Set it to the deployed server before building anything
 you hand to someone else.
 
+### Environment variables
+
+| Variable                             | Needed for           | Without it                                            |
+| ------------------------------------ | -------------------- | ----------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`                | Any standalone build | Every request fails with "No API URL"                 |
+| `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | Purchases            | The paywall renders, the buy button says why it can't |
+
+Both are `EXPO_PUBLIC_`, so both are compiled into the bundle and **neither is
+a secret**. The RevenueCat one is the _public SDK key_ from the dashboard — it
+identifies the app and authorises nothing. The secret key is a different string
+and must never appear in this app.
+
+Purchases degrade rather than crash: no key means `useSupporter()` reports
+"purchases are not configured", the plan still renders, and the buy button is
+visibly unavailable instead of appearing to take money it cannot take.
+
 ## Layout
 
 ```

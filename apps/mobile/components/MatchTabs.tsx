@@ -10,9 +10,6 @@
  *
  * So: this renders the design, each item pushes, and the active tab is passed
  * in by the screen that knows which one it is.
- *
- * **More** is drawn and disabled — there is no settings screen yet. It is on
- * the design, so leaving it out would be as misleading as making it dead.
  */
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -34,8 +31,7 @@ export function MatchTabs({ matchId, active }: { matchId: string; active: MatchT
       label: 'Card',
       go: () => router.replace({ pathname: '/matches/[id]/card', params: { id: matchId } }),
     },
-    // No destination — see the note above.
-    { key: 'more', label: 'More' },
+    { key: 'more', label: 'More', go: () => router.replace('/more') },
   ];
 
   return (

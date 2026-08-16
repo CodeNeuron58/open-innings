@@ -174,12 +174,17 @@ export default function Matches() {
         )}
       />
 
+      {/* No MatchTabs here: Score and Card need a match id and this screen is
+          the list of all of them. See docs/wiring.md. */}
       <View className="border-border flex-row gap-2 border-t px-5 py-3">
         <View className="flex-1">
           <Button label="Players" variant="secondary" onPress={() => router.push('/players')} />
         </View>
         <View className="flex-1">
           <Button label="Teams" variant="secondary" onPress={() => router.push('/teams')} />
+        </View>
+        <View className="flex-1">
+          <Button label="More" variant="secondary" onPress={() => router.push('/more')} />
         </View>
       </View>
     </SafeAreaView>

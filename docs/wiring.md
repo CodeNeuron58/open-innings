@@ -156,8 +156,8 @@ nobody watching, which is a different claim from "we do not count yet".
 
 The bar exists — `MatchTabs`, built with the D-series — but only on the
 match-scoped screens, because Score and Card need a match id. B1 is the list of
-all matches and has none, so it still carries buttons to Players and Teams
-instead.
+all matches and has none, so it still carries its own buttons to Players,
+Teams and More instead.
 
 That is the unresolved half of the same question: what do **Score** and
 **Card** point at when no match is open? Most recent, probably. Until that is
@@ -362,17 +362,67 @@ Still to do:
 - a CI test that fails if an ad component ever appears on a scorer screen —
   the rule is currently held by a comment and by whoever is reviewing
 
-**Remove ₹99** renders inert. `AdBar` takes an `onRemove` prop and nothing
-passes one, because nothing is purchasable yet — see below. It is one prop
-away from working.
+**Remove ₹99** now opens the paywall, and `AdBar` checks the entitlement
+before it renders anything — a supporter sees no ad bar at all.
 
-### 🔴 RevenueCat sells nothing
+### 🟡 RevenueCat is wired; the store is not stocked
 
-Project exists with the `supporter` entitlement and three products. Nothing is
-purchasable: each product still needs creating in Play Console with real
-pricing and linking back, and `react-native-purchases` is not installed.
+`react-native-purchases` is installed and configured at launch,
+`lib/purchases.ts` exposes the entitlement, the offering, purchase and
+restore, and F2 is a real paywall that reads the **store's** localised price
+rather than a hardcoded one. `AdBar` hides itself for a supporter.
 
-This is the one **hard eligibility gate** for the hackathon — see `TODO.md`.
+Two things left, both outside the code:
+
+1. **`EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` is not set.** Without it the SDK is
+   never configured and `useSupporter()` reports "purchases are not configured
+   in this build yet". This is the public SDK key from the dashboard, not the
+   secret one.
+2. **The products do not exist in Play Console** with real pricing, linked
+   back to the RevenueCat offering. Until they do, `getOfferings()` returns an
+   empty current offering and the screen says "no plan is available from the
+   store yet".
+
+Neither can be finished from a dev build regardless — Play Billing needs a
+signed build on a device with Play Services. This is still the one **hard
+eligibility gate** for the hackathon; it is now a configuration task rather
+than a build one. See `TODO.md`.
+
+### 🟡 Two prices, one product
+
+F2 shows ₹99 a month and mentions ₹899 a year as arithmetic. Only one package
+is read — `availablePackages[0]`. If both a monthly and an annual product get
+created, this needs to offer the choice rather than silently pick whichever
+comes back first.
+
+---
+
+## Settings (`apps/mobile/app/(app)/more.tsx`)
+
+### 🔴 There is no settings store
+
+F1 shows four switches: live match links, keep screen awake, sound on each
+ball, export scorebook. **None is backed by anything** — there is no
+preferences store on the device and no user-settings table on the server.
+
+They are drawn disabled with the reason on the row, because a switch that
+flips back on next launch is a bug report while a greyed row that says "not
+built yet" is information.
+
+Worth ranking them, because they are not equal:
+
+| Setting               | Verdict                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Keep screen awake** | The one that actually matters. A three-hour match on a phone that sleeps every 30s is miserable. `expo-keep-awake` is tiny.            |
+| Export scorebook      | Real feature — needs a CSV/JSON endpoint. It is also on the F2 free list, so it is a promise.                                          |
+| Sound on each ball    | Needs audio plus a store. Genuinely useful for eyes-up scoring.                                                                        |
+| Live match links      | Not a switch. Scorecards are public and permanent by design; turning it off would break every link already sent. Shown as "always on". |
+
+### 🟡 "My career" cannot resolve
+
+F1's profile row shows the account, not a career page, because a user account
+is not linked to a player row — the same gap as A5. Until it is, "my career"
+has nothing to point at, so the row opens the player list instead.
 
 ---
 

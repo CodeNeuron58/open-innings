@@ -48,10 +48,10 @@ create a match, score a full innings ball by ball, and share the result.
 |              | Per-player match card — one match, 22 shareable cards                        | ✅                                 |
 |              | Club page — squad, results, squad leaders, `/c/<id>`                         | ✅                                 |
 | **Platform** | Android app (Expo / React Native)                                            | ✅ runs on device                  |
-|              | REST API, bearer-token auth                                                  | ✅ 16 endpoints, 77 smoke checks   |
+|              | REST API, bearer-token auth                                                  | ✅ 19 endpoints, 106 smoke checks  |
 |              | Marketing site                                                               | ✅                                 |
-| **Money**    | AdMob SDK wired, ad units created                                            | ⏳ nothing rendered yet            |
-|              | RevenueCat project, `supporter` entitlement                                  | ⏳ not yet sellable                |
+| **Money**    | Banner ads on reading screens, never on the scorer console                   | ✅                                 |
+|              | RevenueCat SDK wired, paywall, restore purchases                             | ⏳ needs products in Play Console  |
 | **Not yet**  | Deployed to a public URL                                                     | ❌                                 |
 |              | Offline-first scoring                                                        | ❌                                 |
 |              | Push notifications                                                           | ❌                                 |
