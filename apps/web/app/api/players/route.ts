@@ -7,6 +7,7 @@ import { createPlayerSchema, HTTP } from '@open-innings/shared';
 import { listPlayers } from '@/lib/db/queries';
 import { createPlayerFor } from '@/lib/services/squads';
 import { readJson, handle } from '@/lib/api/respond';
+import { requireUserId } from '@/lib/auth/local';
 
 export const GET = handle(async () => {
   // Scoped to the session inside the query layer; returns [] when signed out.
@@ -15,6 +16,8 @@ export const GET = handle(async () => {
 });
 
 export const POST = handle(async (request: Request) => {
+  // Auth before the schema — see requireUserId.
+  await requireUserId('Sign in to add a player');
   const input = await readJson(request, createPlayerSchema);
   const player = await createPlayerFor(input);
   return NextResponse.json({ player }, { status: HTTP.created });

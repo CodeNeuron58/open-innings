@@ -9,10 +9,13 @@ import { NextResponse } from 'next/server';
 import { startSecondInningsSchema, HTTP } from '@open-innings/shared';
 import { startSecondInnings } from '@/lib/services/matches';
 import { readJson, handle } from '@/lib/api/respond';
+import { requireUserId } from '@/lib/auth/local';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const POST = handle(async (request: Request, ctx: RouteParams) => {
+  // Auth before the schema — see requireUserId.
+  await requireUserId('Sign in to start an innings');
   const { id } = await ctx.params;
   const input = await readJson(request, startSecondInningsSchema);
 

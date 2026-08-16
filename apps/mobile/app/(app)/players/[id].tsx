@@ -17,7 +17,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { BattingCareerView, FormEntryView } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { shareUrls } from '../../../lib/config';
-import { useApiQuery } from '../../../lib/use-api';
+import { usePublicQuery } from '../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
 
 /** A nullable rate. Null is "—", never 0 and never Infinity. */
@@ -105,7 +105,7 @@ export default function PlayerProfile() {
   const router = useRouter();
   const [scope, setScope] = useState<'season' | 'career'>('season');
 
-  const query = useApiQuery((t, signal) => api.playerStats(t, id, signal), [id]);
+  const query = usePublicQuery((t, signal) => api.playerStats(t, id, signal), [id]);
 
   if (query.isLoading) return <LoadingScreen />;
 

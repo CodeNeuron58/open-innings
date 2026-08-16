@@ -17,7 +17,7 @@ import Constants from 'expo-constants';
 import { useSession } from '../lib/session';
 
 export default function Index() {
-  const { user, isLoading } = useSession();
+  const { user, isGuest, isLoading } = useSession();
 
   // A determinate-looking sweep rather than a spinner. It is honest about
   // being indeterminate — it never claims a percentage — but it reads as
@@ -33,7 +33,10 @@ export default function Index() {
   }, [sweep]);
 
   if (!(isLoading || user === undefined)) {
-    return <Redirect href={user ? '/matches' : '/welcome'} />;
+    // A guest has no matches of their own, so the matches list would be an
+    // empty screen. They land on the one place built for them instead.
+    if (user) return <Redirect href="/matches" />;
+    return <Redirect href={isGuest ? '/browse' : '/welcome'} />;
   }
 
   return (

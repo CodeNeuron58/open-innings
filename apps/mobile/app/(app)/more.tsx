@@ -20,7 +20,7 @@ import { useApiQuery } from '../../lib/use-api';
 import { useSession } from '../../lib/session';
 import { useSettings } from '../../lib/settings';
 import { useSupporter } from '../../lib/purchases';
-import { Kicker } from '../../components/ui';
+import { Button, Kicker } from '../../components/ui';
 
 const REPO = 'https://github.com/CodeNeuron58/open-innings';
 
@@ -124,14 +124,14 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 export default function More() {
   const router = useRouter();
-  const { user, signOut } = useSession();
+  const { user, isGuest, signOut } = useSession();
   const { isSupporter } = useSupporter();
   const { keepAwakeWhileScoring, set } = useSettings();
 
   const teams = useApiQuery((t, signal) => api.teams(t, signal));
   const clubCount = teams.data?.teams.length ?? 0;
 
-  const displayName = user?.displayName ?? user?.email ?? 'Signed in';
+  const displayName = user?.displayName ?? user?.email ?? (isGuest ? 'Guest' : 'Signed in');
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -161,7 +161,7 @@ export default function More() {
               className="font-heading mt-0.5 text-[9px] uppercase tracking-[1.2px] text-neutral-600"
               numberOfLines={1}
             >
-              {user?.email ?? 'No account'}
+              {user?.email ?? (isGuest ? 'Looking around · no account' : 'No account')}
             </Text>
           </View>
         </View>
@@ -186,10 +186,31 @@ export default function More() {
           </Pressable>
         ) : null}
 
+        {/* The pitch, aimed at the one thing a guest cannot do. */}
+        {isGuest ? (
+          <View className="border-border mt-3 border p-3.5">
+            <Text className="text-foreground font-heading text-[15px]">Keep a record</Text>
+            <Text className="text-foreground/70 mt-1 text-[12.5px] leading-[18px]">
+              Reading is free and always will be. Scoring a match needs an account, because a
+              scorebook has to belong to someone.
+            </Text>
+            <View className="mt-3">
+              <Button label="Create an account" onPress={() => router.push('/signup')} />
+            </View>
+          </View>
+        ) : null}
+
         <Group title="Cricket">
           <Row
             label="Teams & squads"
-            value={clubCount > 0 ? `${clubCount} club${clubCount === 1 ? '' : 's'}` : undefined}
+            value={
+              isGuest
+                ? undefined
+                : clubCount > 0
+                  ? `${clubCount} club${clubCount === 1 ? '' : 's'}`
+                  : undefined
+            }
+            disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/teams')}
           />
           {/*
@@ -197,7 +218,11 @@ export default function More() {
             not, so this opens the player list instead of guessing — which is
             also the only way to reach a career page today.
           */}
-          <Row label="Players & careers" onPress={() => router.push('/players')} />
+          <Row
+            label="Players & careers"
+            disabledNote={isGuest ? 'Needs an account' : undefined}
+            onPress={() => router.push('/players')}
+          />
           <Row label="Matches I follow" disabledNote="Following isn't built yet" value="Soon" />
           <Row label="Coach stats" disabledNote="Not built yet" value="Soon" />
         </Group>
@@ -228,7 +253,7 @@ export default function More() {
             label="Run your own copy"
             onPress={() => void Linking.openURL(`${REPO}#self-hosting`)}
           />
-          <Row label="Sign out" onPress={() => void signOut()} />
+          <Row label={isGuest ? 'Leave guest mode' : 'Sign out'} onPress={() => void signOut()} />
         </Group>
 
         <Text className="text-foreground/50 pt-6 text-[11.5px] leading-[17px]">

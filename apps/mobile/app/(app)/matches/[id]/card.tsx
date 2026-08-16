@@ -18,7 +18,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CardInnings, MatchCardResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
-import { useApiQuery } from '../../../../lib/use-api';
+import { usePublicQuery } from '../../../../lib/use-api';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
@@ -33,7 +33,10 @@ export default function MatchCard() {
   const [tab, setTab] = useState<Tab>('scorecard');
   const [inningsIndex, setInningsIndex] = useState(0);
 
-  const query = useApiQuery<MatchCardResponse>((t, signal) => api.matchCard(t, id, signal), [id]);
+  const query = usePublicQuery<MatchCardResponse>(
+    (t, signal) => api.matchCard(t, id, signal),
+    [id],
+  );
 
   if (query.isLoading) return <LoadingScreen />;
 

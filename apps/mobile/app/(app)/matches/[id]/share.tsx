@@ -20,7 +20,7 @@ import * as Clipboard from 'expo-clipboard';
 import type { MatchResultResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { CARD_ASPECT_RATIO, shareUrls } from '../../../../lib/config';
-import { useApiQuery } from '../../../../lib/use-api';
+import { usePublicQuery } from '../../../../lib/use-api';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
@@ -30,7 +30,7 @@ export default function ShareMatch() {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
 
-  const query = useApiQuery<MatchResultResponse>(
+  const query = usePublicQuery<MatchResultResponse>(
     (t, signal) => api.matchSummary(t, id, signal),
     [id],
   );

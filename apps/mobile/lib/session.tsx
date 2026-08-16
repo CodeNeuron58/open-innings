@@ -17,16 +17,37 @@ import { api, ApiError } from './api';
 
 const TOKEN_KEY = 'oi_session_token';
 
+/**
+ * "This person chose to look around without an account."
+ *
+ * Persisted so a guest who closes the app is not asked to decide again every
+ * launch. It is a preference, not a credential — there is no anonymous
+ * account on the server and nothing this flag unlocks that a stranger with a
+ * link cannot already reach.
+ */
+const GUEST_KEY = 'oi_guest_mode';
+
 type User = AuthResponse['user'];
 
 type SessionState = {
   /** null once we know nobody is signed in; undefined while still checking. */
   user: User | null | undefined;
   token: string | null;
+  /**
+   * Looking around without an account.
+   *
+   * A guest can read every public surface — a scorecard, a career, a club —
+   * because those are public to anyone with the link whether or not they have
+   * the app. What a guest cannot do is **write**: no match, no player, no
+   * team, no ball. That is enforced on the server, which requires a bearer
+   * token for every mutation; the flag here only decides what to draw.
+   */
+  isGuest: boolean;
   /** True until the stored token has been checked against the server. */
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -35,6 +56,7 @@ const SessionContext = createContext<SessionState | null>(null);
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Restore on launch.
@@ -45,6 +67,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       try {
         const stored = await SecureStore.getItemAsync(TOKEN_KEY);
         if (!stored) {
+          // No credential. Restore the guest choice if one was made, so the
+          // welcome screen is not the first thing a returning browser sees.
+          setIsGuest((await SecureStore.getItemAsync(GUEST_KEY)) === '1');
           setUser(null);
           return;
         }
@@ -74,8 +99,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const adopt = useCallback(async (auth: AuthResponse) => {
     await SecureStore.setItemAsync(TOKEN_KEY, auth.token);
+    // Signing in supersedes browsing. Leaving the flag set would keep the
+    // app drawing "sign in to do this" prompts at someone who just did.
+    await SecureStore.deleteItemAsync(GUEST_KEY);
+    setIsGuest(false);
     setToken(auth.token);
     setUser(auth.user);
+  }, []);
+
+  const continueAsGuest = useCallback(async () => {
+    await SecureStore.setItemAsync(GUEST_KEY, '1');
+    setIsGuest(true);
   }, []);
 
   const signIn = useCallback(
@@ -98,8 +132,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // session row expires on its own.
     const current = token;
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await SecureStore.deleteItemAsync(GUEST_KEY);
     setToken(null);
     setUser(null);
+    setIsGuest(false);
 
     if (current) {
       try {
@@ -111,8 +147,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const value = useMemo<SessionState>(
-    () => ({ user, token, isLoading, signIn, signUp, signOut }),
-    [user, token, isLoading, signIn, signUp, signOut],
+    () => ({ user, token, isGuest, isLoading, signIn, signUp, continueAsGuest, signOut }),
+    [user, token, isGuest, isLoading, signIn, signUp, continueAsGuest, signOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

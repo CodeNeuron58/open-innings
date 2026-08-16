@@ -17,13 +17,13 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { MatchPerformer, MatchResultResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
-import { useApiQuery } from '../../../../lib/use-api';
+import { usePublicQuery } from '../../../../lib/use-api';
 import { Button, Card, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
 
 export default function Result() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const query = useApiQuery<MatchResultResponse>(
+  const query = usePublicQuery<MatchResultResponse>(
     (t, signal) => api.matchSummary(t, id, signal),
     [id],
   );

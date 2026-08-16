@@ -8,6 +8,7 @@ import { createTeamSchema, HTTP } from '@open-innings/shared';
 import { listTeams } from '@/lib/db/queries';
 import { createTeamFor } from '@/lib/services/squads';
 import { readJson, handle } from '@/lib/api/respond';
+import { requireUserId } from '@/lib/auth/local';
 
 /** Squad seeding is a create-time convenience, not part of the team itself. */
 const createTeamBody = createTeamSchema.and(
@@ -20,6 +21,8 @@ export const GET = handle(async () => {
 });
 
 export const POST = handle(async (request: Request) => {
+  // Auth before the schema — see requireUserId.
+  await requireUserId('Sign in to create a team');
   const input = await readJson(request, createTeamBody);
   const team = await createTeamFor(
     { name: input.name, shortName: input.shortName, homeGround: input.homeGround },

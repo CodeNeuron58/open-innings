@@ -150,13 +150,21 @@ export const api = {
   players: (token: string, signal?: AbortSignal) =>
     apiFetch<PlayerListResponse>('/api/players', { token, signal }),
 
-  /**
-   * A player's career record.
+  /*
+   * ── Public endpoints ──────────────────────────────────────────────────────
    *
-   * Public on the server — the profile is the shareable artifact — but the
-   * token is sent anyway for consistency with every other call here.
+   * These take `string | null` rather than `string`, and that is the whole
+   * mechanism behind guest mode. They are public on the server — a scorecard,
+   * a career and a club open for anyone with the link, with or without the
+   * app — so the client must be able to call them with no credential.
+   *
+   * The token is still passed when there is one. It changes nothing today,
+   * and means these calls do not become the odd ones out if any of them ever
+   * needs to know who is asking.
    */
-  playerStats: (token: string, playerId: string, signal?: AbortSignal) =>
+
+  /** A player's career record. */
+  playerStats: (token: string | null, playerId: string, signal?: AbortSignal) =>
     apiFetch<PlayerCareerResponse>(`/api/players/${playerId}/stats`, { token, signal }),
 
   createPlayer: (token: string, body: CreatePlayerInput) =>
@@ -220,7 +228,7 @@ export const api = {
    * innings in progress, so this is the only call that can describe a match
    * that is over.
    */
-  matchSummary: (token: string, matchId: string, signal?: AbortSignal) =>
+  matchSummary: (token: string | null, matchId: string, signal?: AbortSignal) =>
     apiFetch<MatchResultResponse>(`/api/matches/${matchId}/summary`, { token, signal }),
 
   /**
@@ -229,7 +237,7 @@ export const api = {
    * The heavy one. The card screen fetches it once and switches tabs against
    * what it already has rather than going back to the network per view.
    */
-  matchCard: (token: string, matchId: string, signal?: AbortSignal) =>
+  matchCard: (token: string | null, matchId: string, signal?: AbortSignal) =>
     apiFetch<MatchCardResponse>(`/api/matches/${matchId}/card`, { token, signal }),
 
   /**
@@ -246,6 +254,6 @@ export const api = {
     }),
 
   /** A club's public home — squad, recent results, and who leads it. */
-  club: (token: string, teamId: string, signal?: AbortSignal) =>
+  club: (token: string | null, teamId: string, signal?: AbortSignal) =>
     apiFetch<ClubPageResponse>(`/api/teams/${teamId}/club`, { token, signal }),
 };

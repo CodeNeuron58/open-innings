@@ -861,6 +861,49 @@ async function main() {
       ok(res.status === 404, `a missing ${label} page → 404, not 200`, res.status);
     }
 
+    // ── 10d. Nothing writes without a credential ────────────────────────────
+    /*
+     * The boundary guest mode rests on.
+     *
+     * A guest can read every public surface and create nothing, and the app
+     * draws that distinction — but the drawing is manners, not enforcement. A
+     * client-side check can always be bypassed; what actually stops an
+     * anonymous write is each of these refusing one.
+     *
+     * Enumerated rather than sampled, because the failure is silent: a new
+     * mutating route that forgets `getUserId()` looks completely fine until
+     * someone finds it.
+     */
+    console.log('anonymous writes are refused');
+    const ghostId = '00000000-0000-0000-0000-000000000000';
+    const mutations: [string, string, unknown?][] = [
+      ['POST', '/api/players', { fullName: 'Nobody' }],
+      ['POST', '/api/teams', { name: 'Nobody XI' }],
+      ['POST', `/api/teams/${ghostId}/members`, { playerId: ghostId }],
+      ['DELETE', `/api/teams/${ghostId}/members`, { playerId: ghostId }],
+      ['PATCH', `/api/teams/${ghostId}`, { name: 'Renamed' }],
+      [
+        'POST',
+        '/api/matches',
+        // Two *different* ids: a team cannot play itself, and the schema says
+        // so — which would surface as a 400 and mask what is being tested.
+        { oversPerInnings: 20, teamAId: ghostId, teamBId: '11111111-1111-1111-1111-111111111111' },
+      ],
+      ['DELETE', `/api/matches/${ghostId}`],
+      ['POST', `/api/matches/${ghostId}/innings`, {}],
+      ['POST', `/api/matches/${ghostId}/innings/end`],
+      ['POST', `/api/matches/${ghostId}/ball`, {}],
+      ['DELETE', `/api/matches/${ghostId}/ball`],
+      // Not a write, but it is the one *read* a guest must not have: bulk
+      // career figures for arbitrary ids.
+      ['GET', `/api/players/briefs?ids=${ghostId}`],
+    ];
+
+    for (const [method, path, body] of mutations) {
+      const res = await call(method, path, body, false);
+      ok(res.status === 401, `${method} ${path.split('?')[0]} without a token → 401`, res.status);
+    }
+
     // ── 11. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');
     // Must exceed the login cap in app/api/auth/login/route.ts (30 per 15 min).

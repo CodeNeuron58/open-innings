@@ -12,6 +12,9 @@ export default function AuthLayout() {
   const { user, isLoading } = useSession();
 
   if (isLoading || user === undefined) return <LoadingScreen />;
+  // Only a signed-in user is bounced. A guest reaching these screens is a
+  // guest deciding to stop being one, which is the whole point of the prompt
+  // that sent them here.
   if (user) return <Redirect href="/matches" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;

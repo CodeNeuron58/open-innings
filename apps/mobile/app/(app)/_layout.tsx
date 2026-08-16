@@ -10,10 +10,14 @@ import { useSession } from '../../lib/session';
 import { LoadingScreen } from '../../components/ui';
 
 export default function AppLayout() {
-  const { user, isLoading } = useSession();
+  const { user, isGuest, isLoading } = useSession();
 
   if (isLoading || user === undefined) return <LoadingScreen />;
-  if (!user) return <Redirect href="/login" />;
+  // Guests belong inside this group: the screens they can reach live here,
+  // and every one of them reads a surface that is public anyway. What keeps
+  // them out of the rest is the server refusing an unauthenticated write,
+  // not this line.
+  if (!user && !isGuest) return <Redirect href="/welcome" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

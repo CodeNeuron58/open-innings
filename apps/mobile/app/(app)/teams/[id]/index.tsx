@@ -17,7 +17,8 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ClubLeaderView, ClubPageResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
-import { useApiQuery } from '../../../../lib/use-api';
+import { useRequireAccount } from '../../../../lib/guest';
+import { usePublicQuery } from '../../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
 
 type Result = ClubPageResponse['results'][number];
@@ -40,8 +41,9 @@ function outcomeFor(r: Result, clubName: string): { mark: string; tone: string }
 export default function ClubPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const requireAccount = useRequireAccount();
 
-  const query = useApiQuery<ClubPageResponse>((t, signal) => api.club(t, id, signal), [id]);
+  const query = usePublicQuery<ClubPageResponse>((t, signal) => api.club(t, id, signal), [id]);
 
   if (query.isLoading) return <LoadingScreen />;
 
@@ -214,7 +216,11 @@ export default function ClubPage() {
           <Button
             label="Add a player"
             variant="secondary"
-            onPress={() => router.push({ pathname: '/teams/[id]/add', params: { id } })}
+            onPress={() =>
+              requireAccount('add a player', () =>
+                router.push({ pathname: '/teams/[id]/add', params: { id } }),
+              )
+            }
           />
         </View>
       </ScrollView>

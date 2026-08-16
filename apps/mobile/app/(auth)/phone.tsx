@@ -22,6 +22,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
+import { useSession } from '../../lib/session';
 import { Button } from '../../components/ui';
 
 /** Ten digits, the length of an Indian mobile number. */
@@ -57,6 +58,7 @@ function Checkbox({
 
 export default function PhoneSignIn() {
   const router = useRouter();
+  const { continueAsGuest } = useSession();
   const [number, setNumber] = useState('');
   const [notify, setNotify] = useState(true);
 
@@ -127,16 +129,15 @@ export default function PhoneSignIn() {
           <View className="bg-border h-px flex-1" />
         </View>
 
-        {/*
-          The escape hatch, and the reason this screen is not a wall. Scoring
-          works without an account — but it needs local-only match storage,
-          which does not exist yet either: every ball currently POSTs to the
-          server. Parked with the rest of this flow.
-        */}
+        {/* Real, unlike the rest of this screen: a guest can read every
+            public surface. They cannot score — that needs an account. */}
         <Button
-          label="Score without an account"
+          label="Look around first"
           variant="secondary"
-          onPress={() => router.replace('/matches')}
+          onPress={async () => {
+            await continueAsGuest();
+            router.replace('/browse');
+          }}
         />
 
         <View className="grow" />

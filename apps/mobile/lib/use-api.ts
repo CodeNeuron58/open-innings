@@ -21,6 +21,64 @@ type QueryResult<T> = {
   refresh: () => Promise<void>;
 };
 
+/**
+ * A query against a **public** endpoint — the scorecard, a career, a club.
+ *
+ * Runs with or without a token, because those endpoints do. That is what
+ * lets a guest read a shared link: they have no credential, and the server
+ * was never going to ask for one.
+ *
+ * It also does not sign anyone out on a 401. `useApiQuery` does that because
+ * a 401 there means a dead session; here it would mean the endpoint is not
+ * actually public, which is a bug to see rather than a user to eject.
+ */
+export function usePublicQuery<T>(
+  fetcher: (token: string | null, signal?: AbortSignal) => Promise<T>,
+  deps: unknown[] = [],
+): QueryResult<T> {
+  const { token } = useSession();
+
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const run = useCallback(
+    async (signal?: AbortSignal) => {
+      setError(null);
+      try {
+        setData(await fetcher(token, signal));
+      } catch (err) {
+        if (signal?.aborted) return;
+        setError(
+          err instanceof NetworkError || err instanceof ApiError
+            ? err.message
+            : 'Something went wrong.',
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [token, ...deps],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsLoading(true);
+    void run(controller.signal).finally(() => {
+      if (!controller.signal.aborted) setIsLoading(false);
+    });
+    return () => controller.abort();
+  }, [run]);
+
+  const refresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await run();
+    setIsRefreshing(false);
+  }, [run]);
+
+  return { data, error, isLoading, isRefreshing, refresh };
+}
+
 export function useApiQuery<T>(fetcher: Fetcher<T>, deps: unknown[] = []): QueryResult<T> {
   const { token, signOut } = useSession();
 

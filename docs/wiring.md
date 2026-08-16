@@ -26,7 +26,16 @@ Five screens built from the A-series designs. Two work; three are UI only.
 | A4 Verify OTP    | `(auth)/verify.tsx`  | 🔴 UI only — any six digits advance                      |
 | A5 Profile       | `(auth)/profile.tsx` | 🔴 UI only — nothing saves                               |
 
-### 🔴 Phone + OTP is a different auth system
+### ⏸️ Phone + OTP — deferred 2026-08-17
+
+Decided: **email only** for the hackathon, guest mode alongside it. Phone
+returns after 30 Sep, because the blocker below is an external queue that will
+not clear in time.
+
+A3 and A4 still exist and are still UI-only; `/welcome` now routes to the
+email screens, so they are unreachable by default.
+
+### 🔴 What phone auth will need
 
 The app authenticates with **email and password** — argon2, server-side
 sessions, `apps/web/lib/auth/local.ts`. The designed flow is **phone + OTP**.
@@ -46,15 +55,20 @@ These are not variations of each other. Making it real needs:
 a button that silently pretends to have sent an SMS is worse than one that
 visibly has not.
 
-### 🔴 "Score without an account"
+### 🟢 "Score without an account" is now "Look around first"
 
-The escape hatch on A3, and the reason that screen is not a wall. It implies
-matches stored **locally on the phone**, exportable, with no server.
+Decided 2026-08-17: a guest **reads**, and creating anything needs an account.
+The old label promised local scoring, which is the offline-first work from
+`FEATURES.md` Tier 3 wearing a different hat — a queue-and-sync engine, not a
+button.
 
-Today every ball POSTs to the server and the replayed state comes back. So
-this is the offline-first work from `FEATURES.md` Tier 3 wearing a different
-hat — the same queue-and-sync machinery, reached from a different direction.
-Build one and the other is nearly free.
+`lib/guest.ts` holds the manners and `requireUserId` on every mutating route
+holds the rule. Twelve smoke checks assert each one refuses an anonymous
+write, enumerated rather than sampled because a new route that forgets the
+check looks completely fine until someone finds it.
+
+Local scoring is still worth building; it is the same project as offline-first
+and should be done once, after the deadline.
 
 ### 🟡 Profile fields have nowhere to go
 

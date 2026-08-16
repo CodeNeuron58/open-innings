@@ -13,19 +13,33 @@
  */
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSession } from '../lib/session';
 
 export type MatchTab = 'matches' | 'score' | 'card' | 'more';
 
 export function MatchTabs({ matchId, active }: { matchId: string; active: MatchTab }) {
   const router = useRouter();
+  const { isGuest } = useSession();
 
+  /*
+   * A guest gets a different first tab and no Score.
+   *
+   * "Matches" is the list of matches *you created*, which for a guest is
+   * empty — landing them there looks like the app lost their data. And Score
+   * opens a console for a match they do not own, which the server would
+   * refuse. Neither is a wall worth walking into to discover.
+   */
   const items: { key: MatchTab; label: string; go?: () => void }[] = [
-    { key: 'matches', label: 'Matches', go: () => router.replace('/matches') },
-    {
-      key: 'score',
-      label: 'Score',
-      go: () => router.replace({ pathname: '/matches/[id]/score', params: { id: matchId } }),
-    },
+    isGuest
+      ? { key: 'matches', label: 'Open', go: () => router.replace('/browse') }
+      : { key: 'matches', label: 'Matches', go: () => router.replace('/matches') },
+    isGuest
+      ? { key: 'score', label: 'Score' }
+      : {
+          key: 'score',
+          label: 'Score',
+          go: () => router.replace({ pathname: '/matches/[id]/score', params: { id: matchId } }),
+        },
     {
       key: 'card',
       label: 'Card',
