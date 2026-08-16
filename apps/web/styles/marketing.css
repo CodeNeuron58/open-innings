@@ -1233,3 +1233,24 @@ td.oi-fmt-plate {
     display: none;
   }
 }
+
+/* Club page --------------------------------------------------------------- */
+
+.oi-club-date {
+  white-space: nowrap;
+  font-size: 14px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.oi-club-summary {
+  font-size: 14.5px;
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+/* The result summary is the first thing to lose on a phone — the opponent and
+   the date carry the row on their own. */
+@media (max-width: 640px) {
+  .oi-club-summary {
+    display: none;
+  }
+}

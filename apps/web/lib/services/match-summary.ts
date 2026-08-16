@@ -74,7 +74,15 @@ function toEvents(rows: BallRow[]) {
   }));
 }
 
-export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
+/**
+ * Loads a match and folds every ball into per-player batting and bowling
+ * totals across both innings.
+ *
+ * Extracted because the match card and the per-player card need exactly the
+ * same work — and if they computed it separately, "47(28)" on one could
+ * disagree with "47(28)" on the other.
+ */
+async function aggregate(matchId: string) {
   const match = await getMatch(matchId);
   if (!match) throw notFound('Match not found');
 
@@ -117,22 +125,44 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
 
   // Aggregate across both innings. A player bats in one and bowls in the
   // other, so their contributions live in different states.
-  const batting = new Map<string, { runs: number; balls: number }>();
-  const bowling = new Map<string, { wickets: number; runs: number }>();
+  const batting = new Map<
+    string,
+    { runs: number; balls: number; fours: number; sixes: number; isOut: boolean }
+  >();
+  const bowling = new Map<string, { wickets: number; runs: number; balls: number }>();
 
   for (const state of states) {
     for (const [id, s] of Object.entries(state.batting)) {
-      const prev = batting.get(id) ?? { runs: 0, balls: 0 };
-      batting.set(id, { runs: prev.runs + s.runs, balls: prev.balls + s.balls });
+      const prev = batting.get(id) ?? { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false };
+      batting.set(id, {
+        runs: prev.runs + s.runs,
+        balls: prev.balls + s.balls,
+        fours: prev.fours + s.fours,
+        sixes: prev.sixes + s.sixes,
+        // Out in either innings counts — the asterisk belongs only to someone
+        // who was never dismissed in this match.
+        isOut: prev.isOut || s.isOut,
+      });
     }
     for (const [id, s] of Object.entries(state.bowling)) {
-      const prev = bowling.get(id) ?? { wickets: 0, runs: 0 };
-      bowling.set(id, { wickets: prev.wickets + s.wickets, runs: prev.runs + s.runs });
+      const prev = bowling.get(id) ?? { wickets: 0, runs: 0, balls: 0 };
+      bowling.set(id, {
+        wickets: prev.wickets + s.wickets,
+        runs: prev.runs + s.runs,
+        balls: prev.balls + s.balls,
+      });
     }
   }
 
   const names = await getPlayerNamesByIds([...new Set([...batting.keys(), ...bowling.keys()])]);
   const nameOf = (id: string) => names[id] ?? 'Unknown';
+
+  return { match, allInnings, states, teamNames, batting, bowling, nameOf };
+}
+
+export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
+  const { match, allInnings, states, teamNames, batting, bowling, nameOf } =
+    await aggregate(matchId);
 
   // Top scorer: most runs, then fewest balls — 40 off 20 beats 40 off 35.
   let topScorer: Performer | null = null;
@@ -192,5 +222,88 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
     topScorer,
     bestBowler,
     playerOfTheMatch: potm,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// One player, one match
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type PlayerMatchLine = {
+  matchId: string;
+  playerId: string;
+  name: string;
+  /** The two sides, for the header: "Belonia Strikers v Whitefield". */
+  fixture: string | null;
+  result: string | null;
+  batting: {
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    notOut: boolean;
+    strikeRate: number | null;
+  } | null;
+  bowling: { wickets: number; runs: number; balls: number; economy: number | null } | null;
+  /** "47(28)" or "47(28) & 2-19" — the line a player would text a friend. */
+  line: string;
+};
+
+/**
+ * What one player did in one match.
+ *
+ * The point of this existing separately from the match card: a match produces
+ * one shareable artifact, but it involved twenty-two people who each did
+ * something different. Give each of them their own card and one match
+ * produces twenty-two posts instead of one — which is the whole arithmetic
+ * behind the share loop in FEATURES.md.
+ */
+export async function playerMatchLineFor(
+  matchId: string,
+  playerId: string,
+): Promise<PlayerMatchLine> {
+  const { match, allInnings, teamNames, batting, bowling, nameOf } = await aggregate(matchId);
+
+  const bat = batting.get(playerId);
+  const bowl = bowling.get(playerId);
+  if (!bat && !bowl) throw notFound('That player did not play in this match');
+
+  const sides = [...new Set(allInnings.map((i) => i.battingTeamId))]
+    .map((id) => teamNames.get(id))
+    .filter(Boolean);
+
+  const parts: string[] = [];
+  if (bat && bat.balls > 0) parts.push(`${bat.runs}${bat.isOut ? '' : '*'}(${bat.balls})`);
+  if (bowl && bowl.wickets > 0) parts.push(`${bowl.wickets}-${bowl.runs}`);
+
+  return {
+    matchId: match.id,
+    playerId,
+    name: nameOf(playerId),
+    fixture: sides.length >= 2 ? `${sides[0]} v ${sides[1]}` : (match.title ?? null),
+    result: match.summary,
+    // A player who came in and never faced a ball has no batting line to show.
+    batting:
+      bat && bat.balls > 0
+        ? {
+            runs: bat.runs,
+            balls: bat.balls,
+            fours: bat.fours,
+            sixes: bat.sixes,
+            notOut: !bat.isOut,
+            strikeRate: bat.balls > 0 ? (bat.runs / bat.balls) * 100 : null,
+          }
+        : null,
+    bowling:
+      bowl && bowl.balls > 0
+        ? {
+            wickets: bowl.wickets,
+            runs: bowl.runs,
+            balls: bowl.balls,
+            economy: bowl.balls > 0 ? bowl.runs / (bowl.balls / 6) : null,
+          }
+        : null,
+    // Fielded but neither batted nor bowled — say so rather than showing "".
+    line: parts.length > 0 ? parts.join(' & ') : 'Did not bat or bowl',
   };
 }
