@@ -24,7 +24,13 @@ import { notFound } from './errors';
 export type Performer = {
   playerId: string;
   name: string;
-  /** Batting: runs and balls. Bowling: wickets and runs conceded. */
+  /**
+   * Batting: runs and balls. Bowling: wickets and runs conceded. Sixes: the
+   * count and the balls faced.
+   *
+   * The pair is always "the figure that ranks them" then "the tiebreaker",
+   * which is why one type serves all three.
+   */
   primary: number;
   secondary: number;
 };
@@ -39,6 +45,12 @@ export type MatchSummary = {
   innings: { teamName: string; runs: number; wickets: number; overs: string }[];
   topScorer: Performer | null;
   bestBowler: Performer | null;
+  /**
+   * Most sixes. Not a statistic anyone's average depends on, and included
+   * anyway: it is the thing people actually bring up afterwards, and a card
+   * that only ever names the top scorer names the same person every time.
+   */
+  mostSixes: Performer | null;
   /**
    * Player of the match.
    *
@@ -190,6 +202,20 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
     }
   }
 
+  // Most sixes, tie broken on fewer balls faced — three off ten deliveries
+  // was a better evening than three off fifty.
+  let mostSixes: Performer | null = null;
+  for (const [id, s] of batting) {
+    if (s.sixes === 0) continue;
+    if (
+      !mostSixes ||
+      s.sixes > mostSixes.primary ||
+      (s.sixes === mostSixes.primary && s.balls < mostSixes.secondary)
+    ) {
+      mostSixes = { playerId: id, name: nameOf(id), primary: s.sixes, secondary: s.balls };
+    }
+  }
+
   // Player of the match — see the note on the type.
   let potm: MatchSummary['playerOfTheMatch'] = null;
   let bestImpact = 0;
@@ -221,6 +247,7 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
     })),
     topScorer,
     bestBowler,
+    mostSixes,
     playerOfTheMatch: potm,
   };
 }

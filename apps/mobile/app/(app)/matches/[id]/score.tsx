@@ -16,7 +16,7 @@
  *   3. **No ad ever appears here.** This is the scorer's screen — one person,
  *      240 taps, three hours. Ads live on the viewing surfaces. See TODO.md.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -34,6 +34,8 @@ import { useSession } from '../../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { Button, ErrorBanner, LoadingScreen } from '../../../../components/ui';
 import { BallChip } from '../../../../components/scorer/BallChip';
+import { EndOfOver } from '../../../../components/scorer/EndOfOver';
+import { InningsBreak } from '../../../../components/scorer/InningsBreak';
 import {
   ExtraRunsSheet,
   NextPlayerSheet,
@@ -67,6 +69,17 @@ export default function Scorer() {
     setPendingBowlerId(null);
   }, []);
 
+  // A finished match is a result, not a console. Redirected rather than
+  // rendered inline so the back stack does not return to a scoring screen
+  // that can no longer accept a ball.
+  const matchCompleted = query.data?.matchStatus === 'completed';
+  useEffect(() => {
+    // Object form rather than a template string: Expo's typegen currently
+    // registers this route as static, so the interpolated form does not
+    // typecheck. This is the documented API and substitutes [id] correctly.
+    if (matchCompleted) router.replace({ pathname: '/matches/[id]/result', params: { id } });
+  }, [matchCompleted, id, router]);
+
   if (query.isLoading) return <LoadingScreen />;
 
   if (query.error || !query.data) {
@@ -89,16 +102,25 @@ export default function Scorer() {
     data.players.find((p) => p.id === String(playerId))?.fullName ?? String(playerId).slice(0, 6);
 
   // ── Innings break ─────────────────────────────────────────────────────────
+  // `state` here is still innings 1 — the chase has not been opened, so that
+  // is what /scorer replays. Which is exactly what the break needs to show.
   if (data.awaitingSecondInnings) {
     return (
       <InningsBreak
         matchId={id}
-        firstInningsRuns={data.firstInningsRuns ?? 0}
+        state={state}
+        battingTeamName={data.battingTeamName}
+        chasingTeamName={data.bowlingTeamName}
+        nameOf={nameOf}
         battingSquad={data.nextBattingSquad}
         bowlingSquad={data.nextBowlingSquad}
-        onStarted={() => query.refresh()}
+        // Both go through mutation.run so a failure lands in `mutation.error`
+        // and is rendered, rather than becoming an unhandled rejection.
+        onStart={async (openers) => {
+          const started = await mutation.run((t) => api.startSecondInnings(t, id, openers));
+          if (started !== null) await query.refresh();
+        }}
         onUndo={async () => {
-          if (!token) return;
           const next = await mutation.run((t) => api.undoBall(t, id));
           if (next) await query.refresh();
         }}
@@ -187,21 +209,38 @@ export default function Scorer() {
     });
   }
 
-  function scoreWicket(type: WicketTypeValue, outBatterId: string, fielderId?: string) {
+  async function scoreWicket(
+    type: WicketTypeValue,
+    outBatterId: string,
+    fielderId?: string,
+    nextBatterId?: string,
+  ) {
     setShowWicket(false);
-    void send({
-      inningsId: inn.id,
-      eventType: 'wicket',
-      runsOffBat: 0,
-      extraRuns: 0,
-      totalRuns: 0,
-      batsmanId: effStriker,
-      nonStrikerId: effNonStriker,
-      bowlerId: effBowler,
-      wicketType: type,
-      wicketPlayerId: asPlayerId(outBatterId),
-      fielderId: fielderId ? asPlayerId(fielderId) : undefined,
-    });
+    const next = await mutation.run((t) =>
+      api.postBall(t, id, {
+        inningsId: inn.id,
+        eventType: 'wicket',
+        runsOffBat: 0,
+        extraRuns: 0,
+        totalRuns: 0,
+        batsmanId: effStriker,
+        nonStrikerId: effNonStriker,
+        bowlerId: effBowler,
+        wicketType: type,
+        wicketPlayerId: asPlayerId(outBatterId),
+        fielderId: fielderId ? asPlayerId(fielderId) : undefined,
+      }),
+    );
+    if (!next) return;
+    applyState(next);
+
+    // The replacement was named in the same sheet as the dismissal, so the
+    // mandatory batter sheet never has to appear. Set *after* applyState,
+    // which clears the pending pair — and not at all if that wicket ended the
+    // innings, because then nobody is coming in.
+    if (nextBatterId && next.currentInnings.status !== 'completed') {
+      setPendingBatterId(nextBatterId);
+    }
   }
 
   // Mandatory sheets, in priority order — a wicket on the last ball of an over
@@ -216,8 +255,6 @@ export default function Scorer() {
       p.id !== String(pendingWicketId ?? '') &&
       !state.batting[p.id]?.isOut,
   );
-  const bowlerCandidates = data.bowlingSquad.filter((p) => p.id !== String(inn.lastBowlerId ?? ''));
-
   // "This over" — falls back to the last over immediately after one ends.
   const currentOver = Math.floor(inn.ballsBowled / 6);
   let overBalls = state.balls.filter((b) => b.overNumber === currentOver);
@@ -387,6 +424,12 @@ export default function Scorer() {
           </View>
         ) : null}
 
+        {/*
+          The innings is over but the match is not, and the server has not
+          opened the next one yet — so `awaitingSecondInnings` is still false
+          and there is nothing to score. A completed *match* never reaches
+          here; it redirects to the result screen above.
+        */}
         {completed ? (
           <View className="border-border mx-4 mb-4 border p-5">
             <Text className="text-foreground font-heading text-lg uppercase">Innings complete</Text>
@@ -395,6 +438,11 @@ export default function Scorer() {
             ) : null}
             <View className="mt-4 gap-2">
               <Button label="Refresh" variant="secondary" onPress={() => void query.refresh()} />
+              <Button
+                label="See the result"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/matches/[id]/result', params: { id } })}
+              />
               <Button label="Back to matches" onPress={() => router.replace('/matches')} />
             </View>
           </View>
@@ -478,8 +526,14 @@ export default function Scorer() {
           strikerName={nameOf(effStriker)}
           nonStrikerId={String(effNonStriker)}
           nonStrikerName={nameOf(effNonStriker)}
-          players={data.players}
-          onConfirm={scoreWicket}
+          // Only the fielding side can be credited with a catch or a run-out.
+          // This used to offer both squads, which let a scorer credit the
+          // catch to a batter.
+          fielders={data.bowlingSquad}
+          nextBatters={batterCandidates}
+          onConfirm={(type, outId, fielderId, nextId) =>
+            void scoreWicket(type, outId, fielderId, nextId)
+          }
           onCancel={() => setShowWicket(false)}
         />
       ) : null}
@@ -514,13 +568,30 @@ export default function Scorer() {
       ) : null}
 
       {showBowlerSheet ? (
-        <NextPlayerSheet
-          title="New bowler"
-          subtitle={`Over complete — ${nameOf(inn.currentBowlerId)} can't bowl two in a row (Law 16.2).`}
-          candidates={bowlerCandidates.map((p) => ({ id: p.id, label: p.fullName }))}
-          emptyMessage="No other bowler in the squad — add players to the team."
-          onSelect={setPendingBowlerId}
+        <EndOfOver
+          oversCompleted={Math.floor(inn.ballsBowled / 6)}
+          oversPerInnings={state.match.oversPerInnings}
+          runs={inn.runs}
+          wickets={inn.wickets}
+          target={inn.target}
+          ballsRemaining={ballsLeft}
+          overBalls={overBalls}
+          lastBowlerId={String(inn.currentBowlerId)}
+          lastBowlerName={nameOf(inn.currentBowlerId)}
+          lastBowlerStats={state.bowling[String(inn.currentBowlerId)]}
+          // The whole bowling side — EndOfOver holds out the last bowler
+          // itself, so it can show them struck through rather than vanished.
+          candidates={data.bowlingSquad.map((p) => ({
+            id: p.id,
+            fullName: p.fullName,
+            stats: state.bowling[p.id],
+          }))}
+          strikerName={nameOf(inn.strikerId)}
+          strikerRuns={state.batting[String(inn.strikerId)]?.runs ?? 0}
+          strikerBalls={state.batting[String(inn.strikerId)]?.balls ?? 0}
+          onConfirm={setPendingBowlerId}
           onUndo={() => void undo()}
+          busy={mutation.busy}
         />
       ) : null}
     </SafeAreaView>
@@ -647,155 +718,5 @@ function Key({
     >
       <Text className={`${text} font-heading text-[22px]`}>{label === '0' ? '0' : label}</Text>
     </Pressable>
-  );
-}
-
-// ─── Innings break ───────────────────────────────────────────────────────────
-
-function InningsBreak({
-  matchId,
-  firstInningsRuns,
-  battingSquad,
-  bowlingSquad,
-  onStarted,
-  onUndo,
-  busy,
-  error,
-}: {
-  matchId: string;
-  firstInningsRuns: number;
-  battingSquad: { id: string; fullName: string }[];
-  bowlingSquad: { id: string; fullName: string }[];
-  onStarted: () => void;
-  onUndo: () => void;
-  busy: boolean;
-  error: string | null;
-}) {
-  const { token } = useSession();
-  const router = useRouter();
-  const [strikerId, setStrikerId] = useState<string | null>(null);
-  const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
-  const [bowlerId, setBowlerId] = useState<string | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
-
-  async function start() {
-    setLocalError(null);
-    if (!strikerId || !nonStrikerId || !bowlerId) {
-      setLocalError('Pick both opening batters and the opening bowler.');
-      return;
-    }
-    if (strikerId === nonStrikerId) {
-      setLocalError('Striker and non-striker must be different players.');
-      return;
-    }
-    if (!token) return;
-
-    try {
-      await api.startSecondInnings(token, matchId, {
-        openingStrikerId: strikerId,
-        openingNonStrikerId: nonStrikerId,
-        openingBowlerId: bowlerId,
-      });
-      onStarted();
-    } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Could not start the second innings.');
-    }
-  }
-
-  return (
-    <SafeAreaView className="bg-scoreboard flex-1">
-      <Stack.Screen options={{ title: 'Innings break', headerShown: false }} />
-      <ScrollView contentContainerClassName="p-5 gap-6">
-        <View>
-          <Text className="text-scoreboard-accent text-xs font-bold uppercase tracking-widest">
-            Innings break
-          </Text>
-          <Text className="text-scoreboard-text mt-1 text-2xl font-bold">
-            Target {firstInningsRuns + 1}
-          </Text>
-          <Text className="text-scoreboard-muted mt-1 text-sm">
-            First innings finished on {firstInningsRuns}. Pick the openers for the chase.
-          </Text>
-        </View>
-
-        {localError || error ? <ErrorBanner message={localError ?? error ?? ''} /> : null}
-
-        <OpenerPicker
-          label="Striker"
-          options={battingSquad}
-          selected={strikerId}
-          disabledId={nonStrikerId}
-          onSelect={setStrikerId}
-        />
-        <OpenerPicker
-          label="Non-striker"
-          options={battingSquad}
-          selected={nonStrikerId}
-          disabledId={strikerId}
-          onSelect={setNonStrikerId}
-        />
-        <OpenerPicker
-          label="Opening bowler"
-          options={bowlingSquad}
-          selected={bowlerId}
-          onSelect={setBowlerId}
-        />
-
-        <Button label="Start the chase" onPress={start} loading={busy} />
-        {/* The usual reason to be here wrongly is a mis-recorded final ball. */}
-        <Button label="Undo last ball" variant="ghost" onPress={onUndo} />
-        <Button
-          label="Back to matches"
-          variant="ghost"
-          onPress={() => router.replace('/matches')}
-        />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function OpenerPicker({
-  label,
-  options,
-  selected,
-  disabledId,
-  onSelect,
-}: {
-  label: string;
-  options: { id: string; fullName: string }[];
-  selected: string | null;
-  disabledId?: string | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <View className="gap-2">
-      <Text className="text-scoreboard-muted text-xs font-bold uppercase tracking-wide">
-        {label}
-      </Text>
-      <View className="flex-row flex-wrap gap-2">
-        {options.map((p) => {
-          const isSelected = p.id === selected;
-          const isDisabled = p.id === disabledId;
-          return (
-            <Pressable
-              key={p.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: isSelected, disabled: isDisabled }}
-              disabled={isDisabled}
-              onPress={() => onSelect(p.id)}
-              className={`min-h-12 shrink-0 justify-center rounded-xl px-4 ${
-                isSelected ? 'bg-primary' : 'bg-scoreboard-panel'
-              } ${isDisabled ? 'opacity-40' : ''}`}
-            >
-              <Text
-                className={`text-sm ${isSelected ? 'font-bold text-white' : 'text-scoreboard-text'}`}
-              >
-                {p.fullName}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
   );
 }

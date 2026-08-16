@@ -50,9 +50,24 @@ const TONE_STYLES: Record<Tone, { bg: string; text: string; border: string }> = 
   dot: { bg: 'bg-neutral-100', text: 'text-foreground', border: 'border-border' },
 };
 
-export function BallChip({ ball }: { ball: BallEvent }) {
+/**
+ * The same ramp inverted, for the strip on the score plate.
+ *
+ * The ordering has to survive the flip: on paper a wicket is the darkest chip,
+ * so against a dark ground it becomes the lightest. Reusing the light styles
+ * here would put a near-black wicket chip on a near-black plate.
+ */
+const DARK_TONE_STYLES: Record<Tone, { bg: string; text: string; border: string }> = {
+  four: { bg: 'bg-steel-700', text: 'text-scoreboard-text', border: 'border-steel-600' },
+  six: { bg: 'bg-steel-500', text: 'text-scoreboard', border: 'border-steel-500' },
+  wicket: { bg: 'bg-scoreboard-text', text: 'text-scoreboard', border: 'border-scoreboard-text' },
+  extra: { bg: 'bg-steel-800', text: 'text-scoreboard-accent', border: 'border-steel-700' },
+  dot: { bg: 'bg-transparent', text: 'text-scoreboard-text', border: 'border-scoreboard-border' },
+};
+
+export function BallChip({ ball, onDark = false }: { ball: BallEvent; onDark?: boolean }) {
   const { label, tone } = describe(ball);
-  const style = TONE_STYLES[tone];
+  const style = (onDark ? DARK_TONE_STYLES : TONE_STYLES)[tone];
 
   return (
     <View

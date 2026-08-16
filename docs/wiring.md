@@ -161,6 +161,69 @@ Teams sit at the bottom of B1 in the meantime.
 
 ---
 
+## Scoring (`apps/mobile/app/(app)/matches/[id]/`)
+
+The C-series. All five screens are real and the flow runs end to end — console,
+wicket, end of over, innings break, result. What follows is what the designs
+show that the data does not carry.
+
+### 🔴 Swap ends is not buildable yet
+
+C3 shows a **Swap ends** control beside the strike. The engine rotates the
+strike itself at the end of an over, and there is no event that would let the
+app override it — a correction would have to be a new kind of ball event, or a
+mutation on the innings.
+
+It is worth having: the reason a scorer wants it is that the players crossed on
+the last ball and nobody noticed until the next over started. Until then the
+only fix is undo, and the screen shows who is on strike as **information**
+rather than offering a control that would silently do nothing.
+
+### 🟡 The bowler quota is a UI-only guard
+
+C3 shows "4 overs left" per bowler and greys out anyone who has bowled their
+share. That limit — a fifth of the innings, rounded up — is a **playing
+condition, not a Law**, and `applyBall` does not enforce it. `EndOfOver`
+computes it in the UI.
+
+Which means the block is a courtesy, and it is written not to be able to trap
+anyone: a bowler is only disabled on quota **if somebody else still has overs
+left**. In a game with four bowlers it gets out of the way. Law 16.2 — no two
+overs in succession — is a real rule the engine does enforce, so that one is a
+hard block.
+
+If the quota should be real, it belongs in the engine with the rest of the
+laws, not in a screen.
+
+### 🟡 "10 minute break" and the follower count
+
+C4 shows both. There is no break timer and nothing counts followers, so
+neither is drawn — same call as on B1.
+
+### 🟡 The full card opens the web scorecard
+
+**Full card** on C4 and **Full scorecard** on C5 open `/m/[matchId]` in the
+browser. That page is real, it is the same one anyone following the match is
+looking at, and it is what gets shared — so this works today.
+
+An in-app card screen is still missing, and it is the same open question as the
+**CARD** tab in the bottom bar. Worth deciding once, for both.
+
+### 🟢 Expo's typed routes mis-register `result.tsx`
+
+`/matches/[id]/result` is generated as a **static** route while
+`/matches/[id]/score` beside it is generated as dynamic, so the interpolated
+form does not typecheck. Worked around with the object form —
+`router.push({ pathname: '/matches/[id]/result', params: { id } })` — which is
+the documented API anyway.
+
+Same typegen also sweeps in files from outside `app/`, currently
+`/../components/scorer/EndOfOver` and `/../../web/app/api/.../route`. Harmless
+noise in the union, but it is what breaks the dynamic-segment grouping, so it
+is worth an upstream look before more routes are added.
+
+---
+
 ## Monetisation
 
 ### 🔴 AdMob renders nothing
@@ -210,13 +273,16 @@ return 404, or search engines index dead pages.
 
 ## Mobile
 
-### 🟡 Nothing in the app offers to share anything
+### 🟢 Sharing — done at the end of a match, missing everywhere else
 
-Three card types exist on the web — match, player career, per-player match —
-and the Android app has **no share button**. The cards are real and nobody can
-send them from the place people finish a match.
+The result screen shares the match, and **Player cards** there sends any one
+player their own card, which is the twenty-two-shares-per-match arithmetic from
+`FEATURES.md`. The innings break shares the half-time score.
 
-Small change, and it is the tap that turns one scorer into twenty-two shares.
+Still nothing on the **career profile**, where `/p/[playerId]` is the card that
+already exists and is arguably the most personal one. Links resolve through
+`shareUrls` in `lib/config.ts` — the API origin, so they are the real domain in
+production and the LAN address in dev.
 
 ### 🟢 The dev build on the device is stale
 

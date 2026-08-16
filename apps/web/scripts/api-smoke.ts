@@ -482,7 +482,67 @@ async function main() {
     );
     ok(missing.status === 404, 'unknown player → 404', missing);
 
-    // ── 8. Delete ───────────────────────────────────────────────────────────
+    // ── 8. Match summary ────────────────────────────────────────────────────
+    // Feeds the result screen and the match share card. Must also run before
+    // the delete section, for the same reason career stats does.
+    console.log('match summary');
+    const summary = await call('GET', `/api/matches/${matchId}/summary`);
+    ok(summary.status === 200, 'GET match summary → 200', summary);
+    ok(
+      Array.isArray(summary.json.innings) && summary.json.innings.length === 2,
+      'summary folds both innings, not just the one in progress',
+      summary.json.innings,
+    );
+    ok(
+      typeof summary.json.innings?.[0]?.teamName === 'string' &&
+        typeof summary.json.innings?.[0]?.overs === 'string',
+      'each innings carries a team name and an overs figure',
+      summary.json.innings?.[0],
+    );
+
+    /*
+     * Nothing but two dot balls was ever scored, so every standout is empty.
+     *
+     * These are the assertions worth having: the easy mistake in all four is
+     * returning a zero-valued winner — a "top scorer" on 0, or a player of the
+     * match nobody can name — which would put a stranger's name on a share
+     * card for a game in which they did nothing.
+     */
+    ok(
+      summary.json.topScorer === null,
+      'nobody scored → topScorer is null',
+      summary.json.topScorer,
+    );
+    ok(
+      summary.json.bestBowler === null,
+      'no wickets fell → bestBowler is null',
+      summary.json.bestBowler,
+    );
+    ok(
+      summary.json.mostSixes === null,
+      'no six was hit → mostSixes is null',
+      summary.json.mostSixes,
+    );
+    ok(
+      summary.json.playerOfTheMatch === null,
+      'no contribution → no player of the match',
+      summary.json.playerOfTheMatch,
+    );
+
+    // The result is the artifact people send to a group chat, so it has to
+    // open for someone with no account — same rule as the career page.
+    const publicSummary = await call('GET', `/api/matches/${matchId}/summary`, undefined, false);
+    ok(publicSummary.status === 200, 'match summary is public (no auth) → 200', publicSummary);
+
+    const missingSummary = await call(
+      'GET',
+      '/api/matches/00000000-0000-0000-0000-000000000000/summary',
+      undefined,
+      false,
+    );
+    ok(missingSummary.status === 404, 'summary for an unknown match → 404', missingSummary);
+
+    // ── 9. Delete ───────────────────────────────────────────────────────────
     console.log('delete');
     const liveDelete = await call('DELETE', `/api/matches/${matchId}`);
     ok(liveDelete.status === 400, 'deleting a live match → 400', liveDelete);
@@ -494,7 +554,7 @@ async function main() {
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
 
-    // ── 9. Rate limiting ────────────────────────────────────────────────────
+    // ── 10. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');
     // Must exceed the login cap in app/api/auth/login/route.ts (30 per 15 min).
     // If that cap is raised, raise this too or the assertion silently rots.
@@ -513,7 +573,7 @@ async function main() {
     }
     ok(sawTooMany, 'repeated failed logins eventually → 429');
 
-    // ── 10. Logout ───────────────────────────────────────────────────────────
+    // ── 11. Logout ───────────────────────────────────────────────────────────
     console.log('logout');
     const loggedOut = await call('POST', '/api/auth/logout');
     ok(loggedOut.status === 200, 'logout → 200', loggedOut);

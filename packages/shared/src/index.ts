@@ -77,6 +77,8 @@ export {
   type ScorerPlayer,
   type ScorerResponse,
   type BallResponse,
+  type MatchPerformer,
+  type MatchResultResponse,
   type BattingCareerView,
   type BowlingCareerView,
   type FormEntryView,

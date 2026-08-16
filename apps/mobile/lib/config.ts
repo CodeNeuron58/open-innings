@@ -41,3 +41,18 @@ export const API_BASE = resolveApiBase();
 
 export const MISSING_API_BASE_MESSAGE =
   'No API URL. Set EXPO_PUBLIC_API_URL, or run the Expo dev server on the same network as the web app.';
+
+/**
+ * Public links — the scorecard and the share cards.
+ *
+ * The same origin as the API, because the web app serves both `/api` and the
+ * public pages. That makes shared links correct everywhere for free: in
+ * production `EXPO_PUBLIC_API_URL` is the real domain, and in dev it is the
+ * LAN address, which opens on any phone on the same wifi — which is exactly
+ * what you want when testing whether a scorecard is worth sending to anyone.
+ */
+export const shareUrls = {
+  match: (matchId: string) => `${API_BASE}/m/${matchId}`,
+  playerInMatch: (matchId: string, playerId: string) => `${API_BASE}/m/${matchId}/p/${playerId}`,
+  player: (playerId: string) => `${API_BASE}/p/${playerId}`,
+};

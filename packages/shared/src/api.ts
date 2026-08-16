@@ -180,6 +180,48 @@ export type BallResponse = {
   state: unknown;
 };
 
+/**
+ * One standout performance. The pair is always "the figure that ranks them"
+ * then "the tiebreaker": runs and balls, wickets and runs conceded, sixes and
+ * balls.
+ */
+export type MatchPerformer = {
+  playerId: string;
+  name: string;
+  primary: number;
+  secondary: number;
+};
+
+/**
+ * `GET /api/matches/[id]/summary` — the match as the result screen shows it.
+ *
+ * Named `MatchResultResponse` rather than after its route because
+ * `MatchSummary` above is already taken by the row in the matches list, and
+ * two types called the same thing meaning different things is how a client
+ * ends up rendering one where it meant the other.
+ *
+ * Both innings, folded server-side. The scorer endpoint replays only the
+ * innings in progress, so this is the only shape that can describe a finished
+ * match.
+ */
+export type MatchResultResponse = {
+  matchId: string;
+  title: string | null;
+  venue: string | null;
+  status: string;
+  /** "Koramangala XI won by 4 wickets" — the server's own result line. */
+  result: string | null;
+  innings: { teamName: string; runs: number; wickets: number; overs: string }[];
+  topScorer: MatchPerformer | null;
+  bestBowler: MatchPerformer | null;
+  mostSixes: MatchPerformer | null;
+  /**
+   * Computed, never voted on: runs plus twenty per wicket. Present it as "who
+   * had the biggest game", not as an award — see the service for why.
+   */
+  playerOfTheMatch: { playerId: string; name: string; line: string } | null;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Career statistics
 // ─────────────────────────────────────────────────────────────────────────────

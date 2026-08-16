@@ -28,6 +28,7 @@ import {
   type CreateTeamInput,
   type ScorerResponse,
   type BallResponse,
+  type MatchResultResponse,
   type StartSecondInningsInput,
   type PlayerCareerResponse,
 } from '@open-innings/shared';
@@ -210,4 +211,12 @@ export const api = {
 
   endInnings: (token: string, matchId: string) =>
     apiFetch<unknown>(`/api/matches/${matchId}/innings/end`, { method: 'POST', token }),
+
+  /**
+   * Both innings folded into a result. The scorer endpoint replays only the
+   * innings in progress, so this is the only call that can describe a match
+   * that is over.
+   */
+  matchSummary: (token: string, matchId: string, signal?: AbortSignal) =>
+    apiFetch<MatchResultResponse>(`/api/matches/${matchId}/summary`, { token, signal }),
 };
