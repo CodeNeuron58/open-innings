@@ -87,6 +87,8 @@ export {
   type BowlingCareerView,
   type FormEntryView,
   type PlayerCareerResponse,
+  type PlayerBrief,
+  type PlayerBriefsResponse,
   type ClubPageResponse,
 } from './api';
 

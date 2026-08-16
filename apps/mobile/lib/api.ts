@@ -32,6 +32,7 @@ import {
   type MatchCardResponse,
   type StartSecondInningsInput,
   type PlayerCareerResponse,
+  type PlayerBriefsResponse,
   type ClubPageResponse,
 } from '@open-innings/shared';
 import type { BallEventInput, MatchState } from '@open-innings/scoring';
@@ -230,6 +231,19 @@ export const api = {
    */
   matchCard: (token: string, matchId: string, signal?: AbortSignal) =>
     apiFetch<MatchCardResponse>(`/api/matches/${matchId}/card`, { token, signal }),
+
+  /**
+   * Career context for a list of players, in one request.
+   *
+   * The pickers call this once with a whole squad rather than hitting
+   * `playerStats` per row — twenty-two round trips on a screen someone is
+   * trying to get past.
+   */
+  playerBriefs: (token: string, playerIds: string[], signal?: AbortSignal) =>
+    apiFetch<PlayerBriefsResponse>(`/api/players/briefs?ids=${playerIds.join(',')}`, {
+      token,
+      signal,
+    }),
 
   /** A club's public home — squad, recent results, and who leads it. */
   club: (token: string, teamId: string, signal?: AbortSignal) =>

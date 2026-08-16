@@ -23,7 +23,9 @@ import {
   type TeamListResponse,
   type TeamDetailResponse,
 } from '@open-innings/shared';
+import type { PlayerBrief } from '@open-innings/shared';
 import { api } from '../../../lib/api';
+import { battingLine, bowlingLine, usePlayerBriefs } from '../../../lib/briefs';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
 
@@ -190,6 +192,13 @@ export default function NewMatch() {
     (tossWinnerId === null) === (tossDecision === null);
 
   const xi = battingPlayers.filter((p) => selected.has(p.id));
+
+  // Both squads in one request. Asked for here rather than inside the picker
+  // so the three pickers on step 3 share a single fetch.
+  const briefs = usePlayerBriefs([
+    ...battingPlayers.map((p) => p.id),
+    ...bowlingPlayers.map((p) => p.id),
+  ]);
 
   async function submit() {
     setError(null);
@@ -485,6 +494,8 @@ export default function NewMatch() {
             value={strikerId}
             onChange={setStrikerId}
             excludeId={nonStrikerId}
+            briefs={briefs}
+            kind="batting"
           />
         </View>
 
@@ -496,6 +507,8 @@ export default function NewMatch() {
               value={nonStrikerId}
               onChange={setNonStrikerId}
               excludeId={strikerId}
+              briefs={briefs}
+              kind="batting"
             />
           </View>
         </View>
@@ -503,7 +516,13 @@ export default function NewMatch() {
         <View className="mt-6">
           <Kicker>Opening bowler · {nameOf(bowlingTeamId)}</Kicker>
           <View className="mt-2">
-            <PlayerPicker players={bowlingPlayers} value={bowlerId} onChange={setBowlerId} />
+            <PlayerPicker
+              players={bowlingPlayers}
+              value={bowlerId}
+              onChange={setBowlerId}
+              briefs={briefs}
+              kind="bowling"
+            />
           </View>
         </View>
 
@@ -532,29 +551,35 @@ export default function NewMatch() {
 }
 
 /**
- * A list of players to choose one from.
+ * A list of players to choose one from, with the figures that inform the
+ * choice.
  *
- * The design shows form figures beside each name — "SR 128 this season",
- * "Econ 6.8". Those exist behind GET /api/players/[id]/stats, but fetching one
- * per player would be a request per row on a screen someone is trying to get
- * past. Left out until there is a batch endpoint; see docs/wiring.md.
+ * `kind` decides which end the context is read from: openers get a batting
+ * line, the bowler gets an economy. Showing both on every row would be more
+ * information and less help.
  */
 function PlayerPicker({
   players,
   value,
   onChange,
   excludeId,
+  briefs,
+  kind,
 }: {
   players: { id: string; fullName: string; role?: string | null }[];
   value: string | null;
   onChange: (id: string) => void;
   excludeId?: string | null;
+  briefs: Map<string, PlayerBrief>;
+  kind: 'batting' | 'bowling';
 }) {
   return (
     <View className="border-border border-l border-t">
       {players.map((p) => {
         const on = p.id === value;
         const off = p.id === excludeId;
+        const line =
+          kind === 'batting' ? battingLine(briefs.get(p.id)) : bowlingLine(briefs.get(p.id));
         return (
           <Pressable
             key={p.id}
@@ -566,11 +591,21 @@ function PlayerPicker({
               on ? 'bg-steel-100' : ''
             } ${off ? 'opacity-35' : 'active:opacity-70'}`}
           >
-            <Text className="text-foreground flex-1 text-[15px]" numberOfLines={1}>
-              {p.fullName}
-            </Text>
+            <View className="min-w-0 flex-1">
+              <Text className="text-foreground text-[15px]" numberOfLines={1}>
+                {p.fullName}
+              </Text>
+              {line ? (
+                <Text
+                  className="font-heading mt-0.5 text-[9px] uppercase tracking-[1.2px] text-neutral-600"
+                  numberOfLines={1}
+                >
+                  {line}
+                </Text>
+              ) : null}
+            </View>
             {p.role ? (
-              <Text className="font-heading text-[10px] uppercase tracking-[1.2px] text-neutral-600">
+              <Text className="font-heading shrink-0 text-[10px] uppercase tracking-[1.2px] text-neutral-600">
                 {p.role.replace(/_/g, ' ')}
               </Text>
             ) : null}

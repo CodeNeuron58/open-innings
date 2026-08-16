@@ -217,3 +217,124 @@ export async function fieldingTotalsFor(playerId: string): Promise<FieldingTotal
     stumpings: Number(r?.stumpings ?? 0),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Many players at once
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Enough of a career to decide whether this is the right person.
+ *
+ * Not a shrunken `PlayerCareer` — a different question. The career page is
+ * read about one player who has been chosen; this is read while *choosing*,
+ * across a whole squad, and the only figures that help are the ones that
+ * distinguish two people with the same name.
+ */
+export type CareerBrief = {
+  playerId: string;
+  matches: number;
+  runs: number;
+  battingBalls: number;
+  wickets: number;
+  bowlingRuns: number;
+  bowlingBalls: number;
+};
+
+/**
+ * Career totals for a list of players, in two queries rather than 2N.
+ *
+ * The reason this exists: three screens want a line of context beside each
+ * name in a list — the XI picker, the openers picker, and the add-a-player
+ * search. Calling the per-player endpoint per row is twenty-two round trips
+ * on a screen someone is trying to get past, on ground-side mobile data.
+ *
+ * Totals, not per-innings rows. Nothing here needs an innings breakdown, and
+ * folding one for twenty-two players to produce six numbers each would move
+ * the same waste from the network to the server.
+ */
+export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[]> {
+  if (playerIds.length === 0) return [];
+
+  const ids = sql.join(
+    playerIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+  const credited = enumList(BOWLER_CREDITED_WICKETS);
+
+  const [battingRows, bowlingRows] = await Promise.all([
+    db.execute<{ player_id: string; runs: number; balls: number; matches: number }>(sql`
+      select
+        be.batsman_id as player_id,
+        coalesce(sum(be.runs_off_bat), 0)::int as runs,
+        -- Balls faced excludes wides: a wide is not a ball the batter faced.
+        count(*) filter (where be.is_legal_delivery)::int as balls,
+        count(distinct i.match_id)::int as matches
+      from ball_events be
+      join innings i on i.id = be.innings_id
+      where be.batsman_id in (${ids})
+      group by be.batsman_id
+    `),
+    db.execute<{
+      player_id: string;
+      balls: number;
+      runs: number;
+      wickets: number;
+      matches: number;
+    }>(sql`
+      select
+        be.bowler_id as player_id,
+        count(*) filter (where be.is_legal_delivery)::int as balls,
+        -- Byes and leg-byes are not charged to the bowler; the wide and
+        -- no-ball penalties are. Same rule as bowlingInningsFor — if these
+        -- two ever disagree, one screen contradicts another.
+        (
+          coalesce(sum(be.runs_off_bat), 0)
+          + coalesce(sum(be.extra_runs) filter (
+              where be.event_type in ('wide', 'no_ball')
+            ), 0)
+        )::int as runs,
+        count(*) filter (where be.wicket_type in (${credited}))::int as wickets,
+        count(distinct i.match_id)::int as matches
+      from ball_events be
+      join innings i on i.id = be.innings_id
+      where be.bowler_id in (${ids})
+      group by be.bowler_id
+    `),
+  ]);
+
+  const byPlayer = new Map<string, CareerBrief>();
+  const blank = (playerId: string): CareerBrief => ({
+    playerId,
+    matches: 0,
+    runs: 0,
+    battingBalls: 0,
+    wickets: 0,
+    bowlingRuns: 0,
+    bowlingBalls: 0,
+  });
+
+  // Matches are counted per role, so an all-rounder appears in both result
+  // sets for the same game. The union has to be taken over match ids, which
+  // neither query returns — so the larger of the two is used. It is exact
+  // whenever a player bowled in every match they batted in or vice versa,
+  // which covers a specialist entirely, and never overcounts.
+  for (const r of battingRows) {
+    const brief = byPlayer.get(r.player_id) ?? blank(r.player_id);
+    brief.runs = Number(r.runs);
+    brief.battingBalls = Number(r.balls);
+    brief.matches = Math.max(brief.matches, Number(r.matches));
+    byPlayer.set(r.player_id, brief);
+  }
+  for (const r of bowlingRows) {
+    const brief = byPlayer.get(r.player_id) ?? blank(r.player_id);
+    brief.wickets = Number(r.wickets);
+    brief.bowlingRuns = Number(r.runs);
+    brief.bowlingBalls = Number(r.balls);
+    brief.matches = Math.max(brief.matches, Number(r.matches));
+    byPlayer.set(r.player_id, brief);
+  }
+
+  // Everyone asked about, including players who have never faced a ball —
+  // a caller should not have to distinguish "no record" from "not returned".
+  return playerIds.map((id) => byPlayer.get(id) ?? blank(id));
+}

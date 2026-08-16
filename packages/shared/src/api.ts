@@ -410,6 +410,30 @@ export type ClubPageResponse = {
   };
 };
 
+/**
+ * Enough of a career to tell two people with the same name apart.
+ *
+ * Deliberately not a shrunken `PlayerCareerResponse` — it answers a different
+ * question. This one is read *while choosing* a player from a list; that one
+ * is read about a player already chosen.
+ *
+ * Career totals, not this season's. A season filter would need a season, and
+ * a picker showing nothing for everyone who has not played since January is
+ * worse than one showing a career.
+ */
+export type PlayerBrief = {
+  playerId: string;
+  matches: number;
+  runs: number;
+  battingBalls: number;
+  wickets: number;
+  bowlingRuns: number;
+  bowlingBalls: number;
+};
+
+/** `GET /api/players/briefs?ids=a,b,c` — career context for a list. */
+export type PlayerBriefsResponse = { briefs: PlayerBrief[] };
+
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */
 export const HTTP = {
   ok: 200,

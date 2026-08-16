@@ -506,6 +506,57 @@ async function main() {
       career.json.career?.player,
     );
 
+    // ── 7b. Career briefs ───────────────────────────────────────────────────
+    // The batch the pickers use. Must agree with the per-player endpoint —
+    // two figures for the same player on two screens is the bug this exists
+    // to avoid.
+    console.log('career briefs');
+    const briefs = await call(
+      'GET',
+      `/api/players/briefs?ids=${[batterId, bowler, createdPlayerIds[1]].join(',')}`,
+    );
+    ok(briefs.status === 200, 'GET player briefs → 200', briefs);
+    ok(briefs.json.briefs?.length === 3, 'one brief per id asked for', briefs.json.briefs?.length);
+
+    const batterBrief = briefs.json.briefs?.find((b: Json) => b.playerId === batterId) as
+      Json | undefined;
+    ok(
+      batterBrief?.runs === bat?.runs && batterBrief?.battingBalls === bat?.balls,
+      'briefs agree with the per-player career endpoint',
+      { brief: batterBrief, career: bat },
+    );
+    ok(batterBrief?.matches === 1, 'briefs count distinct matches', batterBrief?.matches);
+
+    /*
+     * A player who has never faced a ball still gets a row.
+     *
+     * createdPlayerIds[1] was created and never batted or bowled. Returning
+     * nothing for them would make the client unable to tell "no record" from
+     * "not in the response", and the picker would show a spinner forever.
+     */
+    const unplayed = briefs.json.briefs?.find((b: Json) => b.playerId === createdPlayerIds[1]) as
+      Json | undefined;
+    ok(
+      unplayed !== undefined && unplayed.matches === 0 && unplayed.runs === 0,
+      'a player with no record still gets a zeroed brief',
+      unplayed,
+    );
+
+    const noIds = await call('GET', '/api/players/briefs?ids=');
+    ok(
+      noIds.status === 200 && noIds.json.briefs?.length === 0,
+      'no ids → empty list, not an error',
+      noIds,
+    );
+
+    // Ids are interpolated into ::uuid casts, so a malformed one has to be
+    // rejected here rather than becoming a 500 from the driver.
+    const badIds = await call('GET', '/api/players/briefs?ids=not-a-uuid');
+    ok(badIds.status === 400, 'a malformed id → 400, not a 500', badIds);
+
+    const unauthBriefs = await call('GET', `/api/players/briefs?ids=${batterId}`, undefined, false);
+    ok(unauthBriefs.status === 401, 'briefs require a session → 401', unauthBriefs);
+
     // The page is the shareable artifact — it has to open for someone with no
     // account, so the endpoint must not require a session.
     const publicCareer = await call('GET', `/api/players/${batterId}/stats`, undefined, false);

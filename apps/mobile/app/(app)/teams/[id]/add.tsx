@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { PlayerRole, PlayerSummary } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
+import { battingLine, bowlingLine, usePlayerBriefs } from '../../../../lib/briefs';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../../components/ui';
 
@@ -59,6 +60,10 @@ export default function AddPlayer() {
       )
       .slice(0, 8);
   }, [search, players.data, squadIds]);
+
+  // Context for whoever is currently on screen — at most eight rows, one
+  // request, refetched only when the visible set actually changes.
+  const briefs = usePlayerBriefs(matches.map((m) => m.id));
 
   if (team.isLoading || players.isLoading) return <LoadingScreen />;
 
@@ -143,24 +148,19 @@ export default function AddPlayer() {
                       <Text className="text-foreground text-[15px]" numberOfLines={1}>
                         {p.fullName}
                       </Text>
-                      {/*
-                        The design shows "TOP ORDER · 812 RUNS · 33 MATCHES"
-                        here — the career context that makes picking the right
-                        S. Kurien possible. Career figures are one request per
-                        player and there is no batch endpoint, so only what the
-                        player list already carries is shown. See
-                        docs/wiring.md.
-                      */}
+                      {/* The whole reason this screen searches before it
+                          offers to create: enough of a record to tell two
+                          people with the same name apart. */}
                       <Text
                         className="font-heading mt-0.5 text-[9px] uppercase tracking-[1.2px] text-neutral-600"
                         numberOfLines={1}
                       >
                         {[
                           p.role ? ROLES.find((r) => r.value === p.role)?.label : null,
-                          p.bowlingStyle ? p.bowlingStyle.replace(/_/g, ' ') : null,
+                          battingLine(briefs.get(p.id)) ?? bowlingLine(briefs.get(p.id)),
                         ]
                           .filter(Boolean)
-                          .join(' · ') || 'No details yet'}
+                          .join('  ·  ') || 'No matches yet'}
                       </Text>
                     </View>
 
