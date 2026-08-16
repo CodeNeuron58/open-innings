@@ -90,6 +90,7 @@ export {
   type PlayerBrief,
   type PlayerBriefsResponse,
   type ClubPageResponse,
+  type ClubLeaderView,
 } from './api';
 
 export { resolveBattingSides } from './toss';

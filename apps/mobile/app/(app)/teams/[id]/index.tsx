@@ -14,7 +14,7 @@
 import { Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { ClubPageResponse } from '@open-innings/shared';
+import type { ClubLeaderView, ClubPageResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
 import { useApiQuery } from '../../../../lib/use-api';
@@ -63,6 +63,18 @@ export default function ClubPage() {
   const won = outcomes.filter((o) => o.mark === 'W').length;
   const lost = outcomes.filter((o) => o.mark === 'L').length;
   const tied = outcomes.filter((o) => o.mark === 'T').length;
+
+  /*
+   * The four the design lists, in the order it lists them, minus any nobody
+   * qualifies for. Strike rate has a minimum balls-faced floor on the server,
+   * so a club whose season is two matches old will not have one yet.
+   */
+  const leaderRows: { label: string; leader: ClubLeaderView }[] = [
+    { label: 'Most runs', leader: club.leaders.runs },
+    { label: 'Most wkts', leader: club.leaders.wickets },
+    { label: 'Best SR', leader: club.leaders.strikeRate },
+    { label: 'Catches', leader: club.leaders.catches },
+  ].flatMap((row) => (row.leader ? [{ label: row.label, leader: row.leader }] : []));
 
   async function share() {
     // The club's public page lives on the web — that is the link worth
@@ -118,44 +130,23 @@ export default function ClubPage() {
           ))}
         </View>
 
-        {club.leaders.runs || club.leaders.wickets ? (
+        {leaderRows.length > 0 ? (
           <View className="px-4 pt-6">
             {/* "Career", not "this club" — see the note at the top. */}
             <Kicker>Squad leaders · career</Kicker>
             <View className="border-border mt-2 border-t">
-              {club.leaders.runs ? (
+              {leaderRows.map((row) => (
                 <LeaderRow
-                  label="Most runs"
-                  name={club.leaders.runs.name}
-                  value={club.leaders.runs.value}
+                  key={row.label}
+                  label={row.label}
+                  name={row.leader.name}
+                  value={String(row.leader.value)}
                   onPress={() =>
-                    router.push({
-                      pathname: '/players/[id]',
-                      params: { id: club.leaders.runs!.playerId },
-                    })
+                    router.push({ pathname: '/players/[id]', params: { id: row.leader.playerId } })
                   }
                 />
-              ) : null}
-              {club.leaders.wickets ? (
-                <LeaderRow
-                  label="Most wkts"
-                  name={club.leaders.wickets.name}
-                  value={club.leaders.wickets.value}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/players/[id]',
-                      params: { id: club.leaders.wickets!.playerId },
-                    })
-                  }
-                />
-              ) : null}
+              ))}
             </View>
-            {/*
-              The design also lists best strike rate and most catches. Both are
-              per-player figures the club service does not compute — it ranks
-              runs and wickets only. Adding them means two more aggregates
-              across the squad; see docs/wiring.md.
-            */}
           </View>
         ) : null}
 
@@ -246,7 +237,7 @@ function LeaderRow({
 }: {
   label: string;
   name: string;
-  value: number;
+  value: string;
   onPress: () => void;
 }) {
   return (

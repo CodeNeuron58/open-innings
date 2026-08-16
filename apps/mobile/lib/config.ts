@@ -86,14 +86,15 @@ export const shareUrls = {
    */
   matchCardImage: (matchId: string) => `${API_BASE}/m/${matchId}/square`,
   playerCardImage: (matchId: string, playerId: string) =>
-    `${API_BASE}/m/${matchId}/p/${playerId}/opengraph-image`,
+    `${API_BASE}/m/${matchId}/p/${playerId}/square`,
 };
 
 /**
- * The match card is square; the per-player card is still landscape.
+ * Both cards the app previews are square.
  *
  * A preview has to be drawn at the ratio of the thing it previews — one that
- * lies about the crop sends someone a card with their name cut off.
+ * lies about the crop sends someone a card with their name cut off. The
+ * 1200×630 landscape versions still exist; they are what a *link* unfurls
+ * into, and nothing in the app previews those.
  */
-export const MATCH_CARD_ASPECT_RATIO = 1;
-export const PLAYER_CARD_ASPECT_RATIO = 1200 / 630;
+export const CARD_ASPECT_RATIO = 1;

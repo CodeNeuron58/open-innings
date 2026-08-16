@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { MatchCardResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
-import { PLAYER_CARD_ASPECT_RATIO, shareUrls } from '../../../../lib/config';
+import { CARD_ASPECT_RATIO, shareUrls } from '../../../../lib/config';
 import { useApiQuery } from '../../../../lib/use-api';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
@@ -127,7 +127,7 @@ export default function PlayerCards() {
               // than showing the previous card while the next one loads.
               key={active.playerId}
               source={{ uri: shareUrls.playerCardImage(id, active.playerId) }}
-              style={{ width: '100%', aspectRatio: PLAYER_CARD_ASPECT_RATIO }}
+              style={{ width: '100%', aspectRatio: CARD_ASPECT_RATIO }}
               resizeMode="contain"
               accessibilityLabel={`Card for ${active.name}, ${active.line}`}
             />

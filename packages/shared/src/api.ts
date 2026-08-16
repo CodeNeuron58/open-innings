@@ -375,7 +375,11 @@ export type PlayerCareerResponse = {
     /** Null when the player has only ever played one season. */
     season: { label: string; batting: BattingCareerView; bowling: BowlingCareerView } | null;
     form: FormEntryView[];
-    milestones: string[];
+    milestones: {
+      label: string;
+      /** Appearances ago, not days — 0 is the most recent match played. */
+      matchesAgo: number;
+    }[];
   };
 };
 
@@ -387,6 +391,8 @@ export type PlayerCareerResponse = {
  * turned out for in each innings, and players turn out for more than one — so
  * the label says "career" rather than quietly getting it wrong.
  */
+export type ClubLeaderView = { playerId: string; name: string; value: number };
+
 export type ClubPageResponse = {
   team: { id: string; name: string };
   squad: {
@@ -405,8 +411,11 @@ export type ClubPageResponse = {
     summary: string | null;
   }[];
   leaders: {
-    runs: { playerId: string; name: string; value: number } | null;
-    wickets: { playerId: string; name: string; value: number } | null;
+    runs: ClubLeaderView | null;
+    wickets: ClubLeaderView | null;
+    /** Career strike rate, over a minimum of balls faced. */
+    strikeRate: ClubLeaderView | null;
+    catches: ClubLeaderView | null;
   };
 };
 

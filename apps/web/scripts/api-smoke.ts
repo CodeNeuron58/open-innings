@@ -660,7 +660,16 @@ async function main() {
       'club results carry playedAt as an ISO string, not a Date',
       firstResult?.playedAt,
     );
-    ok('runs' in (club.json.leaders ?? {}), 'club page carries leaders', club.json.leaders);
+    /*
+     * All four leader slots, always present.
+     *
+     * Null is the right answer for a club nobody has scored 50 balls for —
+     * but the *key* has to be there, or the client cannot tell "no leader"
+     * from "this build does not send one".
+     */
+    for (const slot of ['runs', 'wickets', 'strikeRate', 'catches'] as const) {
+      ok(slot in (club.json.leaders ?? {}), `club leaders carry ${slot}`, club.json.leaders);
+    }
 
     const publicClub = await call('GET', `/api/teams/${teamAId}/club`, undefined, false);
     ok(publicClub.status === 200, 'club page is public (no auth) → 200', publicClub);

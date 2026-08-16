@@ -124,11 +124,6 @@ Either the engine catches up or the copy does.
 because the design does, disabled because changing it would be a lie. Making it
 real means touching every over-based calculation.
 
-### 🟡 "Add a guest player"
-
-On B3. Needs a player row created inline, attached to the squad, and a decision
-about whether guests persist as real players afterwards.
-
 ### 🟢 Form figures are career, not this season
 
 B4 says "SR 128 **this season**". `GET /api/players/briefs` returns career
@@ -295,12 +290,6 @@ reached. `milestonesFor` computes only _what_ has been achieved from career
 totals; dating them means walking the innings in order and recording where
 each threshold was crossed. Worth doing: "eighth fifty, two matches ago" is a
 much better sentence than "8 fifties".
-
-### 🟡 Two of the four club leaders are missing
-
-E2 lists most runs, most wickets, best strike rate, and most catches.
-`clubPageFor` ranks only runs and wickets. The other two are two more
-aggregates across the squad.
 
 ### 🟡 Career context in the player search
 

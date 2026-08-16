@@ -42,8 +42,24 @@ export type ClubPage = {
    * and a player can appear for more than one club — so rather than quietly
    * getting that wrong, the page says "career" on the label.
    */
-  leaders: { runs: ClubLeader | null; wickets: ClubLeader | null };
+  leaders: {
+    runs: ClubLeader | null;
+    wickets: ClubLeader | null;
+    /** Career strike rate, over a minimum of balls faced — see the query. */
+    strikeRate: ClubLeader | null;
+    catches: ClubLeader | null;
+  };
 };
+
+/**
+ * Balls faced before a strike rate means anything.
+ *
+ * Without a floor this table is always won by whoever hit a six off their
+ * only delivery — a strike rate of 600 that describes nothing. Fifty is low
+ * enough that a club season qualifies several people and high enough that one
+ * over cannot top it.
+ */
+const MIN_BALLS_FOR_STRIKE_RATE = 50;
 
 export async function clubPageFor(teamId: string): Promise<ClubPage> {
   const team = await getTeam(teamId);
@@ -75,7 +91,12 @@ export async function clubPageFor(teamId: string): Promise<ClubPage> {
 
   const memberIds = members.map((m) => m.id);
 
-  let leaders: ClubPage['leaders'] = { runs: null, wickets: null };
+  let leaders: ClubPage['leaders'] = {
+    runs: null,
+    wickets: null,
+    strikeRate: null,
+    catches: null,
+  };
 
   if (memberIds.length > 0) {
     const ids = sql.join(
@@ -112,21 +133,72 @@ export async function clubPageFor(teamId: string): Promise<ClubPage> {
       limit 1
     `);
 
+    /*
+     * Best strike rate, with a floor on balls faced.
+     *
+     * Without one this is always won by whoever hit a six off their only
+     * delivery — a strike rate of 600 that describes nothing. Fifty balls is
+     * low enough that a club season qualifies several people and high enough
+     * that one over cannot top the table.
+     */
+    const [topStrikeRate] = await db.execute<{
+      player_id: string;
+      full_name: string;
+      strike_rate: number;
+    }>(sql`
+      select be.batsman_id as player_id, p.full_name,
+             round(
+               (coalesce(sum(be.runs_off_bat), 0)::numeric
+                / nullif(count(*) filter (where be.is_legal_delivery), 0)) * 100
+             )::int as strike_rate
+      from ball_events be
+      join players p on p.id = be.batsman_id
+      where be.batsman_id in (${ids})
+      group by be.batsman_id, p.full_name
+      having count(*) filter (where be.is_legal_delivery) >= ${MIN_BALLS_FOR_STRIKE_RATE}
+      order by strike_rate desc
+      limit 1
+    `);
+
+    /*
+     * Most catches.
+     *
+     * `fielder_id` is set for catches, stumpings and run-outs alike, so the
+     * wicket type has to be filtered — otherwise this ranks "dismissals a
+     * fielder was involved in", which is a different and less interesting
+     * statistic.
+     */
+    const [topCatches] = await db.execute<{
+      player_id: string;
+      full_name: string;
+      catches: number;
+    }>(sql`
+      select be.fielder_id as player_id, p.full_name,
+             count(*)::int as catches
+      from ball_events be
+      join players p on p.id = be.fielder_id
+      where be.fielder_id in (${ids})
+        and be.wicket_type in ('caught', 'caught_behind')
+      group by be.fielder_id, p.full_name
+      order by catches desc
+      limit 1
+    `);
+
+    // A zero is not a leader — a club nobody has scored for has no leading
+    // run-scorer, and printing someone's name against 0 is worse than a gap.
+    const leader = (
+      row: { player_id: string; full_name: string } | undefined,
+      value: number | undefined,
+    ) =>
+      row && Number(value) > 0
+        ? { playerId: row.player_id, name: row.full_name, value: Number(value) }
+        : null;
+
     leaders = {
-      // A zero is not a leader — a club nobody has scored for has no leading
-      // run-scorer, and printing someone's name against 0 is worse than a gap.
-      runs:
-        topRuns && Number(topRuns.runs) > 0
-          ? { playerId: topRuns.player_id, name: topRuns.full_name, value: Number(topRuns.runs) }
-          : null,
-      wickets:
-        topWickets && Number(topWickets.wickets) > 0
-          ? {
-              playerId: topWickets.player_id,
-              name: topWickets.full_name,
-              value: Number(topWickets.wickets),
-            }
-          : null,
+      runs: leader(topRuns, topRuns?.runs),
+      wickets: leader(topWickets, topWickets?.wickets),
+      strikeRate: leader(topStrikeRate, topStrikeRate?.strike_rate),
+      catches: leader(topCatches, topCatches?.catches),
     };
   }
 

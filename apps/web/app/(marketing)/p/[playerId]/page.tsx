@@ -86,8 +86,15 @@ export default async function PlayerPage({ params }: Params) {
           {milestones.length > 0 ? (
             <div className="oi-tag-row">
               {milestones.map((m) => (
-                <span className="tag tag-accent" key={m}>
-                  {m}
+                <span className="tag tag-accent" key={m.label}>
+                  {m.label}
+                  {/* When, not just what — "eighth fifty, 2 matches ago" says
+                      a player is in form; "8 fifties" says only that they
+                      have been around. */}
+                  <span className="oi-dim">
+                    {' · '}
+                    {m.matchesAgo === 0 ? 'last match' : `${m.matchesAgo} ago`}
+                  </span>
                 </span>
               ))}
             </div>

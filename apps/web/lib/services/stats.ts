@@ -87,7 +87,20 @@ export type PlayerCareer = {
    */
   season: { label: string; batting: BattingCareer; bowling: BowlingCareer } | null;
   form: FormEntry[];
-  milestones: string[];
+  milestones: Milestone[];
+};
+
+/**
+ * Something worth mentioning, and how long ago it happened.
+ *
+ * `matchesAgo` counts *appearances*, not days — 0 is the most recent match a
+ * player featured in. Someone who has not played since March should read
+ * "two matches ago", not "five months ago", because the number is about form
+ * rather than the calendar.
+ */
+export type Milestone = {
+  label: string;
+  matchesAgo: number;
 };
 
 /**
@@ -169,28 +182,113 @@ function foldBowling(rows: BowlingInnings[]): BowlingCareer {
 }
 
 /**
- * The milestones worth telling someone about.
+ * "Eighth fifty" rather than "8 fifties".
+ *
+ * A milestone is a moment, and moments are counted in ordinals. Words up to
+ * tenth because those are the ones people say; past that the numeral is what
+ * anyone would write anyway.
+ */
+const ORDINALS = [
+  'First',
+  'Second',
+  'Third',
+  'Fourth',
+  'Fifth',
+  'Sixth',
+  'Seventh',
+  'Eighth',
+  'Ninth',
+  'Tenth',
+] as const;
+
+function ordinal(n: number): string {
+  const word = ORDINALS[n - 1];
+  if (word) return word;
+  // 11th, 12th, 13th are the exceptions to the -st/-nd/-rd rule.
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] ?? 'th');
+  return `${n}${suffix}`;
+}
+
+/**
+ * The milestones worth telling someone about, and when each happened.
  *
  * Deliberately few. A profile listing thirty achievements says nothing; three
  * that are actually rare say something. These are the ones a club cricketer
  * would mention in the bar.
+ *
+ * **Dated**, which is the difference between a statistic and a story:
+ * "eighth fifty, two matches ago" says a player is in form, while "8 fifties"
+ * says only that they have been around. That needs the innings walked in
+ * order rather than folded, because a career total cannot say when it was
+ * reached.
+ *
+ * Only the most recent of each kind survives — a thousand-run player has
+ * crossed the fifty mark a dozen times, and listing all of them buries the
+ * one that matters.
  */
-function milestonesFor(batting: BattingCareer, bowling: BowlingCareer): string[] {
-  const out: string[] = [];
+function milestonesFor(battingRows: BattingInnings[], bowlingRows: BowlingInnings[]): Milestone[] {
+  // Chronological position of every match this player appeared in, so
+  // "matches ago" counts appearances rather than calendar time — a player who
+  // missed two months has not had a milestone age by two months.
+  const order = new Map<string, number>();
+  [...battingRows, ...bowlingRows]
+    .slice()
+    .sort((a, b) => a.playedAt.getTime() - b.playedAt.getTime())
+    .forEach((r) => {
+      if (!order.has(r.matchId)) order.set(r.matchId, order.size);
+    });
 
-  if (batting.hundreds > 0) {
-    out.push(batting.hundreds === 1 ? 'First century' : `${batting.hundreds} centuries`);
-  }
-  if (batting.fifties > 0) {
-    out.push(batting.fifties === 1 ? 'First fifty' : `${batting.fifties} fifties`);
-  }
-  if (batting.runs >= 1000) out.push(`${Math.floor(batting.runs / 1000) * 1000} career runs`);
-  if (bowling.fiveFors > 0) {
-    out.push(bowling.fiveFors === 1 ? 'First five-for' : `${bowling.fiveFors} five-fors`);
-  }
-  if (bowling.wickets >= 50) out.push(`${Math.floor(bowling.wickets / 50) * 50} career wickets`);
+  const lastIndex = order.size - 1;
+  if (lastIndex < 0) return [];
 
-  return out;
+  // One slot per kind; later crossings overwrite earlier ones.
+  const latest = new Map<string, { label: string; at: number }>();
+  const record = (kind: string, label: string, matchId: string) => {
+    latest.set(kind, { label, at: order.get(matchId) ?? lastIndex });
+  };
+
+  const oldestFirst = <T extends { playedAt: Date }>(rows: T[]) =>
+    rows.slice().sort((a, b) => a.playedAt.getTime() - b.playedAt.getTime());
+
+  let runs = 0;
+  let fifties = 0;
+  let hundreds = 0;
+  for (const r of oldestFirst(battingRows)) {
+    const before = Math.floor(runs / 1000);
+    runs += r.runs;
+    // Crossed a thousand mark in this innings.
+    if (Math.floor(runs / 1000) > before && runs >= 1000) {
+      record('runs', `${Math.floor(runs / 1000) * 1000} career runs`, r.matchId);
+    }
+    if (r.runs >= 100) {
+      hundreds += 1;
+      record('hundreds', `${ordinal(hundreds)} century`, r.matchId);
+    } else if (r.runs >= 50) {
+      // A hundred is not also a fifty.
+      fifties += 1;
+      record('fifties', `${ordinal(fifties)} fifty`, r.matchId);
+    }
+  }
+
+  let wickets = 0;
+  let fiveFors = 0;
+  for (const r of oldestFirst(bowlingRows)) {
+    const before = Math.floor(wickets / 50);
+    wickets += r.wickets;
+    if (Math.floor(wickets / 50) > before && wickets >= 50) {
+      record('wickets', `${Math.floor(wickets / 50) * 50} career wickets`, r.matchId);
+    }
+    if (r.wickets >= 5) {
+      fiveFors += 1;
+      record('fiveFors', `${ordinal(fiveFors)} five-for`, r.matchId);
+    }
+  }
+
+  // Most recent first — the newest achievement is the one worth reading.
+  return [...latest.values()]
+    .map((m) => ({ label: m.label, matchesAgo: lastIndex - m.at }))
+    .sort((a, b) => a.matchesAgo - b.matchesAgo);
 }
 
 export async function careerFor(playerId: string): Promise<PlayerCareer> {
@@ -263,6 +361,6 @@ export async function careerFor(playerId: string): Promise<PlayerCareer> {
       balls: r.balls,
       notOut: !r.isOut,
     })),
-    milestones: milestonesFor(batting, bowling),
+    milestones: milestonesFor(battingRows, bowlingRows),
   };
 }

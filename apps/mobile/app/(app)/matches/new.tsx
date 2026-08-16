@@ -13,10 +13,10 @@
  * the server uses — so the openers this screen asks for can never disagree
  * with the side the server decides is batting.
  */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import {
   createMatchSchema,
   resolveBattingSides,
@@ -192,6 +192,20 @@ export default function NewMatch() {
     (tossWinnerId === null) === (tossDecision === null);
 
   const xi = battingPlayers.filter((p) => selected.has(p.id));
+
+  /*
+   * Re-read the squads whenever this screen comes back into focus.
+   *
+   * The only way to leave and return mid-wizard is via "add a player", and
+   * coming back to a list that does not contain the person just added would
+   * read as the add having failed. `refresh` is stable, so this does not loop.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      void battingSquad.refresh();
+      void bowlingSquad.refresh();
+    }, [battingSquad.refresh, bowlingSquad.refresh]),
+  );
 
   // Both squads in one request. Asked for here rather than inside the picker
   // so the three pickers on step 3 share a single fetch.
@@ -450,10 +464,26 @@ export default function NewMatch() {
             })}
 
             {/*
-              "Add a guest player" is in the design. Not built: it needs a
-              player row created inline and attached to the squad, and a
-              decision about whether guests persist. See docs/wiring.md.
+              The design's "add a guest player".
+              
+              Sends you to the squad screen rather than creating someone
+              inline, because that screen searches Open Innings first — and a
+              "guest" who has played anywhere before should keep their career
+              rather than start a second empty one. Coming back re-fetches the
+              squad, so the new name is here.
             */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a player to this squad"
+              onPress={() =>
+                router.push({ pathname: '/teams/[id]/add', params: { id: battingTeamId ?? '' } })
+              }
+              className="border-input mt-4 h-11 items-center justify-center border border-dashed active:opacity-70"
+            >
+              <Text className="text-steel-700 font-heading text-[12px] uppercase tracking-[1.3px]">
+                + Add a player to this squad
+              </Text>
+            </Pressable>
           </ScrollView>
         )}
 

@@ -306,14 +306,18 @@ export default function PlayerProfile() {
             <Kicker>Milestones</Kicker>
             <View className="border-border mt-2 border-t">
               {milestones.map((m) => (
-                <View key={m} className="border-border border-b py-2.5">
-                  <Text className="text-foreground text-[14px]">{m}</Text>
-                  {/*
-                    The design puts "2 AGO" beside each — how many matches back
-                    it was reached. That needs walking the innings in order and
-                    recording where each threshold was crossed, which nothing
-                    computes yet. See docs/wiring.md.
-                  */}
+                <View
+                  key={m.label}
+                  className="border-border flex-row items-baseline justify-between gap-3 border-b py-2.5"
+                >
+                  <Text className="text-foreground min-w-0 flex-1 text-[14px]" numberOfLines={1}>
+                    {m.label}
+                  </Text>
+                  {/* Appearances ago, not days. "Last match" reads better
+                      than "0 ago", and it is the one people care about. */}
+                  <Text className="font-heading shrink-0 text-[9px] uppercase tracking-[1.2px] text-neutral-600">
+                    {m.matchesAgo === 0 ? 'Last match' : `${m.matchesAgo} ago`}
+                  </Text>
                 </View>
               ))}
             </View>

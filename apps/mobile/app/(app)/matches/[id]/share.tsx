@@ -19,7 +19,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import type { MatchResultResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
-import { MATCH_CARD_ASPECT_RATIO, shareUrls } from '../../../../lib/config';
+import { CARD_ASPECT_RATIO, shareUrls } from '../../../../lib/config';
 import { useApiQuery } from '../../../../lib/use-api';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
@@ -81,7 +81,7 @@ export default function ShareMatch() {
         <View className="border-border border">
           <Image
             source={{ uri: shareUrls.matchCardImage(id) }}
-            style={{ width: '100%', aspectRatio: MATCH_CARD_ASPECT_RATIO }}
+            style={{ width: '100%', aspectRatio: CARD_ASPECT_RATIO }}
             resizeMode="contain"
             accessibilityLabel={`Share card: ${headline}`}
           />
