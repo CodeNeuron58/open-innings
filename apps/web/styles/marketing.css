@@ -1,0 +1,1191 @@
+/*
+ * Marketing page layout classes.
+ *
+ * Ported from the `<style>` blocks the design export repeats on every page.
+ * They live here rather than as Tailwind utilities because the design system
+ * in industry.css is the source of truth for spacing and type — expressing
+ * `clamp(26px,3.2vw,38px)` as Tailwind arbitrary values would be a lossy
+ * translation of a scale that already exists.
+ *
+ * Prefixed `oi-` exactly as the design has them, so a diff against the export
+ * stays readable.
+ */
+
+/* Root ------------------------------------------------------------------- */
+
+/*
+ * Scopes the marketing theme to this subtree and re-points the design
+ * system's font tokens at the next/font variables supplied by the layout.
+ * The background and colour are set here rather than on `body` because the
+ * root layout's body carries the app's own Tailwind theme classes, which
+ * /m/[matchId] still uses.
+ */
+.oi-root {
+  --font-body: var(--font-barlow), system-ui, sans-serif;
+  --font-heading: var(--font-barlow-condensed), system-ui, sans-serif;
+
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+}
+
+.oi-root a {
+  color: var(--color-accent-700);
+  text-decoration: none;
+}
+
+.oi-root a:hover {
+  color: var(--color-accent);
+}
+
+html:has(.oi-root) {
+  scroll-behavior: smooth;
+}
+
+/* Type ------------------------------------------------------------------- */
+
+/* Tabular figures — scores and spec-sheet numbers must not jitter as they
+   change width. Barlow Condensed carries the tabular set. */
+.num {
+  font-family: var(--font-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Section kicker: "02 · What it does" */
+.oi-kick {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin: 0 0 12px;
+}
+
+.oi-h2 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: clamp(26px, 3.2vw, 38px);
+  line-height: 1.06;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.oi-h1 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: clamp(44px, 6.2vw, 84px);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  /* Optical alignment: the cap-height left sidebearing is pulled back so the
+     display type sits flush with the body copy below it. */
+  margin: 0 0 0 -0.052em;
+}
+
+.oi-h1 > span {
+  display: block;
+}
+
+.oi-accent {
+  color: var(--color-accent-700);
+}
+
+/* The design tints body copy by mixing the ink into the ground rather than
+   using a neutral ramp step, so it stays correct if the ground changes. */
+.oi-dim {
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+.oi-dim-strong {
+  color: color-mix(in srgb, var(--color-text) 82%, transparent);
+}
+
+.oi-dim-soft {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Structure --------------------------------------------------------------- */
+
+.oi-sec {
+  padding: 0 clamp(20px, 5vw, 72px);
+}
+
+.oi-in {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.oi-rule {
+  height: 1px;
+  border: 0;
+  margin: 0 0 24px;
+  background: var(--color-divider);
+}
+
+.oi-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(24px, 3vw, 44px);
+}
+
+.oi-split,
+.oi-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 428px;
+  gap: clamp(28px, 5vw, 80px);
+  align-items: center;
+}
+
+.oi-hero {
+  gap: clamp(28px, 4vw, 72px);
+}
+
+/* The phone frame is a fixed 428px, so the split collapses well before the
+   usual tablet breakpoint — below this the two columns would crush. */
+@media (max-width: 1060px) {
+  .oi-3 {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .oi-split,
+  .oi-hero {
+    grid-template-columns: 1fr;
+  }
+  .oi-phone {
+    margin: 0 auto;
+  }
+}
+
+/* Page furniture ---------------------------------------------------------- */
+
+.oi-sec-hero {
+  padding-top: clamp(40px, 5vw, 64px);
+  padding-bottom: clamp(40px, 5vw, 72px);
+}
+
+.oi-sec-pad {
+  padding-bottom: clamp(40px, 5vw, 72px);
+}
+
+.oi-sec-pad-lg {
+  padding-bottom: clamp(48px, 6vw, 84px);
+}
+
+.oi-rule-lg {
+  margin-bottom: 32px;
+}
+
+.oi-lede {
+  font-size: 16.5px;
+  line-height: 1.6;
+  max-width: 56ch;
+  margin: 26px 0 0;
+}
+
+.oi-body {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 22px 0 0;
+  max-width: 50ch;
+}
+
+.oi-body + .oi-body {
+  margin-top: 20px;
+}
+
+.oi-measure {
+  max-width: 60ch;
+  margin-top: 16px;
+}
+
+/* Buttons — the design system owns the look; these carry only the sizes the
+   landing uses, since .btn has no size scale of its own. */
+.oi-btn-lg {
+  height: 44px;
+  padding-inline: 20px;
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.oi-btn-md {
+  height: 42px;
+  padding-inline: 18px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+/* Secondary buttons are outlined, so their label takes the ink colour rather
+   than the link accent .oi-root would otherwise give an <a>. */
+.oi-btn-plain,
+.oi-root a.oi-btn-plain {
+  color: var(--color-text);
+}
+
+.oi-btn-spaced {
+  margin-top: 28px;
+}
+
+.oi-cta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
+.oi-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.oi-tag-note {
+  font-size: 13px;
+  color: var(--color-neutral-600);
+}
+
+/* Inner-page furniture ---------------------------------------------------- */
+
+.oi-sec-top {
+  padding-top: clamp(40px, 5vw, 64px);
+  padding-bottom: clamp(32px, 4vw, 48px);
+}
+
+.oi-sec-pad-xl {
+  padding-bottom: clamp(48px, 6vw, 80px);
+}
+
+.oi-rule-md {
+  margin-bottom: 30px;
+}
+
+/* Inner pages lead with a slightly smaller display size than the landing —
+   the landing's h1 is the loudest type on the site and stays that way. */
+.oi-h1-sub {
+  font-size: clamp(38px, 5.4vw, 72px);
+  line-height: 1.03;
+  max-width: 24ch;
+}
+
+.oi-lede-wide {
+  max-width: 60ch;
+  margin-top: 24px;
+}
+
+.oi-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: clamp(24px, 3vw, 40px);
+}
+
+@media (max-width: 900px) {
+  .oi-2 {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.oi-cta-row-lg {
+  margin-top: 32px;
+}
+
+.oi-rule-sm {
+  margin-bottom: 28px;
+}
+
+.oi-h1-tight {
+  max-width: 22ch;
+}
+
+/* A heading that is a sentence rather than a label — the system's headings are
+   uppercase and tracked out, which is unreadable at 40 words. */
+.oi-h2-sentence {
+  font-size: clamp(24px, 2.8vw, 34px);
+  text-transform: none;
+  letter-spacing: 0;
+  max-width: 40ch;
+}
+
+.oi-panel {
+  padding: clamp(28px, 4vw, 52px);
+}
+
+.oi-panel-body {
+  font-size: 15.5px;
+  line-height: 1.6;
+  max-width: 62ch;
+  margin: 20px 0 0;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.oi-btn-ghost {
+  padding-inline: 12px;
+}
+
+/* Pricing plans ----------------------------------------------------------- */
+
+.oi-plan {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The paid plan is the deep-accent field the readme permits as the one place
+   steel carries a full ground with type reversed to paper. */
+.oi-plan-dark {
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+}
+
+.oi-plan-kicker {
+  margin-bottom: 14px;
+}
+
+.oi-plan-kicker-dark {
+  color: var(--color-accent-300);
+}
+
+.oi-plan-price {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.oi-plan-amount {
+  font-size: 46px;
+  font-weight: 600;
+  line-height: 0.9;
+}
+
+.oi-plan-unit {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding-bottom: 7px;
+  color: var(--color-neutral-600);
+}
+
+.oi-plan-unit-dark {
+  color: inherit;
+  opacity: 0.65;
+}
+
+.oi-plan-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 14.5px;
+  line-height: 1.45;
+  flex: 1;
+}
+
+.oi-plan-muted {
+  color: var(--color-neutral-600);
+}
+
+.oi-plan-muted-dark {
+  opacity: 0.7;
+}
+
+.oi-plan-cta {
+  width: 100%;
+  height: 42px;
+  margin-top: 22px;
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+/* On the reversed plate the primary button inverts, so paper becomes the fill
+   and steel the label — it stays the one solid object on the card. */
+.oi-plan-cta-dark {
+  background: var(--color-bg);
+  color: var(--color-accent-900);
+  border-color: var(--color-bg);
+  cursor: pointer;
+}
+
+/* The app ----------------------------------------------------------------- */
+
+.oi-h1-narrow {
+  max-width: 20ch;
+}
+
+/* The phone is drawn 1:1 at 412px plus its 8px bezel either side. */
+.oi-phone {
+  width: 428px;
+  max-width: 100%;
+}
+
+.oi-figures-lg {
+  gap: 26px;
+  margin-top: 30px;
+}
+
+.oi-figure-sm {
+  font-size: 26px;
+}
+
+.oi-screens {
+  display: grid;
+  grid-template-columns: repeat(2, 428px);
+  gap: clamp(28px, 4vw, 64px);
+  justify-content: start;
+}
+
+@media (max-width: 1060px) {
+  .oi-screens {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    justify-content: stretch;
+  }
+  .oi-screens-title,
+  .oi-screens-body {
+    text-align: center;
+  }
+}
+
+.oi-screens-title {
+  margin-top: 26px;
+}
+
+.oi-screens-body {
+  margin-top: 12px;
+  max-width: 44ch;
+}
+
+.oi-parts-col-el {
+  width: 28%;
+}
+
+.oi-parts-el {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 17px;
+}
+
+.oi-parts-why {
+  font-size: 14.5px;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.oi-parts-table th,
+.oi-parts-table td {
+  vertical-align: middle;
+}
+
+/* FAQ --------------------------------------------------------------------- */
+
+.oi-lede-mid {
+  max-width: 58ch;
+  margin-top: 24px;
+}
+
+.oi-faq {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .oi-faq {
+    grid-template-columns: 1fr;
+  }
+}
+
+.oi-faq-group {
+  margin-bottom: 40px;
+}
+
+.oi-faq-list {
+  border-top: 1px solid var(--color-divider);
+}
+
+.oi-faq-item {
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.oi-faq-q {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  width: 100%;
+  padding: 18px 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Safari draws its own disclosure triangle unless this is removed. */
+.oi-faq-q::-webkit-details-marker {
+  display: none;
+}
+
+.oi-faq-q:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.oi-faq-no {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-accent-700);
+  width: 30px;
+  flex: none;
+  text-align: left;
+}
+
+.oi-faq-text {
+  flex: 1;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+/* The +/− mark is drawn from the element's own open state rather than tracked
+   in JavaScript, which is the whole reason this is a <details>. */
+.oi-faq-mark {
+  font-size: 20px;
+  flex: none;
+  color: var(--color-accent-700);
+  width: 20px;
+  text-align: center;
+  font-family: var(--font-heading);
+}
+
+.oi-faq-mark::after {
+  content: '+';
+}
+
+.oi-faq-item[open] .oi-faq-mark::after {
+  content: '−';
+}
+
+.oi-faq-a {
+  margin: 0;
+  padding: 0 50px 20px;
+  font-size: 15.5px;
+  line-height: 1.62;
+  max-width: 72ch;
+  color: color-mix(in srgb, var(--color-text) 82%, transparent);
+}
+
+.oi-faq-aside {
+  padding: 22px;
+}
+
+.oi-faq-aside-body {
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0 0 18px;
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.oi-faq-aside-last {
+  margin-bottom: 0;
+}
+
+.oi-faq-aside-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.oi-faq-aside-btn {
+  height: 40px;
+  font-size: 13.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.oi-faq-aside-rule {
+  height: 1px;
+  background: var(--color-divider);
+  margin: 20px 0;
+}
+
+.oi-faq-aside-kick {
+  margin-bottom: 8px;
+}
+
+/* Open source ------------------------------------------------------------- */
+
+.oi-h2-md {
+  font-size: clamp(24px, 2.8vw, 32px);
+}
+
+/*
+ * Two text columns, not text beside a fixed-width phone — so it collapses on
+ * its own breakpoint. Text can hold two columns further down than a layout
+ * carrying a rigid 428px phone can, which is why this page's numbers differ
+ * from the landing's. Values taken from the page's own style block.
+ */
+.oi-split-even {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .oi-split-even {
+    grid-template-columns: 1fr;
+  }
+
+  /* The card row on this page shares the page's breakpoint, not the
+     landing's — scoped by the page class rather than a sibling selector so
+     it survives sections being reordered. */
+  .oi-page-source .oi-3 {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+}
+
+.oi-src-col-no {
+  width: 64px;
+}
+.oi-src-col-prop {
+  width: 30%;
+}
+.oi-src-col-val {
+  width: 24%;
+}
+
+.oi-src-val {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.oi-src-rem {
+  font-size: 14.5px;
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+/* Hairline-separated rows drawn with gap over a divider ground, so the rules
+   sit between rows without a border on each. */
+.oi-ways {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--color-divider);
+}
+
+.oi-way {
+  background: var(--color-bg);
+  padding: 16px 0;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+}
+
+.oi-way-no {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-accent-700);
+}
+
+.oi-way-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.oi-way-body {
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin-top: 4px;
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+/* Comparison table -------------------------------------------------------- */
+
+.oi-cmp-table th,
+.oi-cmp-table td {
+  padding: 11px 16px;
+}
+
+.oi-cmp-table th:first-child,
+.oi-cmp-table td:first-child {
+  padding-left: 24px;
+}
+
+.oi-cmp-table th:last-child,
+.oi-cmp-table td:last-child {
+  padding-right: 24px;
+}
+
+.oi-cmp-feature {
+  font-size: 14.5px;
+}
+
+th.oi-cmp-col {
+  width: 110px;
+  text-align: center;
+}
+
+th.oi-cmp-col-pro {
+  width: 130px;
+}
+
+.oi-cmp-cell {
+  text-align: center;
+  font-size: 15px;
+}
+
+.oi-cmp-cell-pro {
+  font-weight: 600;
+  color: var(--color-accent-800);
+}
+
+/* Free vs paid is the comparison that matters; self-hosted is the third
+   column to lose when there is no room for three. */
+@media (max-width: 700px) {
+  .oi-cmp-hide {
+    display: none;
+  }
+}
+
+/* Formats table ----------------------------------------------------------- */
+
+.oi-fmt-table th,
+.oi-fmt-table td {
+  padding: 12px 16px;
+}
+
+.oi-fmt-table th:first-child,
+.oi-fmt-table td:first-child {
+  padding-left: 24px;
+}
+
+.oi-fmt-table th:last-child,
+.oi-fmt-table td:last-child {
+  padding-right: 24px;
+}
+
+.oi-fmt-name {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+th.oi-fmt-len {
+  width: 120px;
+}
+
+.oi-fmt-len {
+  text-align: right;
+  font-size: 15px;
+}
+
+th.oi-fmt-plate {
+  width: 190px;
+  text-align: left;
+}
+
+td.oi-fmt-plate {
+  font-size: 14px;
+  color: var(--color-accent-800);
+}
+
+.oi-fmt-rules {
+  font-size: 14.5px;
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+/* The rules column is the first thing to go — it is the longest and the least
+   scannable on a phone, and the other three carry the comparison. */
+@media (max-width: 700px) {
+  .oi-fmt-hide {
+    display: none;
+  }
+}
+
+/* Spec sheet -------------------------------------------------------------- */
+
+.oi-sheet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.oi-sheet-title,
+.oi-sheet-meta {
+  padding: 12px 24px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 24px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.oi-sheet-title {
+  flex: 1;
+  min-width: 16ch;
+}
+
+.oi-sheet-meta {
+  border-left: 1px solid var(--color-divider);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+}
+
+.oi-sheet-table {
+  table-layout: fixed;
+}
+
+.oi-col-no {
+  width: 72px;
+}
+.oi-col-prop {
+  width: 34%;
+}
+.oi-col-val {
+  width: 22%;
+}
+
+.oi-sheet-table th {
+  padding: 12px 24px 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.oi-sheet-table td {
+  vertical-align: middle;
+  padding: 12px 24px 12px 0;
+}
+
+/*
+ * The gutter on the first column.
+ *
+ * This must be a `td:first-child` / `th:first-child` selector, not a class on
+ * the cell: the base padding above is `.oi-sheet-table td` (0,1,1) and a bare
+ * class like `.oi-sheet-no` is (0,1,0), so the class loses and the column ends
+ * up flush against the frame while the header stays indented. Same trap
+ * applies to the formats and comparison tables below.
+ */
+.oi-sheet-table th:first-child,
+.oi-sheet-table td:first-child {
+  padding-left: 24px;
+}
+
+.oi-sheet-no {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--color-accent-700);
+}
+
+.oi-sheet-prop {
+  font-size: 15px;
+}
+
+.oi-sheet-val {
+  font-size: 22px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.oi-sheet-rem {
+  font-size: 15px;
+  color: color-mix(in srgb, var(--color-text) 78%, transparent);
+}
+
+.oi-sheet-foot {
+  margin: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--color-divider);
+  font-size: 13px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The sheet is a drawn plate, not a scrollable data table — but it must not
+   force the page to scroll sideways on a phone. */
+@media (max-width: 760px) {
+  .oi-sheet-table {
+    table-layout: auto;
+  }
+  .oi-sheet-rem {
+    display: none;
+  }
+}
+
+/* Cards ------------------------------------------------------------------- */
+
+.oi-card {
+  padding: 24px;
+}
+
+.oi-card-link {
+  display: block;
+  text-decoration: none;
+}
+
+.oi-root a.oi-card-link {
+  color: var(--color-text);
+}
+
+.oi-h3 {
+  font-size: 22px;
+  line-height: 24px;
+}
+
+.oi-h2-sm {
+  font-size: clamp(24px, 2.6vw, 30px);
+}
+
+.oi-card-body {
+  font-size: 15px;
+  line-height: 24px;
+  margin: 16px 0 0;
+}
+
+.oi-card-link .oi-card-body {
+  margin-top: 14px;
+}
+
+.oi-card-cta {
+  display: inline-block;
+  margin-top: 16px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+
+/* Figures ----------------------------------------------------------------- */
+
+.oi-figures {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+.oi-figure {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.oi-figure-label {
+  margin: 6px 0 0;
+}
+
+/* Signup ------------------------------------------------------------------ */
+
+.oi-signup {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  max-width: 480px;
+  margin-top: 24px;
+}
+
+.oi-signup .input {
+  flex: 1;
+  min-height: 42px;
+}
+
+.oi-signup-btn {
+  min-height: 42px;
+  padding-inline: 18px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* Device frame ------------------------------------------------------------ */
+
+/*
+ * The phone is 412×892 at 1:1 and the column reserved for it is 428px, so it
+ * never scales — a scaled screenshot of an interface reads as blurry rather
+ * than as a smaller phone.
+ */
+.oi-device {
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--color-neutral-100);
+  border: 8px solid color-mix(in srgb, var(--color-text) 32%, transparent);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  color: var(--color-text);
+}
+
+.oi-device-status {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.oi-device-time {
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+}
+
+.oi-device-punch {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 100px;
+  background: var(--color-neutral-900);
+}
+
+.oi-device-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.oi-device-screen {
+  flex: 1;
+  overflow: hidden;
+}
+
+.oi-device-nav {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.oi-device-pill {
+  width: 108px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-text);
+  opacity: 0.4;
+}
+
+/* Nav / footer ------------------------------------------------------------ */
+
+.oi-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 14px clamp(20px, 5vw, 72px);
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.oi-brand {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  margin-right: auto;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.oi-navlinks {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.oi-nav-cta {
+  height: 36px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.oi-footer {
+  padding: 28px clamp(20px, 5vw, 72px) 36px;
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.oi-footer-in {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: baseline;
+  font-size: 13px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.oi-footer-brand {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.oi-footer-links {
+  margin-left: auto;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.oi-nl {
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.oi-nl-on {
+  color: var(--color-accent-700);
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+  padding-bottom: 2px;
+}
+
+.oi-fl {
+  text-decoration: none;
+  color: var(--color-accent-700);
+}
+
+.oi-fl:hover {
+  color: var(--color-accent);
+}
+
+@media (max-width: 760px) {
+  .oi-navlinks {
+    display: none;
+  }
+}

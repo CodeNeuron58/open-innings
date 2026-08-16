@@ -1,0 +1,516 @@
+/*
+ * The two app screens rendered inside the marketing phone frames.
+ * Ported from design_new/"Open Innings Screen.dc.html".
+ *
+ * Everything is fixed-px on purpose: these sit inside a 412×892 frame that
+ * never scales, so they are drawn at device pixels rather than in a
+ * responsive scale. Do not make these fluid — they are a picture of a phone.
+ */
+
+.lbl {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+@keyframes oipulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.oi-scr {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  overflow: hidden;
+}
+
+/* Match bar --------------------------------------------------------------- */
+
+.oi-scr-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--color-divider);
+  flex: none;
+}
+
+.oi-scr-icon {
+  opacity: 0.7;
+  flex: none;
+}
+
+.oi-scr-bar-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.oi-scr-teams {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.oi-scr-v {
+  opacity: 0.45;
+}
+
+.oi-scr-meta {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+  margin-top: 1px;
+}
+
+.oi-scr-live {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.oi-scr-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-accent);
+  display: block;
+  animation: oipulse 1.8s ease-in-out infinite;
+}
+
+.oi-scr-live-label {
+  font-size: 9px;
+  color: var(--color-accent-700);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oi-scr-dot {
+    animation: none;
+  }
+}
+
+.oi-scr-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Score plate ------------------------------------------------------------- */
+
+.oi-scr-plate {
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  padding: 14px 16px 13px;
+  flex: none;
+}
+
+.oi-scr-plate-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.oi-scr-score {
+  font-size: 58px;
+  font-weight: 600;
+  line-height: 0.86;
+}
+
+.oi-scr-overs {
+  padding-bottom: 5px;
+}
+
+.oi-scr-overs-val {
+  font-size: 19px;
+  line-height: 1;
+  opacity: 0.92;
+}
+
+.oi-scr-overs-lbl {
+  font-size: 9px;
+  opacity: 0.6;
+  margin-top: 3px;
+}
+
+.oi-scr-target {
+  margin-left: auto;
+  text-align: right;
+  padding-bottom: 4px;
+}
+
+.oi-scr-target-val {
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.oi-scr-rates {
+  display: flex;
+  gap: 16px;
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(242, 242, 243, 0.22);
+}
+
+.oi-scr-rate-lbl {
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.oi-scr-rate {
+  font-size: 14px;
+}
+
+.oi-scr-need {
+  margin-left: auto;
+}
+
+/* Batters ----------------------------------------------------------------- */
+
+.oi-scr-bat {
+  display: grid;
+  grid-template-columns: 1fr 34px 30px 26px 30px 42px;
+  flex: none;
+  border-bottom: 1px solid var(--color-divider);
+  padding-inline: 16px;
+}
+
+.oi-scr-bat-head,
+.oi-scr-bat-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+}
+
+.oi-scr-bat-head {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+  padding: 7px 0 5px;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.oi-scr-bat-head > span + span,
+.oi-scr-bat-row > span + span {
+  text-align: right;
+}
+
+.oi-scr-bat-row {
+  align-items: center;
+  padding: 8px 0;
+  font-size: 13.5px;
+}
+
+.oi-scr-bat-r {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.oi-scr-dim {
+  opacity: 0.6;
+}
+
+.oi-scr-sr {
+  font-size: 12px;
+}
+
+/* Bowler ------------------------------------------------------------------ */
+
+.oi-scr-bowl {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--color-divider);
+  flex: none;
+}
+
+.oi-scr-bowl-lbl {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+}
+
+.oi-scr-bowl-name,
+.oi-scr-bowl-fig {
+  font-size: 13.5px;
+}
+
+.oi-scr-bowl-fig {
+  margin-left: auto;
+}
+
+/* This over --------------------------------------------------------------- */
+
+.oi-scr-over {
+  padding: 12px 16px 14px;
+  flex: none;
+}
+
+.oi-scr-over-head {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.oi-scr-over-lbl {
+  color: var(--color-accent-700);
+  font-size: 9px;
+}
+
+.oi-scr-over-total {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.oi-scr-over-balls {
+  display: flex;
+  gap: 5px;
+}
+
+.oi-scr-ball,
+.oi-scr-ball-empty {
+  width: 31px;
+  height: 31px;
+  flex: none;
+}
+
+.oi-scr-ball {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-divider);
+  font-size: 13px;
+  background: var(--color-neutral-100);
+}
+
+.oi-scr-ball-empty {
+  border: 1px dashed color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+/* Console ----------------------------------------------------------------- */
+
+.oi-scr-console {
+  margin-top: auto;
+  padding: 0 12px 12px;
+  flex: none;
+}
+
+.oi-scr-pad {
+  padding: 11px;
+  background: var(--color-neutral-100);
+}
+
+.oi-scr-extras {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.oi-scr-extra {
+  height: 34px;
+  border: 1px solid var(--color-divider);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* An armed modifier is the one filled key in the extras row — it changes what
+   the next number means, so it has to read as latched, not merely hovered. */
+.oi-scr-extra-on {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.oi-scr-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--color-divider);
+  border: 1px solid var(--color-divider);
+}
+
+.oi-scr-key {
+  height: 52px;
+  background: var(--color-bg);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.oi-key-four {
+  background: var(--color-accent-200);
+  color: var(--color-accent-900);
+}
+
+.oi-key-six {
+  background: var(--color-accent-300);
+  color: var(--color-accent-900);
+}
+
+.oi-key-wicket {
+  background: var(--color-accent-900);
+  color: var(--color-bg);
+  font-size: 19px;
+  letter-spacing: 0.04em;
+}
+
+.oi-scr-undo-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.oi-scr-undo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-divider);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.oi-scr-last {
+  font-size: 11.5px;
+  color: var(--color-neutral-600);
+}
+
+.oi-scr-armed {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--color-accent-700);
+}
+
+/* Scorecard screen -------------------------------------------------------- */
+
+.oi-card-scr {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px 16px 0;
+}
+
+.oi-card-scr-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.oi-card-scr-team {
+  margin: 0;
+  font-size: 19px;
+}
+
+.oi-card-scr-score {
+  margin-left: auto;
+  font-size: 19px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.oi-card-scr-overs {
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.oi-card-scr-chase {
+  color: var(--color-neutral-600);
+  font-size: 9px;
+  margin-bottom: 14px;
+}
+
+.oi-card-scr-tabs {
+  display: flex;
+  gap: 1px;
+  background: var(--color-divider);
+  border: 1px solid var(--color-divider);
+  margin-bottom: 16px;
+}
+
+.oi-card-scr-tab {
+  flex: 1;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.oi-card-scr-tab-on {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.oi-card-scr-table {
+  margin-bottom: 16px;
+}
+
+.oi-card-scr-table th + th,
+.oi-card-scr-table td + td {
+  text-align: right;
+}
+
+.oi-card-scr-table td {
+  padding-block: 6px;
+}
+
+.oi-card-scr-name {
+  font-size: 13.5px;
+}
+
+.oi-card-scr-how {
+  font-size: 10.5px;
+  color: var(--color-neutral-600);
+}
+
+.oi-card-scr-r {
+  font-weight: 700;
+}
+
+.oi-card-scr-dim {
+  opacity: 0.65;
+}
+
+.oi-card-scr-sr {
+  font-size: 12px;
+}
+
+.oi-card-scr-extras {
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+
+.oi-card-scr-extras-lbl {
+  font-size: 9px;
+  color: var(--color-neutral-600);
+}
+
+.oi-card-scr-fow-lbl {
+  color: var(--color-accent-700);
+  font-size: 9px;
+  margin-bottom: 6px;
+}
+
+.oi-card-scr-fow {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--color-neutral-700);
+}

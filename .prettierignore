@@ -7,3 +7,12 @@ pnpm-lock.yaml
 apps/web/.next/
 apps/web/tsconfig.tsbuildinfo
 node_modules/
+
+# Design export — source material from the design tool, not our code.
+# Reformatting it makes a diff against a re-export unreadable, which is the
+# only way to tell what actually changed when the design is revised.
+design_new/
+
+# Vendored design-system stylesheet — kept byte-identical to its export so it
+# can be re-vendored without a formatting diff. See its header comment.
+apps/web/styles/industry.css
