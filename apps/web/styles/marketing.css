@@ -999,6 +999,50 @@ td.oi-fmt-plate {
   margin: 6px 0 0;
 }
 
+/* Player profile ---------------------------------------------------------- */
+
+.oi-stat-plate {
+  margin-top: 32px;
+}
+
+/* Form reads left-to-right, newest first — five small plates rather than a
+   table, because five numbers are a glance, not data to scan. */
+.oi-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.oi-form-card {
+  padding: 14px 18px;
+  min-width: 96px;
+}
+
+.oi-form-runs {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.oi-form-balls {
+  font-size: 13px;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.oi-form-opp {
+  font-size: 12px;
+  margin-top: 6px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.oi-record-note {
+  border-top: 0;
+  padding-left: 0;
+  padding-right: 0;
+  max-width: 62ch;
+}
+
 /* Signup ------------------------------------------------------------------ */
 
 .oi-signup {

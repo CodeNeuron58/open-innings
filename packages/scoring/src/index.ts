@@ -58,4 +58,11 @@ export {
   SUPER_OVER_MAX_WICKETS,
   NO_CONSECUTIVE_OVERS,
   BALLS_PER_OVER,
+  // The dismissal classifications. Exported because career statistics are
+  // derived from the ball log outside this package, and re-stating "which
+  // dismissals credit the bowler" anywhere else would create a second source
+  // of truth for Law 25 that drifts the first time a type is added.
+  BOWLER_CREDITED_WICKETS,
+  TEAM_WICKET_COUNTED,
+  REQUIRES_FIELDER,
 } from './rules';
