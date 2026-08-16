@@ -58,6 +58,17 @@ export const shareUrls = {
   club: (teamId: string) => `${API_BASE}/c/${teamId}`,
 
   /*
+   * The scorebook as a file.
+   *
+   * Opened in the browser rather than downloaded in-app: writing a file to
+   * the device needs expo-file-system plus a storage permission, and the
+   * browser already knows how to save a download and hand it to whatever the
+   * person wants to open it with.
+   */
+  exportMatch: (matchId: string, format: 'csv' | 'json') =>
+    `${API_BASE}/api/matches/${matchId}/export?format=${format}`,
+
+  /*
    * The card images themselves — the 1080×1080 PNGs Satori renders.
    *
    * `opengraph-image` is Next's own convention: the file

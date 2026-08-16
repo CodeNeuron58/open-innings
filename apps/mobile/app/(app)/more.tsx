@@ -217,7 +217,9 @@ export default function More() {
             onChange={(next) => set('keepAwakeWhileScoring', next)}
           />
           <Row label="Sound on each ball" disabledNote="Not built yet" value="Off" />
-          <Row label="Export scorebook" disabledNote="Not built yet" value="CSV, JSON" />
+          {/* Export is per match, not per account — a scorebook is a match.
+              The action lives on that match's card. */}
+          <Row label="Export scorebook" value="CSV, JSON" onPress={() => router.push('/matches')} />
         </Group>
 
         <Group title="Open Innings">

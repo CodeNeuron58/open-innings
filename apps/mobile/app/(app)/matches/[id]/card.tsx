@@ -12,11 +12,12 @@
  * the game. A scorer's own note wins over the generated line.
  */
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CardInnings, MatchCardResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
+import { shareUrls } from '../../../../lib/config';
 import { useApiQuery } from '../../../../lib/use-api';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
@@ -49,6 +50,28 @@ export default function MatchCard() {
   }
 
   const card = query.data;
+
+  /*
+   * The scorebook, out.
+   *
+   * CSV is the ball log — one row per delivery, which is the source every
+   * figure in the app is derived from. JSON is the same plus the built
+   * scorecards. Offering the choice rather than picking one because the two
+   * are for different people: a spreadsheet, or another program.
+   */
+  function exportScorebook() {
+    Alert.alert('Export scorebook', 'Every ball of this match, as a file.', [
+      {
+        text: 'CSV — one row per ball',
+        onPress: () => void Linking.openURL(shareUrls.exportMatch(id, 'csv')),
+      },
+      {
+        text: 'JSON — full scorecard',
+        onPress: () => void Linking.openURL(shareUrls.exportMatch(id, 'json')),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   if (card.innings.length === 0) {
     return (
@@ -173,6 +196,9 @@ export default function MatchCard() {
             variant="secondary"
             onPress={() => router.push({ pathname: '/matches/[id]/cards', params: { id } })}
           />
+        </View>
+        <View className="flex-1">
+          <Button label="Export" variant="secondary" onPress={exportScorebook} />
         </View>
       </View>
 

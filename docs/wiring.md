@@ -8,7 +8,7 @@ perfectly and silently does nothing reaches a tester as a bug report, and
 reaches a judge as a broken feature. Everything here is a known gap, written
 down so it stays known.
 
-**Last updated: 2026-08-16**
+**Last updated: 2026-08-17**
 
 Legend: 🔴 needs a backend · 🟡 needs a decision · 🟢 cosmetic or trivial
 
@@ -124,26 +124,19 @@ Either the engine catches up or the copy does.
 because the design does, disabled because changing it would be a lie. Making it
 real means touching every over-based calculation.
 
-### 🟡 Captain and keeper are not in the API
-
-B3 marks the captain `(c)` and the keeper `†`, and footers the screen with both
-names. `team_members` **has** `is_captain` and `is_wicket_keeper` columns — but
-`PlayerSummary` does not carry them, so the API never sends them.
-
-Small fix: add the two fields to the shared type and the team route. Dropped
-from the UI for now rather than guessed.
-
 ### 🟡 "Add a guest player"
 
 On B3. Needs a player row created inline, attached to the squad, and a decision
 about whether guests persist as real players afterwards.
 
-### 🟡 Form figures beside each name
+### 🟢 Form figures are career, not this season
 
-B4 shows "SR 128 this season" beside a batter and "Econ 6.8" beside a bowler.
-Both exist behind `GET /api/players/[id]/stats` — but rendering them would be
-one request per row on a screen someone is trying to get past. Needs a batch
-endpoint before it is worth doing — the same one E3 wants.
+B4 says "SR 128 **this season**". `GET /api/players/briefs` returns career
+totals, so the line reads career figures.
+
+A season filter needs a season, and a picker showing nothing for everyone who
+has not played since January is worse than one showing a career. Revisit if
+"this season" turns out to be what captains actually want.
 
 ### 🟡 Followers and sync status
 

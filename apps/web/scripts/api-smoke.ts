@@ -740,6 +740,55 @@ async function main() {
     );
     ok(missingCard.status === 404, 'card for an unknown match → 404', missingCard);
 
+    // ── 9b. Export ──────────────────────────────────────────────────────────
+    /*
+     * "Full export of your scorebook, any time" is on the paywall's
+     * free-forever list. A claim like that has to actually be true.
+     *
+     * Fetched raw rather than through `call`, which parses JSON — the point
+     * of these two responses is that they are files.
+     */
+    console.log('export');
+    const csvRes = await fetch(`${BASE}/api/matches/${matchId}/export?format=csv`);
+    const csv = await csvRes.text();
+    ok(csvRes.status === 200, 'GET export csv → 200', csvRes.status);
+    ok(
+      (csvRes.headers.get('content-type') ?? '').includes('text/csv'),
+      'csv export is served as csv',
+      csvRes.headers.get('content-type'),
+    );
+    ok(
+      (csvRes.headers.get('content-disposition') ?? '').includes('attachment'),
+      'csv export downloads rather than rendering',
+      csvRes.headers.get('content-disposition'),
+    );
+
+    const csvLines = csv.trim().split('\r\n');
+    ok(
+      Boolean(csvLines[0]?.includes('innings') && csvLines[0]?.includes('bowler')),
+      'csv starts with a header row',
+      csvLines[0],
+    );
+    // Two dot balls were bowled in section 7, so header + 2.
+    ok(csvLines.length === 3, 'one csv row per delivery', csvLines.length);
+    ok(
+      Boolean(csvLines[1]?.startsWith('"') && csvLines[1]?.includes('","')),
+      'every csv field is quoted — names contain commas and apostrophes',
+      csvLines[1],
+    );
+
+    const jsonRes = await fetch(`${BASE}/api/matches/${matchId}/export?format=json`);
+    ok(jsonRes.status === 200, 'GET export json → 200', jsonRes.status);
+    const exported = (await jsonRes.json()) as Json;
+    ok(
+      exported.innings?.length === 2 && exported.innings[1]?.deliveries?.length === 2,
+      'json export carries both innings and every ball',
+      exported.innings?.length,
+    );
+
+    const badFormat = await call('GET', `/api/matches/${matchId}/export?format=pdf`);
+    ok(badFormat.status === 400, 'an unsupported format → 400', badFormat);
+
     // ── 10. Delete ──────────────────────────────────────────────────────────
     console.log('delete');
     const liveDelete = await call('DELETE', `/api/matches/${matchId}`);
