@@ -93,26 +93,47 @@ export async function getTeam(id: string): Promise<Team | null> {
   return rows[0] ?? null;
 }
 
-export async function getTeamMembers(teamId: string): Promise<Player[]> {
-  return db
-    .select({
-      id: players.id,
-      userId: players.userId,
-      fullName: players.fullName,
-      shortName: players.shortName,
-      dateOfBirth: players.dateOfBirth,
-      battingStyle: players.battingStyle,
-      bowlingStyle: players.bowlingStyle,
-      role: players.role,
-      avatarUrl: players.avatarUrl,
-      createdBy: players.createdBy,
-      createdAt: players.createdAt,
-      updatedAt: players.updatedAt,
-    })
-    .from(teamMembers)
-    .innerJoin(players, eq(teamMembers.playerId, players.id))
-    .where(eq(teamMembers.teamId, teamId))
-    .orderBy(asc(players.fullName));
+/**
+ * A player, plus the two facts that belong to their **membership** rather than
+ * to them.
+ *
+ * Captaincy and keeping are per-squad: the same person captains one club and
+ * bats at six for another, so these live on `team_members` and not on
+ * `players`. They ride along here because every caller of this function is
+ * asking "who is in this squad", and that question is not fully answered
+ * without them.
+ */
+export type SquadMember = Player & {
+  isCaptain: boolean;
+  isWicketkeeper: boolean;
+};
+
+export async function getTeamMembers(teamId: string): Promise<SquadMember[]> {
+  return (
+    db
+      .select({
+        id: players.id,
+        userId: players.userId,
+        fullName: players.fullName,
+        shortName: players.shortName,
+        dateOfBirth: players.dateOfBirth,
+        battingStyle: players.battingStyle,
+        bowlingStyle: players.bowlingStyle,
+        role: players.role,
+        avatarUrl: players.avatarUrl,
+        createdBy: players.createdBy,
+        createdAt: players.createdAt,
+        updatedAt: players.updatedAt,
+        isCaptain: teamMembers.isCaptain,
+        isWicketkeeper: teamMembers.isWicketkeeper,
+      })
+      .from(teamMembers)
+      .innerJoin(players, eq(teamMembers.playerId, players.id))
+      .where(eq(teamMembers.teamId, teamId))
+      // Captain first, then the keeper, then everyone alphabetically. A squad
+      // list is read to find those two more often than to find a name.
+      .orderBy(desc(teamMembers.isCaptain), desc(teamMembers.isWicketkeeper), asc(players.fullName))
+  );
 }
 
 export async function createTeam(input: {

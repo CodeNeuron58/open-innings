@@ -64,6 +64,7 @@ export {
   type MatchSummary,
   type MatchListResponse,
   type PlayerSummary,
+  type SquadMemberSummary,
   type PlayerListResponse,
   type PlayerResponse,
   type TeamSummary,

@@ -267,6 +267,8 @@ export default function AddPlayer() {
                 >
                   <Text className="text-foreground font-heading text-[12.5px]" numberOfLines={1}>
                     {m.fullName}
+                    {m.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
+                    {m.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
                   </Text>
                 </View>
               ))}

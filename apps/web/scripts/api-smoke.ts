@@ -228,6 +228,22 @@ async function main() {
     ok(detail.status === 200, 'GET team detail → 200', detail);
     ok(detail.json.members.length === 2, 'squad seeded at creation', detail.json.members?.length);
 
+    /*
+     * Captaincy and keeping travel with the squad, not the player.
+     *
+     * They live on `team_members` and were dropped by the query for months,
+     * so the XI picker and every squad list had no way to mark a captain. The
+     * assertion is that the *fields arrive* — false is a real answer for a
+     * squad nobody has assigned yet, and the shape is what regressed before.
+     */
+    const firstMember = detail.json.members?.[0];
+    ok(
+      typeof firstMember?.isCaptain === 'boolean' &&
+        typeof firstMember?.isWicketkeeper === 'boolean',
+      'squad members carry captain and keeper flags',
+      firstMember,
+    );
+
     const renamed = await call('PATCH', `/api/teams/${teamAId}`, { name: 'Smoke XI Renamed' });
     ok(renamed.json.team.name === 'Smoke XI Renamed', 'PATCH renames the team', renamed.json.team);
 

@@ -208,15 +208,14 @@ export default function ClubPage() {
                 >
                   <Text className="text-foreground font-heading text-[12.5px]" numberOfLines={1}>
                     {p.fullName}
+                    {/* The conventional marks: (c) for the captain, † for the
+                        keeper. A player can be both. */}
+                    {p.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
+                    {p.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
                   </Text>
                 </Pressable>
               ))}
             </View>
-            {/*
-              The design marks the captain (c) and the keeper †. `team_members`
-              has both columns; the API does not send them. Same gap as B3 —
-              see docs/wiring.md.
-            */}
           </View>
         ) : null}
 

@@ -86,6 +86,18 @@ export type PlayerSummary = {
   role: PlayerRole | null;
 };
 
+/**
+ * A player **within a squad**.
+ *
+ * Captaincy and keeping are properties of the membership, not of the person —
+ * the same player captains one club and bats at six for another — so they are
+ * only meaningful in a team context and only appear on this type.
+ */
+export type SquadMemberSummary = PlayerSummary & {
+  isCaptain: boolean;
+  isWicketkeeper: boolean;
+};
+
 export type PlayerListResponse = { players: PlayerSummary[] };
 export type PlayerResponse = { player: PlayerSummary };
 
@@ -103,11 +115,11 @@ export type TeamResponse = { team: TeamSummary };
 /** `GET /api/teams/[id]` — the team plus its squad. */
 export type TeamDetailResponse = {
   team: TeamSummary;
-  members: PlayerSummary[];
+  members: SquadMemberSummary[];
 };
 
 /** Squad mutations return the squad as it now stands, so the client can't drift. */
-export type TeamMembersResponse = { members: PlayerSummary[] };
+export type TeamMembersResponse = { members: SquadMemberSummary[] };
 
 /** An innings as the API returns it. */
 export type InningsSummary = {
@@ -377,7 +389,13 @@ export type PlayerCareerResponse = {
  */
 export type ClubPageResponse = {
   team: { id: string; name: string };
-  squad: { id: string; fullName: string; role: PlayerRole | null }[];
+  squad: {
+    id: string;
+    fullName: string;
+    role: PlayerRole | null;
+    isCaptain: boolean;
+    isWicketkeeper: boolean;
+  }[];
   results: {
     matchId: string;
     /** ISO string — this crossed a JSON boundary, so it is not a Date. */

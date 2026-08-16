@@ -368,14 +368,9 @@ export default function NewMatch() {
     const filtered = battingPlayers.filter((p) =>
       p.fullName.toLowerCase().includes(search.trim().toLowerCase()),
     );
-    /*
-     * The design marks the captain with (c) and the keeper with a dagger, and
-     * footers the screen with both names. team_members has is_captain and
-     * is_wicket_keeper columns, but PlayerSummary does not carry them, so the
-     * API never sends them. Showing a guess here would be worse than showing
-     * nothing. Exposing them is a small change to the shared type and the team
-     * route — tracked in docs/wiring.md.
-     */
+    // The captain and the keeper, named in the footer as the design does.
+    const captain = battingPlayers.find((p) => p.isCaptain) ?? null;
+    const keeper = battingPlayers.find((p) => p.isWicketkeeper) ?? null;
 
     return (
       <SafeAreaView className="bg-background flex-1">
@@ -431,6 +426,10 @@ export default function NewMatch() {
                   <Text className="text-foreground/50 font-heading w-6 text-[13px]">{i + 1}</Text>
                   <Text className="text-foreground flex-1 text-[15px]" numberOfLines={1}>
                     {p.fullName}
+                    {/* (c) and † — the marks a scorer already reads on a
+                        teamsheet, so no legend is needed. */}
+                    {p.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
+                    {p.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
                   </Text>
                   {p.role ? (
                     <Text className="font-heading shrink-0 text-[10px] uppercase tracking-[1.2px] text-neutral-600">
@@ -450,8 +449,17 @@ export default function NewMatch() {
         )}
 
         <View className="border-border border-t px-5 py-3">
-          <Text className="font-heading mb-3 text-[10px] uppercase tracking-[1.4px] text-neutral-600">
-            {selected.size} named
+          <Text
+            className="font-heading mb-3 text-[10px] uppercase tracking-[1.4px] text-neutral-600"
+            numberOfLines={1}
+          >
+            {[
+              `${selected.size} named`,
+              captain ? `${captain.fullName} (c)` : null,
+              keeper ? `${keeper.fullName} †` : null,
+            ]
+              .filter(Boolean)
+              .join('  ·  ')}
           </Text>
           <Button
             label="Openers & bowler"

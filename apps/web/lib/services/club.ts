@@ -23,6 +23,9 @@ export type ClubMember = {
   id: string;
   fullName: string;
   role: string | null;
+  /** Per-squad, not per-person — see SquadMember in lib/db/queries. */
+  isCaptain: boolean;
+  isWicketkeeper: boolean;
 };
 
 export type ClubLeader = { playerId: string; name: string; value: number };
@@ -129,7 +132,13 @@ export async function clubPageFor(teamId: string): Promise<ClubPage> {
 
   return {
     team: { id: team.id, name: team.name },
-    squad: members.map((m) => ({ id: m.id, fullName: m.fullName, role: m.role ?? null })),
+    squad: members.map((m) => ({
+      id: m.id,
+      fullName: m.fullName,
+      role: m.role ?? null,
+      isCaptain: m.isCaptain,
+      isWicketkeeper: m.isWicketkeeper,
+    })),
     results: resultRows.map((r) => ({
       matchId: r.id,
       playedAt: r.played_at ? new Date(r.played_at) : null,
