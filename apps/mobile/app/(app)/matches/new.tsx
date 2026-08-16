@@ -1,125 +1,203 @@
 /**
- * New match.
+ * B2–B4 — Starting a match, in three steps.
  *
- * The subtle part is opener filtering. Which side bats first depends on the
- * toss, so the striker and non-striker must come from one squad and the bowler
- * from the other — and that flips the moment the toss decision changes.
+ * One screen rather than three routes: the draft has to survive every step and
+ * a wizard is the one place where local state beats navigation params. Back
+ * moves a step, not a screen.
  *
- * `resolveBattingSides` is imported from @open-innings/shared, the same
- * function the server uses to decide who bats. Reimplementing it here is how
- * the dropdowns end up disagreeing with the scorecard.
+ *   B2  Format and toss
+ *   B3  Pick the XI
+ *   B4  Openers and the opening bowler
  *
- * Squad membership is still re-checked server-side. This filtering is a
- * convenience, not a guarantee.
+ * `resolveBattingSides` comes from @open-innings/shared — the same function
+ * the server uses — so the openers this screen asks for can never disagree
+ * with the side the server decides is batting.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import {
   createMatchSchema,
   resolveBattingSides,
-  type PlayerSummary,
-  type TeamSummary,
+  type TeamListResponse,
+  type TeamDetailResponse,
 } from '@open-innings/shared';
 import { api } from '../../../lib/api';
-import { useSession } from '../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
-import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
 
-type TossDecision = 'bat' | 'bowl';
+/**
+ * The formats offered at the toss.
+ *
+ * `overs` is what the engine actually consumes. The ones marked unsupported
+ * are shown but cannot be chosen: Tests need two innings a side with
+ * declarations and a follow-on, the Hundred counts five-ball sets rather than
+ * overs, and box cricket scores zone runs and negative runs. None of that is
+ * in packages/scoring. Offering them and failing mid-match would be far worse
+ * than saying so at the toss — see docs/wiring.md.
+ */
+const FORMATS = [
+  { id: 'T20', overs: 20, note: 'Twenty overs a side. The plate shows target and required rate.' },
+  { id: 'ODI', overs: 50, note: 'Fifty overs a side.' },
+  { id: 'Custom', overs: null, note: 'Set the overs yourself. Most club cricket is not 20 or 50.' },
+  {
+    id: 'Test',
+    overs: null,
+    note: 'Not supported yet — two innings a side and declarations.',
+    unsupported: true,
+  },
+  {
+    id: 'The Hundred',
+    overs: null,
+    note: 'Not supported yet — five-ball sets, not overs.',
+    unsupported: true,
+  },
+  {
+    id: 'Box',
+    overs: 10,
+    note: 'Not supported yet — zone runs and negative runs.',
+    unsupported: true,
+  },
+  { id: 'Gully', overs: 8, note: 'Short game, house rules. Set the overs to suit.' },
+] as const;
+
+type FormatId = (typeof FORMATS)[number]['id'];
+
+/** Chip row used by format and by the toss. */
+function Chips<T extends string>({
+  options,
+  value,
+  onChange,
+  disabled = [],
+}: {
+  options: readonly T[];
+  value: T | null;
+  onChange: (v: T) => void;
+  disabled?: readonly T[];
+}) {
+  return (
+    <View className="flex-row flex-wrap gap-2">
+      {options.map((opt) => {
+        const on = opt === value;
+        const off = disabled.includes(opt);
+        return (
+          <Pressable
+            key={opt}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on, disabled: off }}
+            disabled={off}
+            onPress={() => onChange(opt)}
+            className={`h-9 justify-center border px-3 ${
+              on ? 'bg-primary border-primary' : 'border-border bg-transparent'
+            } ${off ? 'opacity-35' : 'active:opacity-70'}`}
+          >
+            <Text
+              className={`font-heading text-[13px] ${
+                on ? 'text-primary-foreground' : 'text-foreground'
+              }`}
+            >
+              {opt}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function StepHeader({ step, title, onBack }: { step: number; title: string; onBack: () => void }) {
+  return (
+    <View className="border-border flex-row items-center gap-2 border-b px-5 py-3">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        onPress={onBack}
+        className="h-9 w-7 items-start justify-center"
+      >
+        <Text className="text-foreground/70 text-xl">‹</Text>
+      </Pressable>
+      <Text className="text-foreground font-heading flex-1 text-[19px]">{title}</Text>
+      <Text className="font-heading text-[10px] uppercase tracking-[1.4px] text-neutral-600">
+        Step {step} of 3
+      </Text>
+    </View>
+  );
+}
 
 export default function NewMatch() {
   const router = useRouter();
-  const { token } = useSession();
-  const teams = useApiQuery((t, signal) => api.teams(t, signal));
+  const teamsQuery = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal));
   const mutation = useApiMutation();
 
-  const [teamAId, setTeamAId] = useState<string | null>(null);
-  const [teamBId, setTeamBId] = useState<string | null>(null);
-  const [overs, setOvers] = useState('20');
-  const [venue, setVenue] = useState('');
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [error, setError] = useState<string | null>(null);
 
-  const [tossWinnerTeamId, setTossWinnerTeamId] = useState<string | null>(null);
-  const [tossDecision, setTossDecision] = useState<TossDecision | null>(null);
+  // Step 1
+  const [format, setFormat] = useState<FormatId>('T20');
+  const [overs, setOvers] = useState(20);
+  const [homeId, setHomeId] = useState<string | null>(null);
+  const [awayId, setAwayId] = useState<string | null>(null);
+  const [tossWinnerId, setTossWinnerId] = useState<string | null>(null);
+  const [tossDecision, setTossDecision] = useState<'bat' | 'bowl' | null>(null);
 
+  // Step 2
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
+
+  // Step 3
   const [strikerId, setStrikerId] = useState<string | null>(null);
   const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
   const [bowlerId, setBowlerId] = useState<string | null>(null);
 
-  const [squads, setSquads] = useState<Record<string, PlayerSummary[]>>({});
-  const [loadingSquads, setLoadingSquads] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  const teams = teamsQuery.data?.teams ?? [];
 
-  // Pull the squad for each chosen team. Both are needed before openers can
-  // be filtered, and a team can be swapped at any point.
-  useEffect(() => {
-    if (!token) return;
-    const wanted = [teamAId, teamBId].filter((id): id is string => Boolean(id));
-    const missing = wanted.filter((id) => !squads[id]);
-    if (missing.length === 0) return;
-
-    let cancelled = false;
-    setLoadingSquads(true);
-
-    (async () => {
-      const loaded: Record<string, PlayerSummary[]> = {};
-      for (const id of missing) {
-        try {
-          const detail = await api.team(token, id);
-          loaded[id] = detail.members;
-        } catch {
-          loaded[id] = [];
-        }
-      }
-      if (!cancelled) {
-        setSquads((current) => ({ ...current, ...loaded }));
-        setLoadingSquads(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, teamAId, teamBId, squads]);
-
+  // Which side bats is the server's rule, not this screen's — same function.
   const sides = useMemo(() => {
-    if (!teamAId || !teamBId) return null;
+    if (!homeId || !awayId) return null;
     return resolveBattingSides(
-      teamAId,
-      teamBId,
-      tossWinnerTeamId ?? undefined,
+      homeId,
+      awayId,
+      tossWinnerId ?? undefined,
       tossDecision ?? undefined,
     );
-  }, [teamAId, teamBId, tossWinnerTeamId, tossDecision]);
+  }, [homeId, awayId, tossWinnerId, tossDecision]);
 
-  const battingSquad = sides ? (squads[sides.battingTeamId] ?? []) : [];
-  const bowlingSquad = sides ? (squads[sides.bowlingTeamId] ?? []) : [];
+  const battingTeamId = sides?.battingTeamId ?? null;
+  const bowlingTeamId = sides?.bowlingTeamId ?? null;
 
-  // A toss change can flip the sides underneath an already-chosen opener.
-  // Clear anyone who is no longer in the right squad rather than submitting
-  // a selection the server will reject.
-  useEffect(() => {
-    if (!sides) return;
-    const inBatting = (id: string | null) => id !== null && battingSquad.some((p) => p.id === id);
-    const inBowling = (id: string | null) => id !== null && bowlingSquad.some((p) => p.id === id);
+  // useApiQuery has no 'enabled' flag, so the guard lives in the fetcher: it
+  // resolves to null until the toss has decided who is batting.
+  const battingSquad = useApiQuery<TeamDetailResponse | null>(
+    async (t, signal) => (battingTeamId ? await api.team(t, battingTeamId, signal) : null),
+    [battingTeamId],
+  );
+  const bowlingSquad = useApiQuery<TeamDetailResponse | null>(
+    async (t, signal) => (bowlingTeamId ? await api.team(t, bowlingTeamId, signal) : null),
+    [bowlingTeamId],
+  );
 
-    if (strikerId && !inBatting(strikerId)) setStrikerId(null);
-    if (nonStrikerId && !inBatting(nonStrikerId)) setNonStrikerId(null);
-    if (bowlerId && !inBowling(bowlerId)) setBowlerId(null);
-  }, [sides, battingSquad, bowlingSquad, strikerId, nonStrikerId, bowlerId]);
+  const battingPlayers = battingSquad.data?.members ?? [];
+  const bowlingPlayers = bowlingSquad.data?.members ?? [];
 
-  const teamList = teams.data?.teams ?? [];
+  const nameOf = (id: string | null) => teams.find((t) => t.id === id)?.name ?? '';
+
+  const activeFormat = FORMATS.find((f) => f.id === format);
+
+  const canPickXI =
+    Boolean(homeId && awayId && homeId !== awayId) &&
+    // The toss is all-or-nothing, exactly as the server's schema requires.
+    (tossWinnerId === null) === (tossDecision === null);
+
+  const xi = battingPlayers.filter((p) => selected.has(p.id));
 
   async function submit() {
-    setFormError(null);
-
+    setError(null);
     const parsed = createMatchSchema.safeParse({
-      venue: venue.trim() || undefined,
       oversPerInnings: overs,
-      teamAId,
-      teamBId,
-      tossWinnerTeamId: tossWinnerTeamId ?? undefined,
+      teamAId: homeId,
+      teamBId: awayId,
+      tossWinnerTeamId: tossWinnerId ?? undefined,
       tossDecision: tossDecision ?? undefined,
       openingStrikerId: strikerId,
       openingNonStrikerId: nonStrikerId,
@@ -127,217 +205,370 @@ export default function NewMatch() {
     });
 
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? 'Check the match details');
+      setError(parsed.error.issues[0]?.message ?? 'Check the match details.');
       return;
     }
 
-    const result = await mutation.run((t) => api.createMatch(t, parsed.data));
-    if (result) router.replace('/matches');
+    const created = await mutation.run((t) => api.createMatch(t, parsed.data));
+    if (created) router.replace(`/matches/${created.match.id}/score`);
   }
 
-  if (teams.isLoading) return <LoadingScreen />;
+  if (teamsQuery.isLoading) return <LoadingScreen />;
 
-  if (teamList.length < 2) {
+  // ── Step 1 — format and toss ────────────────────────────────────────────
+  if (step === 1) {
     return (
-      <SafeAreaView className="bg-background flex-1 justify-center p-6">
-        <Stack.Screen options={{ title: 'New match' }} />
-        <View className="border-border bg-card gap-3 rounded-2xl border p-6">
-          <Text className="text-foreground text-lg font-semibold">You need two teams</Text>
-          <Text className="text-muted-foreground text-sm">
-            A match needs two teams with squads. You have {teamList.length}.
+      <SafeAreaView className="bg-background flex-1">
+        <Stack.Screen options={{ headerShown: false }} />
+        <StepHeader step={1} title="New match" onBack={() => router.back()} />
+
+        <ScrollView contentContainerClassName="px-5 pb-8 pt-5">
+          <Kicker>Format</Kicker>
+          <View className="mt-3">
+            <Chips
+              options={FORMATS.map((f) => f.id)}
+              value={format}
+              onChange={(id) => {
+                setFormat(id);
+                const f = FORMATS.find((x) => x.id === id);
+                if (f?.overs) setOvers(f.overs);
+              }}
+              disabled={FORMATS.filter((f) => 'unsupported' in f && f.unsupported).map((f) => f.id)}
+            />
+          </View>
+          <Text className="text-foreground/65 mt-3 text-[13px] leading-5">
+            {activeFormat?.note}
           </Text>
-          <Button label="Go to teams" onPress={() => router.push('/teams')} />
-          <Button label="Back" variant="ghost" onPress={() => router.back()} />
+
+          <View className="mt-6 flex-row gap-3">
+            <View className="flex-1">
+              <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+                Overs per side
+              </Text>
+              <View className="border-input mt-1.5 h-12 flex-row items-center border bg-neutral-100">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Fewer overs"
+                  onPress={() => setOvers((o) => Math.max(1, o - 1))}
+                  className="h-full w-11 items-center justify-center active:opacity-60"
+                >
+                  <Text className="text-foreground font-heading text-[18px]">−</Text>
+                </Pressable>
+                <Text className="text-foreground font-heading flex-1 text-center text-[17px]">
+                  {overs}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="More overs"
+                  onPress={() => setOvers((o) => Math.min(200, o + 1))}
+                  className="h-full w-11 items-center justify-center active:opacity-60"
+                >
+                  <Text className="text-foreground font-heading text-[18px]">+</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View className="flex-1">
+              <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+                Balls per over
+              </Text>
+              {/*
+                Fixed at six. BALLS_PER_OVER is a constant in the engine, not a
+                setting — making it configurable means touching every over-based
+                calculation. Shown because the design does, disabled because
+                changing it here would be a lie.
+              */}
+              <View className="border-input mt-1.5 h-12 justify-center border bg-neutral-200 px-4">
+                <Text className="text-foreground/55 font-heading text-[17px]">6</Text>
+              </View>
+            </View>
+          </View>
+
+          <View className="mt-7">
+            <Kicker>Teams</Kicker>
+            <View className="mt-3 gap-4">
+              <View>
+                <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+                  Home
+                </Text>
+                <View className="mt-1.5">
+                  <Chips
+                    options={teams.map((t) => t.name)}
+                    value={nameOf(homeId) || null}
+                    onChange={(name) => setHomeId(teams.find((t) => t.name === name)?.id ?? null)}
+                    disabled={awayId ? [nameOf(awayId)] : []}
+                  />
+                </View>
+              </View>
+              <View>
+                <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+                  Away
+                </Text>
+                <View className="mt-1.5">
+                  <Chips
+                    options={teams.map((t) => t.name)}
+                    value={nameOf(awayId) || null}
+                    onChange={(name) => setAwayId(teams.find((t) => t.name === name)?.id ?? null)}
+                    disabled={homeId ? [nameOf(homeId)] : []}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {homeId && awayId ? (
+            <View className="mt-7">
+              <Kicker>Toss</Kicker>
+              <View className="mt-3 gap-2">
+                <Chips
+                  options={[nameOf(homeId), nameOf(awayId)]}
+                  value={nameOf(tossWinnerId) || null}
+                  onChange={(name) =>
+                    setTossWinnerId(teams.find((t) => t.name === name)?.id ?? null)
+                  }
+                />
+                <Chips
+                  options={['Elected to bat', 'Elected to bowl']}
+                  value={
+                    tossDecision === 'bat'
+                      ? 'Elected to bat'
+                      : tossDecision === 'bowl'
+                        ? 'Elected to bowl'
+                        : null
+                  }
+                  onChange={(v) => setTossDecision(v === 'Elected to bat' ? 'bat' : 'bowl')}
+                />
+              </View>
+              {sides ? (
+                <Text className="text-foreground/70 mt-3 text-[13px] leading-5">
+                  {tossWinnerId
+                    ? `${nameOf(tossWinnerId)} won the toss and elected to ${tossDecision ?? '…'}.`
+                    : 'No toss recorded — the home side bats first.'}{' '}
+                  <Text className="text-steel-700">{nameOf(battingTeamId)} bats.</Text>
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          {error ? (
+            <View className="mt-5">
+              <ErrorBanner message={error} />
+            </View>
+          ) : null}
+
+          <View className="mt-8">
+            <Button label="Pick the XI" disabled={!canPickXI} onPress={() => setStep(2)} />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Step 2 — pick the XI ────────────────────────────────────────────────
+  if (step === 2) {
+    const filtered = battingPlayers.filter((p) =>
+      p.fullName.toLowerCase().includes(search.trim().toLowerCase()),
+    );
+    /*
+     * The design marks the captain with (c) and the keeper with a dagger, and
+     * footers the screen with both names. team_members has is_captain and
+     * is_wicket_keeper columns, but PlayerSummary does not carry them, so the
+     * API never sends them. Showing a guess here would be worse than showing
+     * nothing. Exposing them is a small change to the shared type and the team
+     * route — tracked in docs/wiring.md.
+     */
+
+    return (
+      <SafeAreaView className="bg-background flex-1">
+        <Stack.Screen options={{ headerShown: false }} />
+        <StepHeader step={2} title={nameOf(battingTeamId)} onBack={() => setStep(1)} />
+
+        <View className="flex-row items-center gap-3 px-5 py-3">
+          <Text className="text-foreground font-heading text-[24px]">{selected.size}</Text>
+          <Text className="font-heading text-[10px] uppercase tracking-[1.4px] text-neutral-600">
+            of {battingPlayers.length}
+            {'\n'}named
+          </Text>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search squad"
+            placeholderTextColor="#98989b"
+            accessibilityLabel="Search squad"
+            className="text-foreground border-input ml-auto h-10 flex-1 border bg-neutral-100 px-3 font-sans text-[14px]"
+          />
+        </View>
+
+        {battingSquad.isLoading ? (
+          <LoadingScreen />
+        ) : (
+          <ScrollView contentContainerClassName="px-5 pb-6">
+            {filtered.map((p, i) => {
+              const on = selected.has(p.id);
+              return (
+                <Pressable
+                  key={p.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  onPress={() =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(p.id)) next.delete(p.id);
+                      else next.add(p.id);
+                      return next;
+                    })
+                  }
+                  className={`border-border flex-row items-center gap-3 border-b py-3 ${
+                    on ? '' : 'opacity-45'
+                  } active:opacity-70`}
+                >
+                  <View
+                    className={`h-[18px] w-[18px] items-center justify-center border ${
+                      on ? 'bg-primary border-primary' : 'border-input'
+                    }`}
+                  >
+                    {on ? <Text className="text-primary-foreground text-[11px]">✓</Text> : null}
+                  </View>
+                  <Text className="text-foreground/50 font-heading w-6 text-[13px]">{i + 1}</Text>
+                  <Text className="text-foreground flex-1 text-[15px]" numberOfLines={1}>
+                    {p.fullName}
+                  </Text>
+                  {p.role ? (
+                    <Text className="font-heading shrink-0 text-[10px] uppercase tracking-[1.2px] text-neutral-600">
+                      {p.role.replace(/_/g, ' ')}
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+
+            {/*
+              "Add a guest player" is in the design. Not built: it needs a
+              player row created inline and attached to the squad, and a
+              decision about whether guests persist. See docs/wiring.md.
+            */}
+          </ScrollView>
+        )}
+
+        <View className="border-border border-t px-5 py-3">
+          <Text className="font-heading mb-3 text-[10px] uppercase tracking-[1.4px] text-neutral-600">
+            {selected.size} named
+          </Text>
+          <Button
+            label="Openers & bowler"
+            disabled={selected.size < 2}
+            onPress={() => setStep(3)}
+          />
         </View>
       </SafeAreaView>
     );
   }
 
+  // ── Step 3 — who's on ───────────────────────────────────────────────────
   return (
     <SafeAreaView className="bg-background flex-1">
-      <Stack.Screen options={{ title: 'New match' }} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1"
-      >
-        <ScrollView contentContainerClassName="p-5 gap-6 pb-10">
-          <Text className="text-foreground text-2xl font-bold">New match</Text>
+      <Stack.Screen options={{ headerShown: false }} />
+      <StepHeader step={3} title="Who's on?" onBack={() => setStep(2)} />
 
-          {formError || mutation.error ? (
-            <ErrorBanner message={formError ?? mutation.error ?? ''} />
-          ) : null}
+      <ScrollView contentContainerClassName="px-5 pb-8 pt-4">
+        <Kicker>On strike</Kicker>
+        <View className="mt-2">
+          <PlayerPicker
+            players={xi}
+            value={strikerId}
+            onChange={setStrikerId}
+            excludeId={nonStrikerId}
+          />
+        </View>
 
-          <Section title="Teams">
-            <Picker
-              label="Team A"
-              options={teamList.map((t) => ({ id: t.id, label: t.name }))}
-              selected={teamAId}
-              disabledIds={teamBId ? [teamBId] : []}
-              onSelect={setTeamAId}
+        <View className="mt-6">
+          <Kicker>Non-striker</Kicker>
+          <View className="mt-2">
+            <PlayerPicker
+              players={xi}
+              value={nonStrikerId}
+              onChange={setNonStrikerId}
+              excludeId={strikerId}
             />
-            <Picker
-              label="Team B"
-              options={teamList.map((t) => ({ id: t.id, label: t.name }))}
-              selected={teamBId}
-              disabledIds={teamAId ? [teamAId] : []}
-              onSelect={setTeamBId}
-            />
-          </Section>
+          </View>
+        </View>
 
-          <Section title="Format">
-            <Field
-              label="Overs per innings"
-              value={overs}
-              onChangeText={setOvers}
-              keyboardType="number-pad"
-              inputMode="numeric"
-            />
-            <Field
-              label="Venue (optional)"
-              value={venue}
-              onChangeText={setVenue}
-              placeholder="Ground name"
-              autoCapitalize="words"
-            />
-          </Section>
+        <View className="mt-6">
+          <Kicker>Opening bowler · {nameOf(bowlingTeamId)}</Kicker>
+          <View className="mt-2">
+            <PlayerPicker players={bowlingPlayers} value={bowlerId} onChange={setBowlerId} />
+          </View>
+        </View>
 
-          <Section
-            title="Toss"
-            hint="Record both, or neither — a winner without a decision doesn't say who bats."
-          >
-            <Picker
-              label="Won by"
-              options={teamList
-                .filter((t) => t.id === teamAId || t.id === teamBId)
-                .map((t) => ({ id: t.id, label: t.name }))}
-              selected={tossWinnerTeamId}
-              onSelect={(id) => setTossWinnerTeamId(id === tossWinnerTeamId ? null : id)}
-            />
-            <Picker
-              label="Chose to"
-              options={[
-                { id: 'bat', label: 'Bat' },
-                { id: 'bowl', label: 'Bowl' },
-              ]}
-              selected={tossDecision}
-              onSelect={(id) => setTossDecision(id === tossDecision ? null : (id as TossDecision))}
-            />
-          </Section>
+        <Text className="text-foreground/65 mt-5 text-[13px] leading-5">
+          Both ends are set at the toss. After that the app asks for a new bowler at the end of
+          every over.
+        </Text>
 
-          {sides ? (
-            <Section
-              title="Openers"
-              hint={
-                loadingSquads
-                  ? 'Loading squads…'
-                  : `${teamName(teamList, sides.battingTeamId)} bat first.`
-              }
-            >
-              <Picker
-                label="Striker"
-                options={battingSquad.map(toOption)}
-                selected={strikerId}
-                disabledIds={nonStrikerId ? [nonStrikerId] : []}
-                onSelect={setStrikerId}
-              />
-              <Picker
-                label="Non-striker"
-                options={battingSquad.map(toOption)}
-                selected={nonStrikerId}
-                disabledIds={strikerId ? [strikerId] : []}
-                onSelect={setNonStrikerId}
-              />
-              <Picker
-                label="Opening bowler"
-                options={bowlingSquad.map(toOption)}
-                selected={bowlerId}
-                onSelect={setBowlerId}
-              />
-            </Section>
-          ) : null}
+        {error || mutation.error ? (
+          <View className="mt-5">
+            <ErrorBanner message={error ?? mutation.error ?? ''} />
+          </View>
+        ) : null}
 
-          <Button label="Start match" onPress={submit} loading={mutation.busy} />
-          <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <View className="mt-7">
+          <Button
+            label="Start innings"
+            loading={mutation.busy}
+            disabled={!strikerId || !nonStrikerId || !bowlerId}
+            onPress={() => void submit()}
+          />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-function toOption(player: PlayerSummary) {
-  return { id: player.id, label: player.shortName ?? player.fullName };
-}
-
-function teamName(teams: TeamSummary[], id: string): string {
-  return teams.find((t) => t.id === id)?.name ?? 'The batting side';
-}
-
-function Section({
-  title,
-  hint,
-  children,
+/**
+ * A list of players to choose one from.
+ *
+ * The design shows form figures beside each name — "SR 128 this season",
+ * "Econ 6.8". Those exist behind GET /api/players/[id]/stats, but fetching one
+ * per player would be a request per row on a screen someone is trying to get
+ * past. Left out until there is a batch endpoint; see docs/wiring.md.
+ */
+function PlayerPicker({
+  players,
+  value,
+  onChange,
+  excludeId,
 }: {
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
+  players: { id: string; fullName: string; role?: string | null }[];
+  value: string | null;
+  onChange: (id: string) => void;
+  excludeId?: string | null;
 }) {
   return (
-    <View className="gap-3">
-      <View>
-        <Text className="text-foreground text-base font-semibold">{title}</Text>
-        {hint ? <Text className="text-muted-foreground text-xs">{hint}</Text> : null}
-      </View>
-      {children}
-    </View>
-  );
-}
-
-function Picker({
-  label,
-  options,
-  selected,
-  disabledIds = [],
-  onSelect,
-}: {
-  label: string;
-  options: { id: string; label: string }[];
-  selected: string | null;
-  disabledIds?: string[];
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <View className="gap-1.5">
-      <Text className="text-foreground text-sm font-medium">{label}</Text>
-      {options.length === 0 ? (
-        <Text className="text-muted-foreground text-sm">Nobody available</Text>
-      ) : (
-        <View className="flex-row flex-wrap gap-2">
-          {options.map((option) => {
-            const isSelected = option.id === selected;
-            const isDisabled = disabledIds.includes(option.id);
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isSelected, disabled: isDisabled }}
-                disabled={isDisabled}
-                onPress={() => onSelect(option.id)}
-                className={`min-h-12 shrink-0 justify-center rounded-xl border px-4 ${
-                  isSelected ? 'bg-primary border-primary' : 'border-border bg-card'
-                } ${isDisabled ? 'opacity-40' : ''}`}
-              >
-                <Text
-                  className={`text-sm ${
-                    isSelected ? 'text-primary-foreground font-semibold' : 'text-foreground'
-                  }`}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+    <View className="border-border border-l border-t">
+      {players.map((p) => {
+        const on = p.id === value;
+        const off = p.id === excludeId;
+        return (
+          <Pressable
+            key={p.id}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on, disabled: off }}
+            disabled={off}
+            onPress={() => onChange(p.id)}
+            className={`border-border flex-row items-center gap-3 border-b border-r px-3 py-3 ${
+              on ? 'bg-steel-100' : ''
+            } ${off ? 'opacity-35' : 'active:opacity-70'}`}
+          >
+            <Text className="text-foreground flex-1 text-[15px]" numberOfLines={1}>
+              {p.fullName}
+            </Text>
+            {p.role ? (
+              <Text className="font-heading text-[10px] uppercase tracking-[1.2px] text-neutral-600">
+                {p.role.replace(/_/g, ' ')}
+              </Text>
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

@@ -90,6 +90,77 @@ are unreachable by default but one line from being restored.
 
 ---
 
+## Starting a match (`apps/mobile/app/(app)/matches/`)
+
+Four screens from the B-series designs. All four render and the flow works end
+to end — a match created here is real. What is missing is detail the designs
+show and the data does not support.
+
+### 🟡 There is no match format
+
+`matches` stores `oversPerInnings` and nothing else. There is no format field,
+so "T20" and "ODI" are only ways of setting a number, and the match does not
+remember which was chosen.
+
+More seriously, three of the seven do not exist in the engine at all:
+
+| Format           | Why not                                     |
+| ---------------- | ------------------------------------------- |
+| Test / multi-day | Two innings a side, declarations, follow-on |
+| The Hundred      | Five-ball sets and 100 balls, not overs     |
+| Box / indoor     | Zone runs and negative runs on dismissal    |
+
+They are shown but **disabled** on B2. Letting someone pick Test and discover
+mid-match that it cannot be scored would be much worse than saying so at the
+toss.
+
+⚠️ **The marketing site claims seven formats** — the landing page's spec sheet
+and the whole `/formats` page. That claim is currently ahead of the engine.
+Either the engine catches up or the copy does.
+
+### 🟡 Balls per over is fixed at six
+
+`BALLS_PER_OVER` is a constant in the engine, not a setting. B2 shows the field
+because the design does, disabled because changing it would be a lie. Making it
+real means touching every over-based calculation.
+
+### 🟡 Captain and keeper are not in the API
+
+B3 marks the captain `(c)` and the keeper `†`, and footers the screen with both
+names. `team_members` **has** `is_captain` and `is_wicket_keeper` columns — but
+`PlayerSummary` does not carry them, so the API never sends them.
+
+Small fix: add the two fields to the shared type and the team route. Dropped
+from the UI for now rather than guessed.
+
+### 🟡 "Add a guest player"
+
+On B3. Needs a player row created inline, attached to the squad, and a decision
+about whether guests persist as real players afterwards.
+
+### 🟡 Form figures beside each name
+
+B4 shows "SR 128 this season" beside a batter and "Econ 6.8" beside a bowler.
+Both exist behind `GET /api/players/[id]/stats` — but rendering them would be
+one request per row on a screen someone is trying to get past. Needs a batch
+endpoint before it is worth doing.
+
+### 🟡 Followers and sync status
+
+B1 shows "24 following" on a live match and "SYNCED 15:41" in the header.
+Nothing counts followers, and there is no offline queue for a sync time to
+describe. Both omitted rather than shown as zero — "0 following" reads as
+nobody watching, which is a different claim from "we do not count yet".
+
+### 🟡 The bottom tab bar
+
+B1 shows tabs: Matches / Score / Card / More. Not built, because it needs a
+decision first: what do **Score** and **Card** show when no match is live? A
+tab bar with two dead tabs is worse than no tab bar. Buttons to Players and
+Teams sit at the bottom of B1 in the meantime.
+
+---
+
 ## Monetisation
 
 ### 🔴 AdMob renders nothing
