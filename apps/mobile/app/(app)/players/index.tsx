@@ -6,13 +6,13 @@
  * a two-screen detour is how a scorer ends up with "Fielder 3" in the book.
  */
 import { useState } from 'react';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { createPlayerSchema, type PlayerSummary } from '@open-innings/shared';
-import { api } from '../../lib/api';
-import { useApiQuery, useApiMutation } from '../../lib/use-api';
-import { Button, ErrorBanner, Field, LoadingScreen } from '../../components/ui';
+import { api } from '../../../lib/api';
+import { useApiQuery, useApiMutation } from '../../../lib/use-api';
+import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
 
 export default function Players() {
   const router = useRouter();
@@ -108,18 +108,33 @@ export default function Players() {
   );
 }
 
+/**
+ * A row in the players list, and the way into a career record.
+ *
+ * The whole point of scoring is what accumulates, so the list of players is
+ * the natural doorway to it — a name here is a link to everything that person
+ * has ever done.
+ */
 function PlayerRow({ player }: { player: PlayerSummary }) {
+  const router = useRouter();
+
   return (
-    <View className="border-border bg-card flex-row items-center justify-between gap-3 rounded-xl border px-4 py-3">
-      <Text className="text-foreground flex-1 text-base font-medium" numberOfLines={1}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${player.fullName} — career record`}
+      onPress={() => router.push(`/players/${player.id}`)}
+      className="border-border flex-row items-center justify-between gap-3 border px-4 py-3 active:opacity-70"
+    >
+      <Text className="text-foreground flex-1 text-base" numberOfLines={1}>
         {player.fullName}
       </Text>
       {player.role ? (
-        <Text className="text-muted-foreground shrink-0 text-xs uppercase">
+        <Text className="text-muted-foreground font-heading shrink-0 text-[11px] uppercase tracking-[1.2px]">
           {player.role.replace(/_/g, ' ')}
         </Text>
       ) : null}
-    </View>
+      <Text className="text-steel-700 shrink-0 text-base">›</Text>
+    </Pressable>
   );
 }
 

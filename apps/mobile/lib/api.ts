@@ -29,6 +29,7 @@ import {
   type ScorerResponse,
   type BallResponse,
   type StartSecondInningsInput,
+  type PlayerCareerResponse,
 } from '@open-innings/shared';
 import type { BallEventInput, MatchState } from '@open-innings/scoring';
 import { API_BASE, MISSING_API_BASE_MESSAGE } from './config';
@@ -144,6 +145,15 @@ export const api = {
 
   players: (token: string, signal?: AbortSignal) =>
     apiFetch<PlayerListResponse>('/api/players', { token, signal }),
+
+  /**
+   * A player's career record.
+   *
+   * Public on the server — the profile is the shareable artifact — but the
+   * token is sent anyway for consistency with every other call here.
+   */
+  playerStats: (token: string, playerId: string, signal?: AbortSignal) =>
+    apiFetch<PlayerCareerResponse>(`/api/players/${playerId}/stats`, { token, signal }),
 
   createPlayer: (token: string, body: CreatePlayerInput) =>
     apiFetch<PlayerResponse>('/api/players', { method: 'POST', body, token }),

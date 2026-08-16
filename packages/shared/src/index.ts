@@ -77,6 +77,10 @@ export {
   type ScorerPlayer,
   type ScorerResponse,
   type BallResponse,
+  type BattingCareerView,
+  type BowlingCareerView,
+  type FormEntryView,
+  type PlayerCareerResponse,
 } from './api';
 
 export { resolveBattingSides } from './toss';

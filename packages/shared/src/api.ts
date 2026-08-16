@@ -180,6 +180,74 @@ export type BallResponse = {
   state: unknown;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Career statistics
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A batting record, career or single season.
+ *
+ * `average` and `strikeRate` are nullable for different reasons, and the
+ * difference matters: a strike rate needs balls faced, an average needs a
+ * dismissal. A batter who is 40* off 20 has a strike rate of 200 and no
+ * average at all. Rendering either as 0 or Infinity is wrong.
+ */
+export type BattingCareerView = {
+  innings: number;
+  notOuts: number;
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  highScore: number;
+  /** The high score was unbeaten — render it as "84*". */
+  highScoreNotOut: boolean;
+  fifties: number;
+  hundreds: number;
+  average: number | null;
+  strikeRate: number | null;
+};
+
+/** A bowling record. All three rates are null until there is a wicket. */
+export type BowlingCareerView = {
+  innings: number;
+  balls: number;
+  runs: number;
+  wickets: number;
+  bestWickets: number;
+  bestRuns: number;
+  fiveFors: number;
+  average: number | null;
+  /** Runs per over — needs balls, not wickets, so it outlives the others. */
+  economy: number | null;
+  strikeRate: number | null;
+};
+
+/** One recent innings, for the form strip. */
+export type FormEntryView = {
+  matchId: string;
+  /** ISO string — this crossed a JSON boundary, so it is not a Date. */
+  playedAt: string | null;
+  opponent: string | null;
+  runs: number;
+  balls: number;
+  notOut: boolean;
+};
+
+/** `GET /api/players/[id]/stats` — public, no session required. */
+export type PlayerCareerResponse = {
+  career: {
+    player: { id: string; fullName: string };
+    batting: BattingCareerView;
+    bowling: BowlingCareerView;
+    fielding: { catches: number; runOuts: number; stumpings: number };
+    /** Null when the player has only ever played one season. */
+    season: { label: string; batting: BattingCareerView; bowling: BowlingCareerView } | null;
+    form: FormEntryView[];
+    milestones: string[];
+  };
+};
+
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */
 export const HTTP = {
   ok: 200,
