@@ -1,161 +1,202 @@
 # 🏏 Open Innings
 
-> **Free, open-source, forever.** A community-owned cricket scoring app — the Lichess of cricket.
+> Ball-by-ball cricket scoring for club, league, box and gully cricket.
+> Open source, AGPL-3.0 — **the person doing the scoring never pays and never
+> sees an ad.**
 
-[Quick start](#quick-start) · [Setup guide](SETUP.md) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md) · [Donate](https://opencollective.com/open-innings)
+[Quick start](#quick-start) · [Setup guide](SETUP.md) · [Architecture](docs/architecture.md) · [Hosting](docs/hosting.md) · [Contributing](CONTRIBUTING.md)
 
 ---
 
-## Why Open Innings?
+## Why this exists
 
-Cricket scoring apps that are full-featured are paywalled. CricHeroes is the dominant player and monetises aggressively — subscriptions, ads, premium features. Free options are either read-only score widgets or single-user toy apps.
+Every amateur cricketer in India plays for years and has **no record of any of
+it**. Runs vanish into paper scorebooks. The apps that would keep them charge
+for the privilege, and they charge the one person doing three hours of work.
 
-There is **no community-owned, free-forever, feature-complete alternative** in cricket. Chess has [Lichess](https://lichess.org) — open source, donation-funded, free forever, and better than the commercial incumbents. **We're building the equivalent for cricket.**
+Open Innings inverts that. Scoring is free, forever, with no ads on the scoring
+screen. The people _reading_ a scorecard are the audience, and that is where
+the app earns.
 
-## Features
+CricHeroes owns this market and paywalls aggressively. We do not beat them on
+features — we beat them on being genuinely free to the person holding the
+phone, and on being forkable by any club that wants to run its own copy.
 
-### v0.1 (current — in development)
+## What works today
 
-- 📱 Ball-by-ball scorer (mobile-first, one-handed usable)
-- 📊 Public scorecards — shareable links, no login to view
-- 👥 Player database — career stats, photos, teams
-- 🏟️ Teams with squads
-- ↩️ Undo last ball (ball events are the source of truth)
-- 🔐 Local email/password auth (no third-party login required)
+The app runs end to end on real hardware: sign up, add players, build squads,
+create a match, score a full innings ball by ball, and share the result.
 
-### v0.2
+| Area         | Feature                                                                      | Status                             |
+| ------------ | ---------------------------------------------------------------------------- | ---------------------------------- |
+| **Scoring**  | Ball-by-ball engine — pure `applyBall(state, event) → state`                 | ✅ 48 tests, full MCC law coverage |
+|              | One-handed keypad: 0–6, W, undo always on screen                             | ✅                                 |
+|              | Extras as armed modifiers — arm a wide, tap the runs                         | ✅                                 |
+|              | Mandatory bowler change at the end of an over (Law 16.2)                     | ✅                                 |
+|              | Mandatory next-batter sheet after a wicket                                   | ✅                                 |
+|              | Innings break, target, chase, match result                                   | ✅                                 |
+|              | Exact undo — every figure is derived, so removing a ball corrects everything | ✅                                 |
+| **Identity** | Public career page per player, `/p/<id>`                                     | ✅                                 |
+|              | Career + current-season split, form, milestones                              | ✅                                 |
+|              | Batting: runs, avg, SR, HS, 4s, 6s, 50s, 100s                                | ✅                                 |
+|              | Bowling: wickets, best figures, economy, average, SR                         | ✅                                 |
+|              | Fielding: catches, run-outs, stumpings                                       | ✅                                 |
+|              | Career screen in the Android app                                             | ✅                                 |
+| **Sharing**  | Public scorecard, no app or account needed, `/m/<id>`                        | ✅                                 |
+|              | Match card image — result, top scorer, best bowling, POTM                    | ✅                                 |
+|              | Player career card image                                                     | ✅                                 |
+|              | Per-player match card — one match, 22 shareable cards                        | ✅                                 |
+|              | Club page — squad, results, squad leaders, `/c/<id>`                         | ✅                                 |
+| **Platform** | Android app (Expo / React Native)                                            | ✅ runs on device                  |
+|              | REST API, bearer-token auth                                                  | ✅ 16 endpoints, 77 smoke checks   |
+|              | Marketing site                                                               | ✅                                 |
+| **Money**    | AdMob SDK wired, ad units created                                            | ⏳ nothing rendered yet            |
+|              | RevenueCat project, `supporter` entitlement                                  | ⏳ not yet sellable                |
+| **Not yet**  | Deployed to a public URL                                                     | ❌                                 |
+|              | Offline-first scoring                                                        | ❌                                 |
+|              | Push notifications                                                           | ❌                                 |
+|              | Leaderboards, honours boards                                                 | ❌                                 |
+|              | Tournaments, multi-user clubs                                                | ❌ post-hackathon                  |
 
-- 🏆 Tournament organisation — round-robin, knockout, group+KO
-- 📈 Leaderboards — most runs, most wickets, best SR, best economy
-- 🗺️ Match insights — wagon wheel, pitch map, run progression
+Nothing in the identity or sharing rows is stored. **Every figure is computed
+from the ball log**, the same events the scorecard replays — so there is no
+aggregate table to drift, and correcting a mis-recorded ball corrects the
+career, the cards and the club page at once.
 
-### v0.3
+## How it earns
 
-- ⚡ Real-time updates (WebSockets)
-- 👥 Multi-user clubs
-- 🎥 Embedded YouTube/Facebook Live URLs
-- 🌧️ Super Over + DLS support
+The scorer is the labour; the viewers are the audience. That distinction
+decides every monetisation choice:
 
-**Out of scope (needs funding):** native live streaming CDN, video highlights, AI video analysis.
-
-## Tech stack
-
-| Layer           | Choice                                             | Why                                                                    |
-| --------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
-| Frontend        | Next.js 15 (App Router) + TypeScript               | SEO for public scorecards, RSC pairs well with our server-first design |
-| Styling         | Tailwind CSS                                       | Fast to ship, no design-system lock-in                                 |
-| Database        | Postgres (native)                                  | Free, runs anywhere, no third-party dependency                         |
-| ORM             | Drizzle                                            | Lightweight, type-safe, SQL-first                                      |
-| Auth            | Self-hosted (argon2 + session cookies)             | No Supabase, no Clerk, no vendor lock-in                               |
-| Deploy          | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control, no surprise billing, no vendor ToS risk          |
-| Realtime (v0.1) | Polling                                            | Simplest. WebSockets deferred to v0.3                                  |
+- **No ad ever appears on a scoring screen.** Not on the free plan, not ever.
+  Mis-tapping a ball because an ad loaded under your thumb is how a scorebook
+  goes wrong.
+- Ads run on **scorecards and share screens**, where people are reading rather
+  than tapping.
+- A **supporter subscription** removes them. It unlocks no features, because
+  no feature is ever gated.
+- **Self-host and pay nothing** — there is no ad server in your own build.
 
 ## Quick start
 
-The fastest path to running the app on your laptop:
+Full instructions in [SETUP.md](SETUP.md). The short version:
 
 ```bash
-# 1. Install Postgres 16+ and pnpm 9+ (see SETUP.md for details)
-
-# 2. Clone and install
-git clone https://github.com/open-innings/open-innings.git
-cd open-innings
+# Postgres 16+ and pnpm 9+ required
 pnpm install
-
-# 3. Configure environment
-cp apps/web/.env.example apps/web/.env.local
-# Edit apps/web/.env.local — defaults work if Postgres is on localhost:5432
-# with user=postgres, password=postgres, db=open_innings
-
-# 4. Start Postgres, then apply migrations + seed
+cp apps/web/.env.example apps/web/.env.local   # defaults assume local Postgres
 pnpm db:migrate
-pnpm db:seed
-
-# 5. Start the dev server
-pnpm dev
+pnpm db:seed                                    # dev only — see the warning below
+pnpm dev                                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and sign in with the seeded dev account:
+For the Android app:
 
-- **Email**: `dev@local`
-- **Password**: `devpassword123`
+```bash
+cd apps/mobile
+pnpm start        # needs a dev build — Expo Go cannot run this project
+```
 
-Then go to **Matches** → click **Score** on the seeded match → tap a button to score a ball.
+> **`pnpm db:seed` creates `dev@local` / `devpassword123`.** That password is
+> published in this repository. Never run it against anything but a local
+> database. Production gets `pnpm db:migrate` only.
 
-**Need help?** See [SETUP.md](SETUP.md) for the full guide (Windows / macOS / Linux, troubleshooting, project layout).
+## The one file that matters
 
-## Architecture
+`packages/scoring/src/engine.ts` is a pure function:
 
-See [docs/architecture.md](docs/architecture.md) for the full design — domain model, schema, feature cuts, and the reasoning behind each choice.
+```
+applyBall(matchState, ballEvent) → newMatchState
+```
 
-The single most important file in the codebase is `packages/scoring/src/engine.ts`. It's a pure function that takes `(matchState, ballEvent) → newMatchState` and is unit-tested against every MCC cricket rule. If you get that right with comprehensive tests, every UI bug becomes a presentation problem, not a data corruption problem.
+No I/O, no framework, unit-tested against MCC law. Every other number in the
+product — the live score, the scorecard, career averages, the share cards — is
+derived by replaying ball events through it.
+
+That is why a correction anywhere fixes everything downstream, and why a UI bug
+is a presentation problem rather than data corruption. It runs unchanged in the
+browser and on the phone.
+
+Its rule sets are exported rather than restated: which dismissals credit the
+bowler is Law 25, and anything computing statistics imports
+`BOWLER_CREDITED_WICKETS` instead of retyping the list.
 
 ## Project structure
 
 ```
 open-innings/
 ├── apps/
-│   └── web/                  # Next.js app — REST API, public scorecards, admin
-│       ├── app/              # Routes — App Router
-│       ├── components/       # React components
-│       ├── lib/
-│       │   ├── auth/         # Email/password auth (argon2, sessions)
-│       │   └── db/           # Drizzle schema + typed queries
-│       ├── scripts/          # migrate.ts, seed.ts, smoke tests
-│       └── supabase/         # SQL migrations (kept here for Drizzle tooling)
+│   ├── web/                  # Next.js — REST API, public pages, marketing site
+│   │   ├── app/
+│   │   │   ├── (marketing)/  # Landing, pricing, FAQ, /p/<player>, /c/<club>
+│   │   │   ├── api/          # 16 REST endpoints — what the phone talks to
+│   │   │   └── m/[matchId]/  # Public scorecard + share cards
+│   │   ├── lib/
+│   │   │   ├── db/           # Drizzle schema, queries, stats aggregation
+│   │   │   └── services/     # Transport-free business logic
+│   │   ├── scripts/          # migrate, seed, three smoke suites
+│   │   ├── styles/           # Industry design system (vendored)
+│   │   └── supabase/         # SQL migrations (path kept for Drizzle tooling)
+│   └── mobile/               # Expo / React Native — the scorer
+│       ├── app/              # Expo Router screens
+│       └── lib/              # API client, session, ads config
 ├── packages/
-│   └── scoring/              # Pure-function scoring engine + 48 tests.
-│                             # No I/O, no framework — shared by web and mobile.
-├── docs/
-│   ├── architecture.md       # Architecture decisions
-│   ├── scoring-rules.md      # Cricket rule references
-│   ├── donation-model.md     # How funding works
-│   └── deployment.md         # Self-hosting plan (Oracle Cloud + Cloudflare)
-└── README.md
+│   ├── scoring/              # The engine. Pure TS, no I/O. 48 tests.
+│   └── shared/               # Zod schemas + response types. 18 tests.
+└── docs/
+    ├── architecture.md       # Domain model and the reasoning behind it
+    ├── scoring-rules.md      # Cricket law references
+    ├── hosting.md            # Where it runs and why
+    └── deployment.md         # The original self-hosting plan
 ```
+
+Both packages ship raw TypeScript with no build step, so Next.js and Metro
+consume the same source.
+
+## Tech
+
+**Web** — Next.js 16 (App Router), React 19, Tailwind v3, Drizzle ORM,
+Postgres, `postgres.js`
+**Mobile** — Expo SDK 57, React Native 0.86, Expo Router, NativeWind v4
+**Shared** — TypeScript, Zod, Vitest
+**Design** — Industry: Barlow Condensed over Barlow, square-cornered
+blueprint objects, one steel accent
+
+Auth is email/password with argon2 and server-side sessions. The API accepts a
+bearer token; the phone never uses cookies.
+
+## Testing
+
+```bash
+pnpm test          # 66 unit tests — the engine and the shared schemas
+pnpm typecheck     # four packages
+pnpm lint
+pnpm smoke:api     # 77 checks against a running server, bearer auth only
+```
+
+`smoke:api` is self-cleaning and safe to run repeatedly. **`smoke:score` and
+`smoke:p1` are destructive** — they wipe ball events. Local databases only.
 
 ## Contributing
 
-We welcome contributors of all kinds — code, design, documentation, translations, rule-testing, bug reports.
+Code, design, translations, rule-testing and bug reports all welcome. The most
+useful contribution is scoring a real match and filing an honest issue about
+the ball it got wrong.
 
-- 🐛 [Report a bug](https://github.com/open-innings/open-innings/issues/new?template=bug.yml)
-- 💡 [Request a feature](https://github.com/open-innings/open-innings/issues/new?template=feature.yml)
-- 🔧 [Submit a PR](CONTRIBUTING.md)
-- 💬 [Join the discussion](https://github.com/open-innings/open-innings/discussions)
+- [Report a bug](https://github.com/CodeNeuron58/open-innings/issues)
+- [Contributing guide](CONTRIBUTING.md)
 
-## Deployment
+If your league scores a wide differently, say so — that becomes a toggle rather
+than a fork.
 
-Open Innings runs entirely on **one free-tier VM** — the app and Postgres
-self-hosted together, matching how the code is already built (a single
-long-running Node process with pooled DB connections, not serverless).
+## Licence
 
-- **VM**: Oracle Cloud Always Free Ampere A1 (currently 2 OCPU / 12GB RAM /
-  200GB storage / 10TB egress — Oracle cut this from 4 OCPU/24GB in June
-  2026 with no announcement, so treat the exact spec as "generous but not
-  guaranteed to stay put")
-- **In front of it**: Cloudflare (free) for CDN, DDoS protection, and SSL
-- **Not used**: Vercel (its free tier is personal/non-commercial/
-  single-developer only — a bad fit for a donations-funded public project)
-  or managed free-tier Postgres like Neon/Supabase (their free storage
-  caps, ~500MB, get tight well before 1,000 real users; Supabase also
-  pauses inactive projects, which breaks old shared scorecard links)
-- **The one real recurring cost**: a domain name (~$10–15/year)
+[AGPL-3.0](LICENSE). Fork it, self-host it, run your league's own instance. If
+you run a modified version publicly, publish your changes.
 
-Not deployed yet — that happens once the local build is further along and
-tested. See [docs/deployment.md](docs/deployment.md) for the full plan.
-
-## Funding
-
-Open Innings is **free forever** and will never have ads, paywalls, or feature locks.
-
-We run on donations via [Open Collective](https://opencollective.com/open-innings) and [Liberapay](https://liberapay.com/open-innings). All expenses (servers, domains, design) are published transparently.
-
-Inspired by [Lichess](https://lichess.org/about), which has been free and donation-funded since 2010.
-
-## License
-
-[AGPL-3.0](LICENSE) — like Lichess. You can fork it, but if you run a modified version publicly, you must publish your changes. Keeps the ecosystem open.
+Note this rules out the iOS App Store, whose terms are incompatible with the
+AGPL — the same reason VLC and GNU Go are not on it. Android and Samsung only.
 
 ---
 
-**Built by cricket lovers. Owned by everyone.**
+**Built for club cricket. Owned by everyone who plays it.**
