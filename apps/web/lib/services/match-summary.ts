@@ -11,7 +11,13 @@
  * correcting a ball must correct everything downstream of it.
  */
 import 'server-only';
-import { replayInnings, asInningsId, asPlayerId, type MatchState } from '@open-innings/scoring';
+import {
+  replayInnings,
+  buildScorecard,
+  asInningsId,
+  asPlayerId,
+  type MatchState,
+} from '@open-innings/scoring';
 import {
   getMatch,
   getInnings,
@@ -166,7 +172,18 @@ async function aggregate(matchId: string) {
     }
   }
 
-  const names = await getPlayerNamesByIds([...new Set([...batting.keys(), ...bowling.keys()])]);
+  // Fielders too, not just people who batted or bowled. A specialist fielder
+  // who takes a catch appears in neither map, and "caught by Unknown" on a
+  // scorecard is worse than no name at all.
+  const fielderIds = states.flatMap((s) =>
+    s.balls.flatMap((b) =>
+      [b.fielderId, b.wicketPlayerId].filter((v): v is NonNullable<typeof v> => v !== undefined),
+    ),
+  );
+
+  const names = await getPlayerNamesByIds([
+    ...new Set([...batting.keys(), ...bowling.keys(), ...fielderIds.map(String)]),
+  ]);
   const nameOf = (id: string) => names[id] ?? 'Unknown';
 
   return { match, allInnings, states, teamNames, batting, bowling, nameOf };
@@ -332,5 +349,180 @@ export async function playerMatchLineFor(
         : null,
     // Fielded but neither batted nor bowled — say so rather than showing "".
     line: parts.length > 0 ? parts.join(' & ') : 'Did not bat or bowl',
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The full card
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Every innings, in full — both tables, the extras, the fall of wickets and
+ * every delivery.
+ *
+ * Separate from `matchSummaryFor` because the two answer different questions.
+ * A summary is what you put on a card; this is the record, and it is the
+ * heavier call — it ships every ball of the match. The card screen asks for it
+ * once and then switches tabs locally.
+ *
+ * Deliveries come back oldest-first, exactly as bowled. Grouping them into
+ * overs and reversing for display is the client's business, and
+ * `groupIntoOvers` in the engine does it for whoever asks.
+ */
+export type CardDelivery = {
+  overNumber: number;
+  ballNumber: number;
+  eventType: string;
+  runsOffBat: number;
+  extraRuns: number;
+  totalRuns: number;
+  isLegalDelivery: boolean;
+  batsmanName: string;
+  bowlerName: string;
+  wicketType: string | null;
+  outBatterName: string | null;
+  fielderName: string | null;
+  commentary: string | null;
+};
+
+export type CardInnings = {
+  inningsNumber: number;
+  battingTeamName: string;
+  bowlingTeamName: string;
+  runs: number;
+  wickets: number;
+  overs: string;
+  target: number | null;
+  batting: {
+    playerId: string;
+    playerName: string;
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    strikeRate: string;
+    isOut: boolean;
+    dismissalText: string | null;
+  }[];
+  bowling: {
+    playerId: string;
+    playerName: string;
+    overs: string;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    economy: string;
+  }[];
+  /**
+   * Broken out rather than a single total, because a scorer checking the book
+   * against the app checks these individually — a byes column that disagrees
+   * is the usual sign something was entered on the wrong key.
+   */
+  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number };
+  fallOfWickets: { wicketNumber: number; runsAtFall: number; oversAtFall: string; name: string }[];
+  deliveries: CardDelivery[];
+};
+
+export type MatchCard = {
+  matchId: string;
+  title: string | null;
+  venue: string | null;
+  status: string;
+  result: string | null;
+  innings: CardInnings[];
+};
+
+export async function matchCardFor(matchId: string): Promise<MatchCard> {
+  const { match, allInnings, states, teamNames, nameOf } = await aggregate(matchId);
+
+  const innings: CardInnings[] = allInnings.map((inn, i) => {
+    const state = states[i];
+    if (!state) {
+      throw notFound('Innings could not be replayed');
+    }
+    const card = buildScorecard(state, nameOf);
+
+    // Extras by kind, folded from the ball log. The engine tracks wides and
+    // no-balls per bowler but byes and leg-byes belong to nobody, so the
+    // deliveries are the only place all four agree.
+    const extras = {
+      total: state.currentInnings.extras,
+      wides: 0,
+      noBalls: 0,
+      byes: 0,
+      legByes: 0,
+    };
+    for (const b of state.balls) {
+      if (b.eventType === 'wide') extras.wides += b.totalRuns;
+      else if (b.eventType === 'no_ball') extras.noBalls += b.totalRuns;
+      else if (b.eventType === 'bye') extras.byes += b.totalRuns;
+      else if (b.eventType === 'leg_bye') extras.legByes += b.totalRuns;
+    }
+
+    return {
+      inningsNumber: inn.inningsNumber,
+      battingTeamName: teamNames.get(inn.battingTeamId) ?? 'Team',
+      bowlingTeamName: teamNames.get(inn.bowlingTeamId) ?? 'Team',
+      runs: state.currentInnings.runs,
+      wickets: state.currentInnings.wickets,
+      overs: oversOf(state.currentInnings.ballsBowled),
+      target: inn.target ?? null,
+      // Someone who never faced a ball and never came in is not on the card.
+      batting: card.batting
+        .filter((b) => b.balls > 0 || b.isOut)
+        .map((b) => ({
+          playerId: b.playerId,
+          playerName: b.playerName,
+          runs: b.runs,
+          balls: b.balls,
+          fours: b.fours,
+          sixes: b.sixes,
+          strikeRate: b.strikeRate,
+          isOut: b.isOut,
+          dismissalText: b.dismissalText ?? null,
+        })),
+      bowling: card.bowling
+        .filter((b) => b.overs !== '0.0')
+        .map((b) => ({
+          playerId: b.playerId,
+          playerName: b.playerName,
+          overs: b.overs,
+          maidens: b.maidens,
+          runs: b.runs,
+          wickets: b.wickets,
+          economy: b.economy,
+        })),
+      extras,
+      fallOfWickets: card.fallOfWickets.map((f) => ({
+        wicketNumber: f.wicketNumber,
+        runsAtFall: f.runsAtFall,
+        oversAtFall: f.oversAtFall,
+        name: f.batsmanOutName,
+      })),
+      deliveries: state.balls.map((b) => ({
+        overNumber: b.overNumber,
+        ballNumber: b.ballNumber,
+        eventType: b.eventType,
+        runsOffBat: b.runsOffBat,
+        extraRuns: b.extraRuns,
+        totalRuns: b.totalRuns,
+        isLegalDelivery: b.isLegalDelivery,
+        batsmanName: nameOf(String(b.batsmanId)),
+        bowlerName: nameOf(String(b.bowlerId)),
+        wicketType: b.wicketType ?? null,
+        outBatterName: b.wicketPlayerId ? nameOf(String(b.wicketPlayerId)) : null,
+        fielderName: b.fielderId ? nameOf(String(b.fielderId)) : null,
+        commentary: b.commentary ?? null,
+      })),
+    };
+  });
+
+  return {
+    matchId: match.id,
+    title: match.title,
+    venue: match.venue,
+    status: match.status,
+    result: match.summary,
+    innings,
   };
 }

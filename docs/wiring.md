@@ -152,12 +152,16 @@ Nothing counts followers, and there is no offline queue for a sync time to
 describe. Both omitted rather than shown as zero — "0 following" reads as
 nobody watching, which is a different claim from "we do not count yet".
 
-### 🟡 The bottom tab bar
+### 🟡 B1 itself has no tab bar
 
-B1 shows tabs: Matches / Score / Card / More. Not built, because it needs a
-decision first: what do **Score** and **Card** show when no match is live? A
-tab bar with two dead tabs is worse than no tab bar. Buttons to Players and
-Teams sit at the bottom of B1 in the meantime.
+The bar exists — `MatchTabs`, built with the D-series — but only on the
+match-scoped screens, because Score and Card need a match id. B1 is the list of
+all matches and has none, so it still carries buttons to Players and Teams
+instead.
+
+That is the unresolved half of the same question: what do **Score** and
+**Card** point at when no match is open? Most recent, probably. Until that is
+decided the list screen keeps its own footer.
 
 ---
 
@@ -200,14 +204,10 @@ laws, not in a screen.
 C4 shows both. There is no break timer and nothing counts followers, so
 neither is drawn — same call as on B1.
 
-### 🟡 The full card opens the web scorecard
+### 🟢 The full card is in-app now
 
-**Full card** on C4 and **Full scorecard** on C5 open `/m/[matchId]` in the
-browser. That page is real, it is the same one anyone following the match is
-looking at, and it is what gets shared — so this works today.
-
-An in-app card screen is still missing, and it is the same open question as the
-**CARD** tab in the bottom bar. Worth deciding once, for both.
+Built as the D-series — `matches/[id]/card`. C4 and C5 point at it rather than
+opening a browser.
 
 ### 🟢 Expo's typed routes mis-register `result.tsx`
 
@@ -224,18 +224,81 @@ is worth an upstream look before more routes are added.
 
 ---
 
+## The card and sharing (`apps/mobile/app/(app)/matches/[id]/`)
+
+The D-series: `card` (scorecard + over by over), `share`, `cards` (per player).
+All three are real and read from `GET /api/matches/[id]/card`, which replays
+both innings and ships every delivery.
+
+### 🟡 The share cards are the wrong shape for sharing
+
+The designs label the card **1080 × 1080**. What exists is **1200 × 630** —
+the Open Graph size, because these cards were built as the preview a _link_
+unfurls into.
+
+Those are different jobs. A link preview is landscape; an image sent to a
+WhatsApp status or an Instagram post wants the square. Right now only the
+first exists, so D3 and D4 preview at the real ratio and the size label says
+1200 × 630 rather than repeating the design's number over a picture that is
+not that shape.
+
+Fixing it means a second size from the same renderer — the Satori layout would
+need a square variant, not just a different canvas, because the current one is
+composed for a wide frame.
+
+### 🟡 "Save image" and "Save all 22" are not built
+
+Both are on the designs. Writing to the gallery needs `expo-media-library`, a
+runtime permission prompt, and — for "all 22" — downloading twenty-two PNGs
+with some notion of progress and failure. That is a feature, not a wiring job.
+
+**Copy live link** and **Share** are real, so nothing on these screens is a
+dead end in the meantime.
+
+### 🟡 Commentary is factual, and stops there
+
+D2's feed comes from `describeBall` in the engine. It will say "Kamath to
+Thomas, FOUR — 20 needed became 16", because every clause of that is derived
+from the ball log. It will never say "through midwicket" or "bowled through
+the gate", which the design shows, because nothing in the system watched the
+game.
+
+`BallEvent.commentary` exists and wins over the generated line when a scorer
+writes one — but **no screen offers a way to write one**. That is the gap: an
+optional note field on the scorer console, probably behind a long-press, so
+colour is possible without being invented.
+
+### 🟡 The bottom tab bar is presentational
+
+`MatchTabs` is a strip that navigates, not an Expo Router `<Tabs>` layout.
+Score and Card are match-scoped; Matches is global. A real tab navigator would
+have to hold a match id in layout state and decide what its tabs point at when
+no match is open — a routing problem invented to satisfy a visual one.
+
+**More** is drawn and disabled. There is no settings screen.
+
+---
+
 ## Monetisation
 
-### 🔴 AdMob renders nothing
+### 🟡 AdMob renders — the removal pitch does not
 
-SDK installed, app ID in `app.json`, both ad unit IDs in `lib/ads.ts`, account
-review passed. **No ad component is mounted anywhere.** Placement is decided —
-see the ad strategy in `FEATURES.md` — but not built:
+`AdBar` mounts a real `BannerAd` on the card, share and player-card screens,
+and **on no scorer screen**, which is the rule the whole ad strategy rests on.
+Units resolve through `adUnit()`, so a dev build can only ever load Google's
+test unit.
 
-- banner on public scorecards
-- native in the match list
+Still to do:
+
+- native ad in the match browse list (`match_list_native` is configured and
+  unused)
 - one interstitial at the innings break, capped at 1/hour
-- **nothing on any scorer screen**, and a CI test that fails if one appears
+- a CI test that fails if an ad component ever appears on a scorer screen —
+  the rule is currently held by a comment and by whoever is reviewing
+
+**Remove ₹99** renders inert. `AdBar` takes an `onRemove` prop and nothing
+passes one, because nothing is purchasable yet — see below. It is one prop
+away from working.
 
 ### 🔴 RevenueCat sells nothing
 

@@ -542,7 +542,74 @@ async function main() {
     );
     ok(missingSummary.status === 404, 'summary for an unknown match → 404', missingSummary);
 
-    // ── 9. Delete ───────────────────────────────────────────────────────────
+    // ── 9. The full card ────────────────────────────────────────────────────
+    // Feeds the scorecard and over-by-over tabs. Before delete, same reason.
+    console.log('match card');
+    const card = await call('GET', `/api/matches/${matchId}/card`);
+    ok(card.status === 200, 'GET match card → 200', card);
+    ok(
+      Array.isArray(card.json.innings) && card.json.innings.length === 2,
+      'card carries both innings',
+      card.json.innings?.length,
+    );
+
+    const secondCard = card.json.innings?.[1];
+    ok(
+      Array.isArray(secondCard?.deliveries) && secondCard.deliveries.length === 2,
+      'the chase carries both deliveries that were bowled',
+      secondCard?.deliveries?.length,
+    );
+
+    /*
+     * Names, not ids.
+     *
+     * The over-by-over feed renders these straight into a sentence — "Kamath
+     * to Thomas, no run". A uuid leaking through would be visible to every
+     * reader, and the aggregation only looked up players who batted or bowled
+     * until fielders were added to it.
+     */
+    const firstDelivery = secondCard?.deliveries?.[0];
+    ok(
+      typeof firstDelivery?.batsmanName === 'string' &&
+        !firstDelivery.batsmanName.includes('-') &&
+        firstDelivery.batsmanName !== 'Unknown',
+      'deliveries carry resolved player names, not ids',
+      firstDelivery,
+    );
+    ok(
+      typeof firstDelivery?.bowlerName === 'string' && firstDelivery.bowlerName !== 'Unknown',
+      'deliveries carry the bowler by name',
+      firstDelivery?.bowlerName,
+    );
+
+    ok(
+      secondCard?.extras?.total === 0 && secondCard?.extras?.wides === 0,
+      'two dot balls conceded no extras of any kind',
+      secondCard?.extras,
+    );
+    ok(
+      Array.isArray(secondCard?.batting) && secondCard.batting.length > 0,
+      'the batting table is populated',
+      secondCard?.batting?.length,
+    );
+    ok(
+      secondCard?.fallOfWickets?.length === 0,
+      'no wickets fell, so nothing is in the fall of wickets',
+      secondCard?.fallOfWickets,
+    );
+
+    const publicCard = await call('GET', `/api/matches/${matchId}/card`, undefined, false);
+    ok(publicCard.status === 200, 'match card is public (no auth) → 200', publicCard);
+
+    const missingCard = await call(
+      'GET',
+      '/api/matches/00000000-0000-0000-0000-000000000000/card',
+      undefined,
+      false,
+    );
+    ok(missingCard.status === 404, 'card for an unknown match → 404', missingCard);
+
+    // ── 10. Delete ──────────────────────────────────────────────────────────
     console.log('delete');
     const liveDelete = await call('DELETE', `/api/matches/${matchId}`);
     ok(liveDelete.status === 400, 'deleting a live match → 400', liveDelete);
@@ -554,7 +621,7 @@ async function main() {
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
 
-    // ── 10. Rate limiting ────────────────────────────────────────────────────
+    // ── 11. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');
     // Must exceed the login cap in app/api/auth/login/route.ts (30 per 15 min).
     // If that cap is raised, raise this too or the assertion silently rots.
@@ -573,7 +640,7 @@ async function main() {
     }
     ok(sawTooMany, 'repeated failed logins eventually → 429');
 
-    // ── 11. Logout ───────────────────────────────────────────────────────────
+    // ── 12. Logout ───────────────────────────────────────────────────────────
     console.log('logout');
     const loggedOut = await call('POST', '/api/auth/logout');
     ok(loggedOut.status === 200, 'logout → 200', loggedOut);

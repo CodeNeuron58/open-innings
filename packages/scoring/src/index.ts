@@ -16,6 +16,14 @@ export {
   type BallChip,
 } from './scorecard';
 export {
+  describeBall,
+  groupIntoOvers,
+  ballLabel,
+  ballInOverFor,
+  type BallContext,
+  type OverSummary,
+} from './commentary';
+export {
   formatOvers,
   maxLegalBallsForOvers,
   currentRunRate,

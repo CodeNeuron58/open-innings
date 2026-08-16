@@ -11,11 +11,10 @@
  * match, best bowling and most sixes are all computed server-side from the
  * ball log, so this screen and the share card can never disagree.
  */
-import { useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { MatchPerformer, MatchResultResponse, ScorerResponse } from '@open-innings/shared';
+import type { MatchPerformer, MatchResultResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
 import { useApiQuery } from '../../../../lib/use-api';
@@ -24,16 +23,10 @@ import { Button, Card, ErrorBanner, Kicker, LoadingScreen } from '../../../../co
 export default function Result() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [pickingPlayer, setPickingPlayer] = useState(false);
-
   const query = useApiQuery<MatchResultResponse>(
     (t, signal) => api.matchSummary(t, id, signal),
     [id],
   );
-  // Only for the player list behind "Player cards" — the summary names four
-  // people at most, and every one of the twenty-two has a card worth sending.
-  const squads = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
-
   if (query.isLoading) return <LoadingScreen />;
 
   if (query.error || !query.data) {
@@ -57,18 +50,9 @@ export default function Result() {
   // innings that was simply ended early.
   const headline = m.result ?? 'Match ended';
 
-  const players = squads.data?.players ?? [];
-
   async function share() {
     const lines = m.innings.map((i) => `${i.teamName} ${i.runs}-${i.wickets} (${i.overs})`);
     await Share.share({ message: [headline, ...lines, url].join('\n') });
-  }
-
-  async function sharePlayer(playerId: string, name: string) {
-    setPickingPlayer(false);
-    await Share.share({
-      message: `${name} — ${headline}\n${shareUrls.playerInMatch(id, playerId)}`,
-    });
   }
 
   return (
@@ -151,20 +135,22 @@ export default function Result() {
             <Button
               label="Full scorecard"
               variant="secondary"
-              onPress={() => void Linking.openURL(url)}
+              onPress={() => router.push({ pathname: '/matches/[id]/card', params: { id } })}
             />
           </View>
           <View className="flex-1">
             <Button
               label="Player cards"
               variant="secondary"
-              disabled={players.length === 0}
-              onPress={() => setPickingPlayer(true)}
+              onPress={() => router.push({ pathname: '/matches/[id]/cards', params: { id } })}
             />
           </View>
         </View>
         <View className="mt-2">
-          <Button label="Share the result" onPress={() => void share()} />
+          <Button
+            label="Share the result"
+            onPress={() => router.push({ pathname: '/matches/[id]/share', params: { id } })}
+          />
         </View>
         <View className="mt-1">
           <Button
@@ -174,56 +160,6 @@ export default function Result() {
           />
         </View>
       </View>
-
-      {pickingPlayer ? (
-        <Modal
-          visible
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPickingPlayer(false)}
-        >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-background border-border max-h-[80%] border-t-2 px-4 pb-4 pt-3.5">
-              <View className="flex-row items-baseline justify-between gap-3">
-                <View className="min-w-0 flex-1">
-                  <Text className="text-foreground font-heading text-[21px]">Player cards</Text>
-                  <Text className="text-foreground/65 mt-0.5 text-[12.5px]">
-                    One card each — whoever you send it to gets their own figures.
-                  </Text>
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setPickingPlayer(false)}
-                  className="shrink-0 px-1 py-1 active:opacity-60"
-                >
-                  <Text className="font-heading text-[11px] uppercase tracking-[1.4px] text-neutral-600">
-                    Close
-                  </Text>
-                </Pressable>
-              </View>
-
-              <ScrollView className="border-border mt-4 border-t">
-                {players.map((p) => (
-                  <Pressable
-                    key={p.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Share ${p.fullName}'s card`}
-                    onPress={() => void sharePlayer(p.id, p.fullName)}
-                    className="border-border min-h-14 flex-row items-center justify-between gap-3 border-b px-1 active:opacity-70"
-                  >
-                    <Text className="text-foreground min-w-0 flex-1 text-[15px]" numberOfLines={1}>
-                      {p.fullName}
-                    </Text>
-                    <Text className="text-steel-700 font-heading shrink-0 text-[10px] uppercase tracking-[1.3px]">
-                      Share
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </Modal>
-      ) : null}
     </SafeAreaView>
   );
 }

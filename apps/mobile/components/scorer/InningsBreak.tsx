@@ -11,9 +11,9 @@
  * people to a match still being played.
  */
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { buildScorecard, formatOvers, type MatchState } from '@open-innings/scoring';
 import { shareUrls } from '../../lib/config';
 import { Button, ErrorBanner, Kicker } from '../ui';
@@ -48,6 +48,7 @@ export function InningsBreak({
   busy: boolean;
   error: string | null;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<'summary' | 'openers'>('summary');
   const [strikerId, setStrikerId] = useState<string | null>(null);
   const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
@@ -220,13 +221,12 @@ export function InningsBreak({
           <View className="border-border border-t px-4 pb-3 pt-3">
             <View className="flex-row gap-2">
               <View className="flex-1">
-                {/* The full card is the public scorecard on the web — the
-                    same page anyone following the match is looking at. There
-                    is no in-app card screen yet; see docs/wiring.md. */}
                 <Button
                   label="Full card"
                   variant="secondary"
-                  onPress={() => void Linking.openURL(shareUrls.match(matchId))}
+                  onPress={() =>
+                    router.push({ pathname: '/matches/[id]/card', params: { id: matchId } })
+                  }
                 />
               </View>
               <View className="flex-1">

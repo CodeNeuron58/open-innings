@@ -55,4 +55,31 @@ export const shareUrls = {
   match: (matchId: string) => `${API_BASE}/m/${matchId}`,
   playerInMatch: (matchId: string, playerId: string) => `${API_BASE}/m/${matchId}/p/${playerId}`,
   player: (playerId: string) => `${API_BASE}/p/${playerId}`,
+
+  /*
+   * The card images themselves — the 1080×1080 PNGs Satori renders.
+   *
+   * `opengraph-image` is Next's own convention: the file
+   * `app/m/[matchId]/opengraph-image.tsx` is served at this path. The share
+   * screens point an <Image> straight at it, so the preview a scorer sees is
+   * the exact bytes WhatsApp will render rather than a second drawing of the
+   * same card that can drift from it.
+   */
+  matchCardImage: (matchId: string) => `${API_BASE}/m/${matchId}/opengraph-image`,
+  playerCardImage: (matchId: string, playerId: string) =>
+    `${API_BASE}/m/${matchId}/p/${playerId}/opengraph-image`,
 };
+
+/**
+ * The shape of those cards: 1200 × 630.
+ *
+ * That is the Open Graph size, because the cards were built to be the preview
+ * a link unfurls into. The designs ask for 1080 × 1080 — the square an image
+ * wants when it is sent *as an image* to WhatsApp or Instagram — and no square
+ * variant exists yet.
+ *
+ * So the previews are drawn at the real ratio rather than boxed into a square
+ * they are not. Getting this wrong is not cosmetic: a preview that lies about
+ * the crop sends someone a card with their name cut off. See docs/wiring.md.
+ */
+export const CARD_ASPECT_RATIO = 1200 / 630;

@@ -222,6 +222,74 @@ export type MatchResultResponse = {
   playerOfTheMatch: { playerId: string; name: string; line: string } | null;
 };
 
+/** One delivery, with names already resolved so the client renders no ids. */
+export type CardDelivery = {
+  overNumber: number;
+  ballNumber: number;
+  eventType: string;
+  runsOffBat: number;
+  extraRuns: number;
+  totalRuns: number;
+  isLegalDelivery: boolean;
+  batsmanName: string;
+  bowlerName: string;
+  wicketType: string | null;
+  outBatterName: string | null;
+  fielderName: string | null;
+  /** A scorer's own note, if they wrote one. Wins over generated commentary. */
+  commentary: string | null;
+};
+
+/** One innings, in full. */
+export type CardInnings = {
+  inningsNumber: number;
+  battingTeamName: string;
+  bowlingTeamName: string;
+  runs: number;
+  wickets: number;
+  overs: string;
+  target: number | null;
+  batting: {
+    playerId: string;
+    playerName: string;
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    strikeRate: string;
+    isOut: boolean;
+    dismissalText: string | null;
+  }[];
+  bowling: {
+    playerId: string;
+    playerName: string;
+    overs: string;
+    maidens: number;
+    runs: number;
+    wickets: number;
+    economy: string;
+  }[];
+  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number };
+  fallOfWickets: { wicketNumber: number; runsAtFall: number; oversAtFall: string; name: string }[];
+  /** Oldest first, exactly as bowled. Group and reverse for display. */
+  deliveries: CardDelivery[];
+};
+
+/**
+ * `GET /api/matches/[id]/card` — the full record.
+ *
+ * The heavy call: it carries every ball of the match. Fetch once and switch
+ * tabs locally rather than per view.
+ */
+export type MatchCardResponse = {
+  matchId: string;
+  title: string | null;
+  venue: string | null;
+  status: string;
+  result: string | null;
+  innings: CardInnings[];
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Career statistics
 // ─────────────────────────────────────────────────────────────────────────────

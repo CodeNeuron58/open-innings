@@ -29,6 +29,7 @@ import {
   type ScorerResponse,
   type BallResponse,
   type MatchResultResponse,
+  type MatchCardResponse,
   type StartSecondInningsInput,
   type PlayerCareerResponse,
 } from '@open-innings/shared';
@@ -219,4 +220,13 @@ export const api = {
    */
   matchSummary: (token: string, matchId: string, signal?: AbortSignal) =>
     apiFetch<MatchResultResponse>(`/api/matches/${matchId}/summary`, { token, signal }),
+
+  /**
+   * The full record — both innings, both tables, every delivery.
+   *
+   * The heavy one. The card screen fetches it once and switches tabs against
+   * what it already has rather than going back to the network per view.
+   */
+  matchCard: (token: string, matchId: string, signal?: AbortSignal) =>
+    apiFetch<MatchCardResponse>(`/api/matches/${matchId}/card`, { token, signal }),
 };
