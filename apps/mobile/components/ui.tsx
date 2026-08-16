@@ -1,12 +1,22 @@
 /**
- * The Pavilion kit, mobile edition.
+ * The Industry kit, mobile edition.
  *
- * Deliberately small — only what the auth and match screens need. The web's
- * components/ui.tsx is the reference for naming and visual weight, but the
- * implementations can't be shared: these render RN primitives, not DOM.
+ * Deliberately small — only what the auth and match screens need. The design
+ * reference is the phone mockup on the marketing site
+ * (apps/web/components/marketing/phone-screen.tsx), not the web's own
+ * components/ui.tsx: these render RN primitives, not DOM.
  *
- * Touch targets are 48pt minimum. This app is used one-handed, outdoors, in
- * sunlight, often by someone also watching the cricket.
+ * Two rules from the design system drive everything here:
+ *
+ *   - Objects are square-cornered line drawings with a hairline border. Cards
+ *     and secondary buttons carry no fill; the primary button is the one
+ *     solid object on the screen.
+ *   - Barlow Condensed, uppercase and tracked out, for anything that labels
+ *     or counts. Barlow for prose.
+ *
+ * Touch targets stay 48pt minimum. This app is used one-handed, outdoors, in
+ * sunlight, often by someone also watching the cricket — that constraint
+ * outranks the design system where the two disagree.
  */
 import { forwardRef } from 'react';
 import {
@@ -17,6 +27,34 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
+
+// ─── Blueprint frame ─────────────────────────────────────────────────────────
+
+/**
+ * The registration marks that sit at the corners of every framed object.
+ *
+ * The web draws these with `.corner` pseudo-elements; RN has none, so they are
+ * four absolutely-positioned hairline crosses. The design system's readme says
+ * twice not to drop them, so `Card` and the primary `Button` render them
+ * automatically rather than leaving it to the caller.
+ */
+function Corners({ tone = 'border' }: { tone?: 'border' | 'inverse' }) {
+  const color = tone === 'inverse' ? 'bg-background' : 'bg-neutral-400';
+  const arm = `absolute ${color}`;
+  return (
+    <>
+      {/* Each corner is a horizontal and a vertical arm crossing at the edge. */}
+      <View pointerEvents="none" className={`${arm} -left-[3px] -top-px h-px w-[7px]`} />
+      <View pointerEvents="none" className={`${arm} -left-px -top-[3px] h-[7px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -right-[3px] -top-px h-px w-[7px]`} />
+      <View pointerEvents="none" className={`${arm} -right-px -top-[3px] h-[7px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -bottom-px -left-[3px] h-px w-[7px]`} />
+      <View pointerEvents="none" className={`${arm} -bottom-[3px] -left-px h-[7px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -bottom-px -right-[3px] h-px w-[7px]`} />
+      <View pointerEvents="none" className={`${arm} -bottom-[3px] -right-px h-[7px] w-px`} />
+    </>
+  );
+}
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 
@@ -37,16 +75,17 @@ export function Button({
 }: ButtonProps) {
   const isInert = disabled || loading;
 
+  // Primary is the one filled object; secondary is outlined; ghost is bare.
   const surface = {
-    primary: 'bg-primary',
-    secondary: 'bg-secondary',
-    ghost: 'bg-transparent',
+    primary: 'bg-primary border-primary',
+    secondary: 'bg-transparent border-border',
+    ghost: 'bg-transparent border-transparent',
   }[variant];
 
   const text = {
     primary: 'text-primary-foreground',
-    secondary: 'text-secondary-foreground',
-    ghost: 'text-primary',
+    secondary: 'text-foreground',
+    ghost: 'text-steel-700',
   }[variant];
 
   return (
@@ -55,14 +94,17 @@ export function Button({
       accessibilityState={{ disabled: isInert, busy: loading }}
       onPress={onPress}
       disabled={isInert}
-      className={`${surface} h-12 flex-row items-center justify-center rounded-xl px-5 ${
+      className={`${surface} h-12 flex-row items-center justify-center border px-5 ${
         isInert ? 'opacity-50' : 'active:opacity-80'
       }`}
     >
+      {variant === 'primary' && !isInert ? <Corners tone="inverse" /> : null}
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? 'white' : undefined} />
+        <ActivityIndicator color={variant === 'primary' ? '#f2f2f3' : '#5980a6'} />
       ) : (
-        <Text className={`${text} shrink-0 text-base font-semibold`}>{label}</Text>
+        <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[1.2px]`}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );
@@ -81,17 +123,19 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
 ) {
   return (
     <View className="gap-1.5">
-      <Text className="text-foreground text-sm font-medium">{label}</Text>
+      <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+        {label}
+      </Text>
       <TextInput
         ref={ref}
         accessibilityLabel={label}
-        placeholderTextColor="hsl(160 8% 40%)"
-        className={`text-foreground h-12 rounded-xl border bg-white px-4 text-base ${
+        placeholderTextColor="#98989b"
+        className={`text-foreground h-12 border bg-neutral-100 px-4 font-sans text-base ${
           error ? 'border-destructive' : 'border-input'
         }`}
         {...props}
       />
-      {error ? <Text className="text-destructive text-xs">{error}</Text> : null}
+      {error ? <Text className="text-destructive font-sans text-xs">{error}</Text> : null}
     </View>
   );
 });
@@ -103,15 +147,34 @@ export function ErrorBanner({ message }: { message: string }) {
   return (
     <View
       accessibilityRole="alert"
-      className="border-destructive/30 bg-destructive/10 rounded-xl border px-4 py-3"
+      className="border-destructive bg-destructive/10 border px-4 py-3"
     >
-      <Text className="text-destructive text-sm">{message}</Text>
+      <Text className="text-destructive font-sans text-sm">{message}</Text>
     </View>
   );
 }
 
+/**
+ * A framed object. Transparent by design — in this system a card is a line
+ * drawing, not a surface, so it takes the page ground and lets the hairline
+ * border and the corner marks define it.
+ */
 export function Card({ children }: { children: React.ReactNode }) {
-  return <View className="border-border bg-card rounded-2xl border p-5">{children}</View>;
+  return (
+    <View className="border-border relative border p-5">
+      <Corners />
+      {children}
+    </View>
+  );
+}
+
+/** Section label — the kicker. Uppercase, tracked out, accent-coloured. */
+export function Kicker({ children }: { children: React.ReactNode }) {
+  return (
+    <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.8px]">
+      {children}
+    </Text>
+  );
 }
 
 export function Screen({ children }: { children: React.ReactNode }) {
@@ -122,7 +185,7 @@ export function Screen({ children }: { children: React.ReactNode }) {
 export function LoadingScreen() {
   return (
     <View className="bg-background flex-1 items-center justify-center">
-      <ActivityIndicator size="large" />
+      <ActivityIndicator size="large" color="#5980a6" />
     </View>
   );
 }

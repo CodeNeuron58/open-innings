@@ -234,119 +234,164 @@ export default function Scorer() {
   const nonStrikerStats = state.batting[String(effNonStriker)];
   const bowlerStats = state.bowling[String(effBowler)];
 
+  const runsThisOver = overBalls.reduce((sum, b) => sum + b.totalRuns, 0);
+  const legalThisOver = overBalls.filter(
+    (b) => b.eventType !== 'wide' && b.eventType !== 'no_ball',
+  ).length;
+
   return (
-    <SafeAreaView className="bg-scoreboard flex-1">
+    <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ title: 'Scorer', headerShown: false }} />
 
-      <ScrollView contentContainerClassName="pb-4">
-        {/* Header */}
-        <View className="border-scoreboard-border flex-row items-center justify-between border-b px-4 py-3">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back to matches"
-            onPress={() => router.replace('/matches')}
-            className="h-10 w-10 items-center justify-center rounded-full"
-          >
-            <Text className="text-scoreboard-muted text-xl">‹</Text>
-          </Pressable>
+      {/* Match bar */}
+      <View className="border-border flex-row items-center gap-2.5 border-b px-3.5 py-2">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back to matches"
+          onPress={() => router.replace('/matches')}
+          className="h-10 w-8 items-center justify-center"
+        >
+          <Text className="text-foreground/70 text-xl">‹</Text>
+        </Pressable>
+        <View className="min-w-0 flex-1">
+          <Text className="text-foreground font-heading text-[15px]" numberOfLines={1}>
+            {data.battingTeamName} <Text className="text-foreground/45">v</Text>{' '}
+            {data.bowlingTeamName}
+          </Text>
           <Text
-            className="text-scoreboard-text flex-1 text-center text-sm font-semibold"
+            className="font-heading text-[9px] uppercase tracking-[1.3px] text-neutral-600"
             numberOfLines={1}
           >
-            {data.matchTitle ?? `${data.battingTeamName} v ${data.bowlingTeamName}`}
+            {state.match.oversPerInnings} overs {' · '} {inn.inningsNumber === 1 ? '1st' : '2nd'}{' '}
+            innings
           </Text>
-          {completed ? (
-            <View className="w-10" />
-          ) : (
-            <View className="bg-live rounded-full px-2 py-1">
-              <Text className="text-live-foreground text-[10px] font-bold">LIVE</Text>
-            </View>
-          )}
         </View>
+        {!completed ? (
+          <View className="flex-row items-center gap-1.5">
+            <View className="bg-primary h-1.5 w-1.5" />
+            <Text className="text-steel-700 font-heading text-[9px] uppercase tracking-[1.3px]">
+              Live
+            </Text>
+          </View>
+        ) : null}
+      </View>
 
-        {/* Score */}
-        <View className="px-4 py-5">
-          <Text className="text-scoreboard-muted text-xs font-bold uppercase tracking-widest">
-            {data.battingTeamName}
-          </Text>
-          {/* shrink-0 on both: React Native gives Text inside a flex-row an
-              implicit flexShrink, which silently clips it mid-word rather than
-              wrapping or ellipsising. "(0.0)" rendered as "(0.0". */}
-          <View className="mt-1 flex-row items-baseline gap-3">
-            <Text className="text-scoreboard-text shrink-0 text-5xl font-bold">
+      <ScrollView contentContainerClassName="pb-2">
+        {/* Score plate — the one reversed field on the screen */}
+        <View className="bg-scoreboard px-4 pb-3.5 pt-3.5">
+          <View className="flex-row items-end gap-3">
+            {/* shrink-0 throughout: RN gives Text in a flex-row an implicit
+                flexShrink and clips mid-word rather than wrapping. */}
+            <Text className="text-scoreboard-text font-heading shrink-0 text-[58px] leading-[50px]">
               {inn.runs}-{inn.wickets}
             </Text>
-            <Text className="text-scoreboard-muted shrink-0 text-xl">
-              ({formatOvers(inn.ballsBowled)})
-            </Text>
+            <View className="shrink-0 pb-1.5">
+              <Text className="text-scoreboard-text font-heading text-[19px] leading-[19px] opacity-90">
+                {formatOvers(inn.ballsBowled)}
+              </Text>
+              <Text className="text-scoreboard-text font-heading mt-0.5 text-[9px] uppercase tracking-[1.3px] opacity-60">
+                Overs
+              </Text>
+            </View>
+            {inn.target !== undefined ? (
+              <View className="ml-auto shrink-0 items-end pb-1">
+                <Text className="text-scoreboard-text font-heading text-[9px] uppercase tracking-[1.3px] opacity-60">
+                  Target
+                </Text>
+                <Text className="text-scoreboard-text font-heading text-[19px] leading-[22px]">
+                  {inn.target}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
-          {runsNeeded !== undefined && !completed ? (
-            <Text className="text-scoreboard-accent mt-2 text-sm font-semibold">
-              Need {runsNeeded} from {ballsLeft} ball{ballsLeft === 1 ? '' : 's'}
-            </Text>
-          ) : null}
+          <View className="border-scoreboard-text/25 mt-3 flex-row gap-4 border-t pt-2.5">
+            <Rate label="CRR" value={rate(inn.runs, inn.ballsBowled)} />
+            {runsNeeded !== undefined && !completed ? (
+              <>
+                <Rate label="RRR" value={rate(runsNeeded, ballsLeft)} />
+                <Text className="text-scoreboard-text font-heading ml-auto shrink-0 text-[14px]">
+                  Need {runsNeeded} off {ballsLeft}
+                </Text>
+              </>
+            ) : null}
+          </View>
 
           {inn.isFreeHitNext && !completed ? (
-            <View className="bg-extra mt-3 self-start rounded-full px-3 py-1">
-              <Text className="text-extra-foreground text-xs font-bold">FREE HIT</Text>
-            </View>
+            <Text className="text-scoreboard-accent font-heading mt-2 text-[10px] uppercase tracking-[1.6px]">
+              Free hit
+            </Text>
           ) : null}
         </View>
 
-        {/* Batters + bowler */}
-        <View className="border-scoreboard-border mx-4 rounded-2xl border">
-          <BatterRow
-            name={nameOf(effStriker)}
-            onStrike
-            runs={strikerStats?.runs ?? 0}
-            balls={strikerStats?.balls ?? 0}
-          />
-          <BatterRow
-            name={nameOf(effNonStriker)}
-            runs={nonStrikerStats?.runs ?? 0}
-            balls={nonStrikerStats?.balls ?? 0}
-          />
-          <View className="border-scoreboard-border flex-row items-center justify-between gap-3 border-t px-4 py-3">
-            {/* The name may legitimately be long, so let it ellipsise rather
-                than clip; the figures must never shrink. */}
-            <Text className="text-scoreboard-muted flex-1 text-sm" numberOfLines={1}>
-              {nameOf(effBowler)}
+        {/* Batters */}
+        <View className="border-border border-b px-4">
+          <View className="border-border flex-row border-b pb-1.5 pt-2">
+            <Text className="font-heading flex-1 text-[9px] uppercase tracking-[1.3px] text-neutral-600">
+              Batting
             </Text>
-            <Text className="text-scoreboard-text shrink-0 text-sm font-semibold">
-              {bowlerStats?.wickets ?? 0}-{bowlerStats?.runs ?? 0} (
-              {formatOvers(bowlerStats?.balls ?? 0)})
-            </Text>
+            {['R', 'B', '4s', '6s', 'SR'].map((h, i) => (
+              <Text
+                key={h}
+                className={`font-heading text-right text-[9px] uppercase tracking-[1.3px] text-neutral-600 ${COL[i]}`}
+              >
+                {h}
+              </Text>
+            ))}
           </View>
+          <BatterRow name={nameOf(effStriker)} onStrike stats={strikerStats} />
+          <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
         </View>
 
-        {/* Over strip */}
-        <View className="mt-5 px-4">
-          <Text className="text-scoreboard-muted mb-2 text-xs font-bold uppercase tracking-wide">
-            {overLabel}
+        {/* Bowler */}
+        <View className="border-border flex-row items-center gap-2.5 border-b px-4 py-2">
+          <Text className="font-heading shrink-0 text-[9px] uppercase tracking-[1.3px] text-neutral-600">
+            Bowling
           </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {overBalls.length === 0 ? (
-              <Text className="text-scoreboard-muted shrink-0 text-sm">No balls yet.</Text>
-            ) : (
-              overBalls.map((b, i) => <BallChip key={`${b.ballNumber}-${i}`} ball={b} />)
-            )}
+          <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
+            {nameOf(effBowler)}
+          </Text>
+          <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
+            {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
+            {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}
+          </Text>
+          <Text className="text-foreground/60 font-heading shrink-0 text-[12px]">
+            {rate(bowlerStats?.runs ?? 0, bowlerStats?.balls ?? 0)}
+          </Text>
+        </View>
+
+        {/* This over */}
+        <View className="px-4 pb-3.5 pt-3">
+          <View className="mb-2 flex-row items-baseline">
+            <Text className="text-steel-700 font-heading shrink-0 text-[9px] uppercase tracking-[1.3px]">
+              {overLabel}
+            </Text>
+            <Text className="text-foreground/55 font-heading ml-auto shrink-0 text-[12px]">
+              {runsThisOver} run{runsThisOver === 1 ? '' : 's'} this over
+            </Text>
+          </View>
+          <View className="flex-row flex-wrap gap-1.5">
+            {overBalls.map((b, i) => (
+              <BallChip key={`${b.ballNumber}-${i}`} ball={b} />
+            ))}
+            {/* The balls not yet bowled — drawn, not filled. */}
+            {Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
+              <View key={`empty-${i}`} className="border-border/40 h-9 w-9 border border-dashed" />
+            ))}
           </View>
         </View>
 
         {mutation.error ? (
-          <View className="mt-4 px-4">
+          <View className="px-4 pb-2">
             <ErrorBanner message={mutation.error} />
           </View>
         ) : null}
 
         {completed ? (
-          <View className="border-scoreboard-border mx-4 mt-6 rounded-2xl border p-5">
-            <Text className="text-scoreboard-text text-lg font-bold">Innings complete</Text>
+          <View className="border-border mx-4 mb-4 border p-5">
+            <Text className="text-foreground font-heading text-lg uppercase">Innings complete</Text>
             {data.matchSummary ? (
-              <Text className="text-scoreboard-accent mt-1 text-base font-semibold">
-                {data.matchSummary}
-              </Text>
+              <Text className="text-steel-700 mt-1 text-base">{data.matchSummary}</Text>
             ) : null}
             <View className="mt-4 gap-2">
               <Button label="Refresh" variant="secondary" onPress={() => void query.refresh()} />
@@ -356,40 +401,72 @@ export default function Scorer() {
         ) : null}
       </ScrollView>
 
-      {/* Keypad — pinned, thumb-reachable, one-handed */}
+      {/* The console — pinned, thumb-reachable, one-handed */}
       {!completed ? (
-        <View className="border-scoreboard-border border-t px-4 pb-2 pt-3">
-          <View className="flex-row gap-2">
-            {[0, 1, 2, 3].map((r) => (
-              <RunKey key={r} runs={r} onPress={scoreRuns} disabled={mutation.busy} />
-            ))}
-          </View>
-          <View className="mt-2 flex-row gap-2">
-            <RunKey runs={4} onPress={scoreRuns} disabled={mutation.busy} tone="four" />
-            <RunKey runs={6} onPress={scoreRuns} disabled={mutation.busy} tone="six" />
-            <ActionKey
-              label="W"
-              tone="wicket"
-              onPress={() => setShowWicket(true)}
-              disabled={mutation.busy}
-            />
-            <ActionKey
-              label="Undo"
-              tone="muted"
-              onPress={() => void undo()}
-              disabled={mutation.busy || state.balls.length === 0}
-            />
-          </View>
-          <View className="mt-2 flex-row gap-2">
-            {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
-              <ActionKey
-                key={kind}
-                label={{ wide: 'wd', no_ball: 'nb', bye: 'b', leg_bye: 'lb' }[kind]}
-                tone="extra"
-                onPress={() => setPendingExtra(kind)}
-                disabled={mutation.busy}
-              />
-            ))}
+        <View className="px-3 pb-3">
+          <View className="border-border relative border bg-neutral-100 p-2.5">
+            {/* Extras are armed modifiers above the keypad, not a second
+                keypad: arm one, tap the runs, and it is charged correctly. */}
+            <View className="mb-2 flex-row gap-1.5">
+              {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
+                <Pressable
+                  key={kind}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: pendingExtra === kind }}
+                  onPress={() => setPendingExtra(kind)}
+                  disabled={mutation.busy}
+                  className={`h-9 flex-1 items-center justify-center border ${
+                    pendingExtra === kind
+                      ? 'bg-primary border-primary'
+                      : 'border-border bg-transparent'
+                  } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+                >
+                  <Text
+                    className={`font-heading text-[12px] ${
+                      pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
+                    }`}
+                  >
+                    {EXTRA_LABELS[kind]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* 0–6 and W, on one hairline grid. */}
+            <View className="border-border flex-row flex-wrap border-l border-t">
+              {KEYS.map((k) => (
+                <Key
+                  key={k.label}
+                  {...k}
+                  onPress={() => (k.label === 'W' ? setShowWicket(true) : scoreRuns(k.runs!))}
+                  disabled={mutation.busy}
+                />
+              ))}
+            </View>
+
+            <View className="mt-2 flex-row items-center gap-2">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Undo last ball"
+                onPress={() => void undo()}
+                disabled={mutation.busy || state.balls.length === 0}
+                className={`border-border h-9 flex-row items-center justify-center border px-3 ${
+                  mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
+                }`}
+              >
+                <Text className="text-foreground font-heading text-[13px]">↩ Undo</Text>
+              </Pressable>
+              {lastBall ? (
+                <Text className="font-heading text-[11.5px] text-neutral-600">
+                  Last: {lastBall.totalRuns}
+                </Text>
+              ) : null}
+              {pendingExtra ? (
+                <Text className="text-steel-700 font-heading ml-auto text-[9px] uppercase tracking-[1.3px]">
+                  {EXTRA_LABELS[pendingExtra]} armed
+                </Text>
+              ) : null}
+            </View>
           </View>
         </View>
       ) : null}
@@ -452,93 +529,123 @@ export default function Scorer() {
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function BatterRow({
-  name,
-  onStrike = false,
-  runs,
-  balls,
-}: {
-  name: string;
-  onStrike?: boolean;
-  runs: number;
-  balls: number;
-}) {
+/** Column widths for the batting table, matching the design's grid. */
+const COL = ['w-[34px]', 'w-[30px]', 'w-[26px]', 'w-[30px]', 'w-[42px]'] as const;
+
+const EXTRA_LABELS: Record<ExtraKind, string> = {
+  wide: 'Wide',
+  no_ball: 'No ball',
+  bye: 'Bye',
+  leg_bye: 'Leg bye',
+};
+
+/**
+ * The run keys. 0–6 and W on a single hairline grid — four columns, so the
+ * boundaries and the wicket fall on the second row under the thumb.
+ *
+ * Tones are steps on the accent ramp, not separate hues: the system is mono.
+ * The digit on the key is what identifies it.
+ */
+const KEYS: { label: string; runs?: number; tone: string; text: string }[] = [
+  { label: '0', runs: 0, tone: 'bg-background', text: 'text-foreground' },
+  { label: '1', runs: 1, tone: 'bg-background', text: 'text-foreground' },
+  { label: '2', runs: 2, tone: 'bg-background', text: 'text-foreground' },
+  { label: '3', runs: 3, tone: 'bg-background', text: 'text-foreground' },
+  { label: '4', runs: 4, tone: 'bg-four', text: 'text-four-foreground' },
+  { label: '5', runs: 5, tone: 'bg-background', text: 'text-foreground' },
+  { label: '6', runs: 6, tone: 'bg-six', text: 'text-six-foreground' },
+  { label: 'W', tone: 'bg-wicket', text: 'text-wicket-foreground' },
+];
+
+/** Runs per over, or a strike rate — one helper, both are runs ÷ balls. */
+function rate(runs: number, balls: number): string {
+  if (balls <= 0) return '0.00';
+  return ((runs / balls) * 6).toFixed(2);
+}
+
+function strikeRate(runs: number, balls: number): string {
+  if (balls <= 0) return '0.0';
+  return ((runs / balls) * 100).toFixed(1);
+}
+
+function Rate({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-row items-center justify-between gap-3 px-4 py-3">
-      <View className="min-w-0 flex-1 flex-row items-center gap-2">
-        {onStrike ? <View className="bg-scoreboard-accent h-2 w-2 shrink-0 rounded-full" /> : null}
-        <Text
-          numberOfLines={1}
-          className={`flex-1 text-sm ${onStrike ? 'text-scoreboard-text font-semibold' : 'text-scoreboard-muted'}`}
-        >
-          {name}
-        </Text>
-      </View>
-      {/* The figures are the point of the row — never let them be clipped. */}
-      <Text className="text-scoreboard-text shrink-0 text-sm">
-        {runs} <Text className="text-scoreboard-muted">({balls})</Text>
+    <View className="shrink-0 flex-row items-baseline gap-1">
+      <Text className="text-scoreboard-text font-heading text-[9px] uppercase tracking-[1.3px] opacity-60">
+        {label}
       </Text>
+      <Text className="text-scoreboard-text font-heading text-[14px]">{value}</Text>
     </View>
   );
 }
 
-const KEY_TONES = {
-  default: 'bg-scoreboard-panel',
-  four: 'bg-four',
-  six: 'bg-six',
-  wicket: 'bg-wicket',
-  extra: 'bg-extra',
-  muted: 'bg-scoreboard-border',
-} as const;
-
-function RunKey({
-  runs,
-  onPress,
-  disabled,
-  tone = 'default',
+function BatterRow({
+  name,
+  onStrike = false,
+  stats,
 }: {
-  runs: number;
-  onPress: (runs: number) => void;
-  disabled: boolean;
-  tone?: keyof typeof KEY_TONES;
+  name: string;
+  onStrike?: boolean;
+  stats?: { runs: number; balls: number; fours: number; sixes: number };
 }) {
+  const runs = stats?.runs ?? 0;
+  const balls = stats?.balls ?? 0;
+  const cells = [
+    { v: String(runs), strong: true },
+    { v: String(balls) },
+    { v: String(stats?.fours ?? 0) },
+    { v: String(stats?.sixes ?? 0) },
+    { v: strikeRate(runs, balls), small: true },
+  ];
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={runs === 0 ? 'Dot ball' : `${runs} runs`}
-      onPress={() => onPress(runs)}
-      disabled={disabled}
-      className={`${KEY_TONES[tone]} h-16 flex-1 items-center justify-center rounded-2xl ${
-        disabled ? 'opacity-40' : 'active:opacity-70'
-      }`}
-    >
-      <Text className="text-scoreboard-text text-2xl font-bold">{runs === 0 ? '•' : runs}</Text>
-    </Pressable>
+    <View className="flex-row items-center py-2">
+      {/* The name may legitimately be long — let it ellipsise. The figures
+          must never shrink, so every cell is shrink-0. */}
+      <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
+        {name}
+        {onStrike ? ' *' : ''}
+      </Text>
+      {cells.map((c, i) => (
+        <Text
+          key={i}
+          className={`font-heading shrink-0 text-right ${COL[i]} ${
+            c.strong ? 'text-foreground text-[15px]' : 'text-foreground/60'
+          } ${c.small ? 'text-[12px]' : c.strong ? '' : 'text-[13px]'}`}
+        >
+          {c.v}
+        </Text>
+      ))}
+    </View>
   );
 }
 
-function ActionKey({
+function Key({
   label,
   tone,
+  text,
   onPress,
   disabled,
 }: {
   label: string;
-  tone: keyof typeof KEY_TONES;
+  runs?: number;
+  tone: string;
+  text: string;
   onPress: () => void;
   disabled: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={label === '0' ? 'Dot ball' : label === 'W' ? 'Wicket' : `${label} runs`}
       onPress={onPress}
       disabled={disabled}
-      className={`${KEY_TONES[tone]} h-16 flex-1 items-center justify-center rounded-2xl ${
+      // w-1/4 with a right/bottom hairline gives the drawn grid without gaps.
+      className={`${tone} border-border h-[52px] w-1/4 items-center justify-center border-b border-r ${
         disabled ? 'opacity-40' : 'active:opacity-70'
       }`}
     >
-      <Text className="text-scoreboard-text text-base font-bold">{label}</Text>
+      <Text className={`${text} font-heading text-[22px]`}>{label === '0' ? '0' : label}</Text>
     </Pressable>
   );
 }
