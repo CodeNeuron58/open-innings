@@ -77,21 +77,23 @@ export const shareUrls = {
    * the exact bytes WhatsApp will render rather than a second drawing of the
    * same card that can drift from it.
    */
-  matchCardImage: (matchId: string) => `${API_BASE}/m/${matchId}/opengraph-image`,
+  /*
+   * The square card — 1080 × 1080, what gets *sent as an image*.
+   *
+   * Not `opengraph-image`, which is the 1200×630 a link preview unfurls into.
+   * A status crops a landscape card to a strip; a link preview letterboxes a
+   * square one. Both are generated from the same facts.
+   */
+  matchCardImage: (matchId: string) => `${API_BASE}/m/${matchId}/square`,
   playerCardImage: (matchId: string, playerId: string) =>
     `${API_BASE}/m/${matchId}/p/${playerId}/opengraph-image`,
 };
 
 /**
- * The shape of those cards: 1200 × 630.
+ * The match card is square; the per-player card is still landscape.
  *
- * That is the Open Graph size, because the cards were built to be the preview
- * a link unfurls into. The designs ask for 1080 × 1080 — the square an image
- * wants when it is sent *as an image* to WhatsApp or Instagram — and no square
- * variant exists yet.
- *
- * So the previews are drawn at the real ratio rather than boxed into a square
- * they are not. Getting this wrong is not cosmetic: a preview that lies about
- * the crop sends someone a card with their name cut off. See docs/wiring.md.
+ * A preview has to be drawn at the ratio of the thing it previews — one that
+ * lies about the crop sends someone a card with their name cut off.
  */
-export const CARD_ASPECT_RATIO = 1200 / 630;
+export const MATCH_CARD_ASPECT_RATIO = 1;
+export const PLAYER_CARD_ASPECT_RATIO = 1200 / 630;

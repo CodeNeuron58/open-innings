@@ -1,29 +1,32 @@
-import { ImageResponse } from 'next/og';
-import { CARD, glyphsFor, loadCardFonts } from '@/lib/og/fonts';
-import { matchCardContent } from '@/lib/og/match-card';
-
 /**
- * The match share card, landscape.
+ * The match share card, square.
  *
- * The picture a *link* unfurls into — 1200×630 is the Open Graph size, which
- * is what WhatsApp, Slack and Twitter render under a URL. The square sibling
- * at `/m/[matchId]/square` is for sending as an image rather than as a link;
- * both draw the same facts from `matchCardContent`.
+ * 1080 × 1080, for sending *as an image* — a WhatsApp status, an Instagram
+ * post, a group chat where the picture is the message. Its landscape sibling
+ * at `opengraph-image` is the 1200×630 an Open Graph link unfurls into, and
+ * the two are genuinely different jobs: a status crops a landscape card to a
+ * strip, and a link preview letterboxes a square one.
+ *
+ * Not another `opengraph-image`, because Next allows one per route and this is
+ * not the link preview. A plain route handler returning an ImageResponse.
+ *
+ * Both cards draw `matchCardContent`, so neither can name a different player
+ * of the match than the other.
  *
  * Satori supports flexbox only, and every multi-child element needs an
  * explicit `display`.
  */
-
-export const alt = 'Match scorecard on Open Innings';
-export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
+import { ImageResponse } from 'next/og';
+import { CARD, glyphsFor, loadCardFonts } from '@/lib/og/fonts';
+import { matchCardContent } from '@/lib/og/match-card';
 
 const { ink: INK, ground: GROUND, steel: STEEL, steel900: STEEL_900 } = CARD;
 const { divider: DIVIDER, muted: MUTED, brand: BRAND, domain: DOMAIN } = CARD;
 
-export default async function Image({ params }: { params: Promise<{ matchId: string }> }) {
-  const { matchId } = await params;
+const SIZE = 1080;
 
+export async function GET(_request: Request, ctx: { params: Promise<{ matchId: string }> }) {
+  const { matchId } = await ctx.params;
   const { heading, result, lines, performers } = await matchCardContent(matchId);
 
   const fonts = await loadCardFonts(
@@ -45,7 +48,7 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         display: 'flex',
         flexDirection: 'column',
         background: GROUND,
-        padding: 64,
+        padding: 76,
       }}
     >
       <div
@@ -54,16 +57,16 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: `1px solid ${DIVIDER}`,
-          paddingBottom: 18,
+          paddingBottom: 22,
         }}
       >
-        <div style={{ fontFamily: 'Heading', fontSize: 26, letterSpacing: 1, color: INK }}>
+        <div style={{ fontFamily: 'Heading', fontSize: 30, letterSpacing: 1, color: INK }}>
           {BRAND}
         </div>
         <div
           style={{
             fontFamily: 'Heading',
-            fontSize: 20,
+            fontSize: 22,
             letterSpacing: 2,
             textTransform: 'uppercase',
             color: MUTED,
@@ -74,25 +77,34 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         </div>
       </div>
 
-      {/* The scores, one line per innings — the thing people look for */}
-      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 40, gap: 14 }}>
+      {/*
+          The scores get the extra height a square gives, stacked rather than
+          balanced across a wide frame. On a phone-sized status this is the
+          only part anyone actually reads.
+        */}
+      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 72, gap: 26 }}>
         {lines.map((l) => (
-          <div
-            key={l.team}
-            style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}
-          >
+          <div key={l.team} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 fontFamily: 'Heading',
                 fontSize: 46,
                 textTransform: 'uppercase',
-                color: INK,
+                color: MUTED,
                 display: 'flex',
               }}
             >
               {l.team}
             </div>
-            <div style={{ fontFamily: 'Heading', fontSize: 56, color: INK, display: 'flex' }}>
+            <div
+              style={{
+                fontFamily: 'Heading',
+                fontSize: 92,
+                lineHeight: 1,
+                color: INK,
+                display: 'flex',
+              }}
+            >
               {l.score}
             </div>
           </div>
@@ -103,9 +115,9 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         <div
           style={{
             fontFamily: 'Body',
-            fontSize: 28,
+            fontSize: 38,
             color: STEEL,
-            marginTop: 22,
+            marginTop: 36,
             display: 'flex',
           }}
         >
@@ -113,14 +125,15 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         </div>
       ) : null}
 
-      {/* Performers */}
-      <div style={{ display: 'flex', gap: 72, marginTop: 'auto' }}>
+      {/* Stacked, not in a row — a square has the height for it, and one
+            per line survives being viewed at thumbnail size. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 26, marginTop: 'auto' }}>
         {performers.map((p) => (
           <div key={p.label} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
               style={{
                 fontFamily: 'Heading',
-                fontSize: 18,
+                fontSize: 20,
                 letterSpacing: 2,
                 textTransform: 'uppercase',
                 color: STEEL,
@@ -131,9 +144,9 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
             <div
               style={{
                 fontFamily: 'Heading',
-                fontSize: 34,
+                fontSize: 42,
                 color: INK,
-                marginTop: 8,
+                marginTop: 6,
                 display: 'flex',
               }}
             >
@@ -146,12 +159,12 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
       <div
         style={{
           display: 'flex',
-          marginTop: 34,
+          marginTop: 44,
           background: STEEL_900,
           color: GROUND,
-          padding: '14px 22px',
+          padding: '18px 26px',
           fontFamily: 'Heading',
-          fontSize: 20,
+          fontSize: 24,
           letterSpacing: 2,
           textTransform: 'uppercase',
           alignSelf: 'flex-start',
@@ -160,6 +173,16 @@ export default async function Image({ params }: { params: Promise<{ matchId: str
         {DOMAIN}
       </div>
     </div>,
-    { ...size, fonts: fonts.length > 0 ? fonts : undefined },
+    {
+      width: SIZE,
+      height: SIZE,
+      fonts,
+      headers: {
+        // Shared links get re-fetched by every chat app that sees them, and
+        // the score changes while a match is live. An hour is long enough to
+        // absorb a burst and short enough that a finished match settles.
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+      },
+    },
   );
 }
