@@ -19,7 +19,7 @@
 import { createHash } from 'node:crypto';
 import { eq, like } from 'drizzle-orm';
 import { db } from '../lib/db/client';
-import { users, players, teams, matches, sessions } from '../lib/db/schema';
+import { users, players, teams, matches, sessions, notifySignups } from '../lib/db/schema';
 
 /** Mirrors the hashing in lib/auth/session.ts — the DB never stores raw tokens. */
 const sha256 = (input: string) => createHash('sha256').update(input).digest('hex');
@@ -800,6 +800,57 @@ async function main() {
 
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
+
+    // ── 10b. Notify list ────────────────────────────────────────────────────
+    console.log('notify');
+    const notifyEmail = `notify-smoke-${Date.now()}@local`;
+    const notified = await call('POST', '/api/notify', { email: notifyEmail, source: 'smoke' });
+    ok(notified.status === 200, 'POST notify → 200', notified);
+
+    /*
+     * A second submission is not an error.
+     *
+     * People tap twice. Returning a conflict would also make this endpoint a
+     * way to ask "is this address already registered?", which is not a
+     * question a landing-page form should answer to anyone who asks.
+     */
+    const again2 = await call('POST', '/api/notify', {
+      email: notifyEmail.toUpperCase(),
+      source: 'smoke',
+    });
+    ok(again2.status === 200, 'a repeat signup → 200, same as the first', again2);
+
+    const storedSignups = await db
+      .select()
+      .from(notifySignups)
+      .where(eq(notifySignups.email, notifyEmail));
+    ok(
+      storedSignups.length === 1,
+      'the repeat did not create a second row — email is stored lower-cased',
+      storedSignups.length,
+    );
+
+    const badEmail = await call('POST', '/api/notify', { email: 'not-an-email' });
+    ok(badEmail.status === 400, 'a malformed address → 400', badEmail);
+
+    await db.delete(notifySignups).where(eq(notifySignups.email, notifyEmail));
+
+    // ── 10c. Missing pages are 404, not 200 ─────────────────────────────────
+    /*
+     * The whole growth model is shared links, so a dead one has to *say* it is
+     * dead. A root `app/loading.tsx` used to wrap the site in Suspense, which
+     * committed a 200 before `notFound()` could throw — the page looked right
+     * in a browser and was wrong to every crawler. See app/not-found.tsx.
+     */
+    console.log('missing pages');
+    const ghost = '00000000-0000-0000-0000-000000000000';
+    for (const [label, path] of [
+      ['career', `/p/${ghost}`],
+      ['scorecard', `/m/${ghost}`],
+    ] as const) {
+      const res = await fetch(`${BASE}${path}`);
+      ok(res.status === 404, `a missing ${label} page → 404, not 200`, res.status);
+    }
 
     // ── 11. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');

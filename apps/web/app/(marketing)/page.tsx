@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Blueprint, BlueprintLink, BlueprintButton } from '@/components/marketing/blueprint';
+import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
+import { NotifyForm } from '@/components/marketing/notify-form';
 import { AndroidFrame } from '@/components/marketing/android-frame';
 import { ScoreScreen, ScorecardScreen } from '@/components/marketing/phone-screen';
 
@@ -262,7 +263,9 @@ export default function HomePage() {
       </section>
 
       {/* 05 — Get it ------------------------------------------------------ */}
-      <section className="oi-sec oi-sec-hero">
+      {/* id="get" is a link target: the app page's "Get it on Android" lands
+          here while there is no Play listing to land on. */}
+      <section className="oi-sec oi-sec-hero" id="get">
         <div className="oi-in">
           <span className="oi-kick">05 &nbsp;·&nbsp; Get it</span>
           <hr className="oi-rule" />
@@ -270,24 +273,7 @@ export default function HomePage() {
           <p className="oi-card-body oi-dim oi-measure">
             Release notes and the iOS beta, when it opens. No launch countdowns.
           </p>
-          {/*
-            TODO: not wired to anything yet — there is no list to subscribe to.
-            Needs an API route before this ships, or it collects addresses into
-            the void. Flagged rather than quietly dropped from the design.
-          */}
-          <form className="oi-signup">
-            <input
-              className="input"
-              type="email"
-              name="email"
-              placeholder="you@club.in"
-              aria-label="Email address"
-              required
-            />
-            <BlueprintButton type="submit" className="btn btn-primary oi-signup-btn">
-              Notify me
-            </BlueprintButton>
-          </form>
+          <NotifyForm source="landing" />
         </div>
       </section>
     </>

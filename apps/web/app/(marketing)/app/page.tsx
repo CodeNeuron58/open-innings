@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 import { AndroidFrame } from '@/components/marketing/android-frame';
 import { ScoreScreen, ScorecardScreen } from '@/components/marketing/phone-screen';
@@ -12,9 +13,17 @@ export const metadata: Metadata = {
 /**
  * Ported from design_new/"The App.dc.html".
  *
- * The design's two hero buttons were inert `<button>`s. "Get it on Android"
- * has nowhere real to point until the Play listing is live, so it stays a
- * button rather than becoming a link to a 404 — see the TODO below.
+ * The design's two hero buttons were inert. "Get it on Android" now points at
+ * the landing page's notify form, which is the honest destination while there
+ * is no Play listing: someone who taps it wants to be told when they can have
+ * it, and now they can be.
+ *
+ * ⚠️ "Join the iOS beta" is still inert, and it is a bigger problem than a
+ * dead button. apps/mobile/README records that iOS is not planned at all —
+ * AGPL-3.0 conflicts with the App Store's terms, which is why VLC and GNU Go
+ * were pulled. Offering a beta for a platform the project has decided against
+ * is a promise that cannot be kept. Left as-is rather than quietly rewriting
+ * the positioning; see docs/wiring.md.
  */
 
 const PARTS = [
@@ -83,19 +92,16 @@ export default function AppPage() {
               everything is generated into, and a share sheet. There is nothing else to learn, and
               nothing else to buy.
             </p>
-            {/*
-              TODO: point "Get it on Android" at the Play listing once it is
-              published. Left as a button rather than a link to a store page
-              that does not exist yet.
-            */}
+            {/* Points at the notify form until there is a Play listing to
+                point at. Swap the href, not the label, when there is. */}
             <div className="oi-cta-row">
-              <button type="button" className="btn btn-primary blueprint oi-btn-lg">
+              <Link href="/#get" className="btn btn-primary blueprint oi-btn-lg">
                 <i className="corner tl" />
                 <i className="corner tr" />
                 <i className="corner bl" />
                 <i className="corner br" />
                 Get it on Android
-              </button>
+              </Link>
               <button type="button" className="btn btn-secondary oi-btn-lg oi-btn-plain">
                 Join the iOS beta
               </button>

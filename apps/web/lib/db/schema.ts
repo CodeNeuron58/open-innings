@@ -475,6 +475,33 @@ export const sessions = pgTable(
   }),
 );
 
+/**
+ * People who asked to be told when the app is out.
+ *
+ * Deliberately not a `users` row: someone leaving an address on the landing
+ * page has not created an account, and turning an email into a half-account
+ * they never asked for is how a mailing list becomes a data-protection
+ * problem.
+ *
+ * `source` records which page it came from, so a later decision about who to
+ * contact — release notes, or testers for the closed track — can be made on
+ * something other than a guess.
+ */
+export const notifySignups = pgTable(
+  'notify_signups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Stored lower-cased. Unique so a second submission is not a second row —
+    // people tap twice, and the honest answer to that is "yes, you're on it".
+    email: text('email').notNull().unique(),
+    source: text('source'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    createdIdx: index('notify_signups_created_idx').on(t.createdAt),
+  }),
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Relations (for Drizzle's relational query API)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -579,6 +606,8 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type Tournament = typeof tournaments.$inferSelect;
 export type NewTournament = typeof tournaments.$inferInsert;
+export type NotifySignup = typeof notifySignups.$inferSelect;
+export type NewNotifySignup = typeof notifySignups.$inferInsert;
 
 // Re-export sql helper for raw queries elsewhere
 export { sql };

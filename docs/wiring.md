@@ -421,25 +421,31 @@ has nothing to point at, so the row opens the player list instead.
 
 ## Web
 
-### 🟡 The email signup form submits nowhere
+### 🔴 The site offers an iOS beta that will never exist
 
-`app/(marketing)/page.tsx`, the "Notify me" box. There is no list to subscribe
-to. Marked with a `TODO` in the file. Either wire it to something or remove it
-before launch — collecting addresses into the void is worse than not asking.
+"Join the iOS beta" on `/app`. `apps/mobile/README` records the opposite
+decision: **iOS is not planned at all**, because AGPL-3.0 conflicts with the
+App Store's terms — the reason VLC and GNU Go were pulled.
 
-### 🟡 "Get it on Android" is a button, not a link
+That is not a dead button, it is a promise that cannot be kept, and it is the
+one thing on the marketing site that is actively untrue rather than early.
+Left alone because rewriting positioning is a decision, not a wiring job.
+Either iOS is on the roadmap, or the button goes.
 
-`app/(marketing)/app/page.tsx`. Stays a button until a Play listing exists to
-point at, rather than linking to a 404.
+("Get it on Android" now points at the landing page's notify form, which is
+the honest destination while there is no Play listing.)
 
-### 🟢 `notFound()` returns HTTP 200 in dev
+### 🟢 `notFound()` returned HTTP 200 — fixed
 
-Both `/p/<unknown>` and `/m/<unknown>` render the 404 page with a 200 status
-under `next dev`. Pre-existing — `/m/` did it before any of this was added — so
-it looks like streaming committing the status before `notFound()` throws.
+It was not a dev artifact: a production build did it too. The cause was
+`app/loading.tsx`, which wrapped the whole site in a Suspense boundary and so
+streamed a shell — committing 200 before the page had even loaded its data,
+long before `notFound()` could throw.
 
-Worth confirming in a production build: a shared profile link that 404s should
-return 404, or search engines index dead pages.
+The file is gone and the reasoning is in `app/not-found.tsx`, where someone
+would go before re-adding it. Two smoke checks now assert 404 on a missing
+career and a missing scorecard, because this failed silently: it looked
+correct in a browser and was wrong to every crawler.
 
 ---
 
