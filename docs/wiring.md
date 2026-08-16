@@ -110,27 +110,22 @@ Four screens from the B-series designs. All four render and the flow works end
 to end — a match created here is real. What is missing is detail the designs
 show and the data does not support.
 
-### 🟡 There is no match format
+### 🟢 Match format — resolved 2026-08-17
 
-`matches` stores `oversPerInnings` and nothing else. There is no format field,
-so "T20" and "ODI" are only ways of setting a number, and the match does not
-remember which was chosen.
+`matches.format` now stores a label, and the site no longer claims seven
+formats. The copy caught up with the engine rather than the other way round.
 
-More seriously, three of the seven do not exist in the engine at all:
+The reframing is the point: the engine does not have seven formats, it has
+**one**, parameterised by innings length. That is why a 13-over club game is
+as first-class as a T20 — which is a better pitch than a list, and true.
 
-| Format           | Why not                                     |
-| ---------------- | ------------------------------------------- |
-| Test / multi-day | Two innings a side, declarations, follow-on |
-| The Hundred      | Five-ball sets and 100 balls, not overs     |
-| Box / indoor     | Zone runs and negative runs on dismissal    |
+Test, The Hundred and box remain **disabled** on B2 and are listed on
+`/formats` under "not yet" with the reason each is a different scoring model
+rather than a different length. They are the roadmap, not the build.
 
-They are shown but **disabled** on B2. Letting someone pick Test and discover
-mid-match that it cannot be scored would be much worse than saying so at the
-toss.
-
-⚠️ **The marketing site claims seven formats** — the landing page's spec sheet
-and the whole `/formats` page. That claim is currently ahead of the engine.
-Either the engine catches up or the copy does.
+The format is a label and never a rule: `oversPerInnings` is what the engine
+reads. Nullable, because matches created before the column have no answer and
+a 20-over game is not necessarily a T20.
 
 ### 🟡 Balls per over is fixed at six
 

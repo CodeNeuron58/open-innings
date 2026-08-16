@@ -267,7 +267,7 @@ async function main() {
       openingNonStrikerId: createdPlayerIds[1],
       openingBowlerId: createdPlayerIds[2],
     };
-    const validMatch = { oversPerInnings: 5, teamAId, teamBId, ...openers };
+    const validMatch = { oversPerInnings: 5, format: 't20', teamAId, teamBId, ...openers };
 
     // The bug this schema exists to prevent: a toss winner with no decision
     // used to fall through to "team A bats" and put the wrong side in.
@@ -303,6 +303,19 @@ async function main() {
     );
     ok(created.json.inning.inningsNumber === 1, 'innings 1 opened', created.json.inning);
     const matchId = created.json.match.id as string;
+
+    /*
+     * The format label round-trips.
+     *
+     * It is a label, not a rule — the engine reads oversPerInnings and
+     * nothing else — so the only thing that can go wrong is it silently not
+     * being stored, which no other assertion would notice.
+     */
+    ok(
+      created.json.match?.format === 't20',
+      'the format label is stored and returned',
+      created.json.match?.format,
+    );
 
     const detailMatch = await call('GET', `/api/matches/${matchId}`);
     ok(detailMatch.status === 200, 'GET match → 200', detailMatch);

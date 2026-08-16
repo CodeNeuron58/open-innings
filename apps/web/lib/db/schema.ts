@@ -287,6 +287,19 @@ export const matches = pgTable(
     title: text('title'), // e.g. "Mumbai T20 League Final"
     venue: text('venue'),
     oversPerInnings: smallint('overs_per_innings').notNull(), // 20, 50, etc.
+    /**
+     * What the match calls itself — 't20', 'club', 'gully'.
+     *
+     * A label, not a rule: `oversPerInnings` is what the engine reads, and
+     * every format is the same engine with a different number. This exists so
+     * a card can say "T20" rather than "20 overs", and so a club can filter a
+     * season later.
+     *
+     * Nullable, because every match created before this column existed has no
+     * answer and inventing one from the over count would be a guess — a
+     * 20-over game is not necessarily a T20.
+     */
+    format: text('format'),
     ballType: ballType('ball_type').notNull().default('leather'),
     status: matchStatus('status').notNull().default('scheduled'),
 

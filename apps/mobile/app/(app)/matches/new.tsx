@@ -32,7 +32,11 @@ import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/
 /**
  * The formats offered at the toss.
  *
- * `overs` is what the engine actually consumes. The ones marked unsupported
+ * `overs` is what the engine actually consumes; `stored` is the label the
+ * match keeps, so its card can say "T20" rather than "20 overs". The
+ * unsupported ones have no `stored` value because they can never be chosen.
+ *
+ * The ones marked unsupported
  * are shown but cannot be chosen: Tests need two innings a side with
  * declarations and a follow-on, the Hundred counts five-ball sets rather than
  * overs, and box cricket scores zone runs and negative runs. None of that is
@@ -40,28 +44,49 @@ import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/
  * than saying so at the toss — see docs/wiring.md.
  */
 const FORMATS = [
-  { id: 'T20', overs: 20, note: 'Twenty overs a side. The plate shows target and required rate.' },
-  { id: 'ODI', overs: 50, note: 'Fifty overs a side.' },
-  { id: 'Custom', overs: null, note: 'Set the overs yourself. Most club cricket is not 20 or 50.' },
+  {
+    id: 'T20',
+    overs: 20,
+    stored: 't20' as const,
+    note: 'Twenty overs a side. The plate shows target and required rate.',
+  },
+  { id: 'ODI', overs: 50, stored: 'odi' as const, note: 'Fifty overs a side.' },
+  {
+    id: 'Custom',
+    overs: null,
+    stored: 'club' as const,
+    note: 'Set the overs yourself. Most club cricket is not 20 or 50.',
+  },
   {
     id: 'Test',
+    // No stored label: it can never be chosen, so it can never be recorded.
+    stored: null,
     overs: null,
     note: 'Not supported yet — two innings a side and declarations.',
     unsupported: true,
   },
   {
     id: 'The Hundred',
+    // No stored label: it can never be chosen, so it can never be recorded.
+    stored: null,
     overs: null,
     note: 'Not supported yet — five-ball sets, not overs.',
     unsupported: true,
   },
   {
     id: 'Box',
+    // No stored label: it can never be chosen, so it can never be recorded.
+    stored: null,
     overs: 10,
     note: 'Not supported yet — zone runs and negative runs.',
     unsupported: true,
   },
-  { id: 'Gully', overs: 8, note: 'Short game, house rules. Set the overs to suit.' },
+  {
+    id: 'Gully',
+    overs: 8,
+    stored: 'gully' as const,
+    note: 'Short game, house rules. Set the overs to suit.',
+  },
 ] as const;
 
 type FormatId = (typeof FORMATS)[number]['id'];
@@ -218,6 +243,9 @@ export default function NewMatch() {
     setError(null);
     const parsed = createMatchSchema.safeParse({
       oversPerInnings: overs,
+      // The label, so the card can say "T20". Unsupported formats cannot be
+      // selected, so `stored` is always present for whatever is chosen here.
+      format: FORMATS.find((f) => f.id === format)?.stored ?? undefined,
       teamAId: homeId,
       teamBId: awayId,
       tossWinnerTeamId: tossWinnerId ?? undefined,

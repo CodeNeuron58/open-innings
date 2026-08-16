@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import type { MatchListResponse } from '@open-innings/shared';
 import { api } from '../../../lib/api';
+import { formatLabel } from '../../../lib/formats';
 import { useApiQuery } from '../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
 
@@ -59,7 +60,9 @@ function LiveMatch({ match, onPress }: { match: MatchRow; onPress: () => void })
         </Text>
       ) : null}
       <Text className="text-foreground/70 font-heading mt-2 text-[12px] uppercase tracking-[1.2px]">
-        {match.oversPerInnings} overs a side
+        {[formatLabel(match.format), `${match.oversPerInnings} overs a side`]
+          .filter(Boolean)
+          .join('  ·  ')}
       </Text>
     </Pressable>
   );
@@ -82,7 +85,7 @@ function FinishedMatch({ match, onPress }: { match: MatchRow; onPress: () => voi
       >
         {[
           match.summary,
-          `${match.oversPerInnings} ov`,
+          formatLabel(match.format) ?? `${match.oversPerInnings} ov`,
           shortDate(match.startedAt ?? match.createdAt),
         ]
           .filter(Boolean)

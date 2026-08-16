@@ -4,53 +4,56 @@ import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 export const metadata: Metadata = {
   title: 'Formats',
   description:
-    'T20 through Tests, the Hundred, box and gully rules. Seven formats share one keypad — the format decides the header, not the console.',
+    'Any innings length, one keypad. T20, ODI, T10 or the 13 overs you actually agreed at the toss — the engine scores limited-overs cricket of any length.',
 };
 
-/** Ported from design_new/"Formats.dc.html". */
+/**
+ * Ported from design_new/"Formats.dc.html", then corrected.
+ *
+ * The design listed seven formats as though they were all built. Three are
+ * not, and the rules columns on the other four promised enforcement the
+ * engine does not do — powerplays, bowler quotas and house-rule toggles.
+ *
+ * The honest version is also the better pitch. The engine does not have seven
+ * formats; it has **one**, parameterised by innings length, which is why a
+ * 13-over club game is as first-class as a T20. That is the thing no other
+ * scoring app does properly, and it was buried under a list.
+ */
 
-const FORMATS = [
-  {
-    n: 'T20',
-    len: '20 overs',
-    plate: 'Target, CRR, RRR',
-    rules: 'Powerplay overs, bowler quota of four, wide and no-ball free hit',
-  },
-  {
-    n: 'ODI',
-    len: '50 overs',
-    plate: 'Target, CRR, RRR',
-    rules: 'Three powerplay blocks, bowler quota of ten',
-  },
-  {
-    n: 'Custom overs',
-    len: 'Any',
-    plate: 'Target, CRR, RRR',
-    rules: 'Quota scales with the innings length you set',
-  },
+/**
+ * What the engine scores today.
+ *
+ * All one thing: limited overs, six balls an over, one innings a side. The
+ * rows differ only by the number you set at the toss, which is why the rules
+ * column is identical down the table — and saying so is more convincing than
+ * inventing four different feature sets.
+ */
+const LIVE = [
+  { n: 'T20', len: '20 overs' },
+  { n: 'ODI', len: '50 overs' },
+  { n: 'T10', len: '10 overs' },
+  { n: 'Club / league', len: 'Any — 8, 12, 16, 25, 35' },
+  { n: 'Gully / street', len: 'Any' },
+] as const;
+
+/**
+ * What it does not score, and why each is a rewrite rather than a setting.
+ *
+ * Listed rather than hidden: a scorer who turns up expecting to score a Test
+ * needs to know before the toss, not at the declaration.
+ */
+const NOT_YET = [
   {
     n: 'Test / multi-day',
-    len: 'Unlimited',
-    plate: 'Lead, session, new ball',
-    rules: 'Two innings a side, declarations, follow-on, over rate',
+    why: 'Two innings a side, declarations and the follow-on. The engine models one innings per team.',
   },
   {
     n: 'The Hundred',
-    len: '100 balls',
-    plate: 'Balls left, target',
-    rules: 'Five-ball sets, ends change every ten, bowler bowls five or ten',
+    why: 'Five-ball sets and a 100-ball innings. Overs are six balls throughout the engine.',
   },
   {
     n: 'Box / indoor',
-    len: '10 overs',
-    plate: 'Target, zone bonus',
-    rules: 'Zone runs, negative runs on dismissal, every batter bats',
-  },
-  {
-    n: 'Gully / street',
-    len: 'Any',
-    plate: 'Target, balls left',
-    rules: 'One-tip-one-hand, last-man-bats, no LBW, joint innings',
+    why: 'Zone runs and negative runs on dismissal — a different scoring system, not a different length.',
   },
 ] as const;
 
@@ -68,8 +71,8 @@ const CONSTANTS = [
     body: 'Most club cricket is not 20 or 50 overs. Set 8, 12, 16, 25 or 35 at the toss and the required-rate maths follows without a workaround.',
   },
   {
-    title: 'House rules are toggles',
-    body: 'One-tip-one-hand, last-man-bats, no LBW, single-batter chases. Turn on what your street or your box league plays, and the app scores by those rules.',
+    title: 'The laws it does enforce',
+    body: 'Free hit after a no-ball. No bowler twice in a row. Strike rotation, wides and no-balls excluded from balls faced, and every dismissal in Law 25 credited to the right column. House-rule toggles — one-tip-one-hand, last-man-bats — are not built.',
   },
 ] as const;
 
@@ -86,8 +89,9 @@ export default function FormatsPage() {
             The console never changes.
           </h1>
           <p className="oi-lede oi-lede-wide">
-            Seven formats share one keypad. What the format decides is the header — what the score
-            plate counts down, and which rules the app enforces behind you.
+            One keypad, any innings length. Most club cricket is not 20 or 50 overs, so the number
+            you agreed at the toss is the number the app scores to — and the required rate follows
+            without a workaround.
           </p>
         </div>
       </section>
@@ -98,26 +102,59 @@ export default function FormatsPage() {
             <table className="oi-fmt-table table">
               <thead>
                 <tr>
-                  <th>Format</th>
+                  <th>Scores today</th>
                   <th className="oi-fmt-len">Length</th>
                   <th className="oi-fmt-plate">Plate shows</th>
-                  <th className="oi-fmt-hide">Rules it enforces</th>
+                  <th className="oi-fmt-hide">What it enforces</th>
                 </tr>
               </thead>
               <tbody>
-                {FORMATS.map((fmt) => (
+                {LIVE.map((fmt) => (
                   <tr key={fmt.n}>
                     <td className="oi-fmt-name">{fmt.n}</td>
                     <td className="num oi-fmt-len">{fmt.len}</td>
-                    <td className="oi-fmt-plate">{fmt.plate}</td>
-                    <td className="oi-fmt-hide oi-fmt-rules">{fmt.rules}</td>
+                    <td className="oi-fmt-plate">Target, CRR, RRR</td>
+                    <td className="oi-fmt-hide oi-fmt-rules">
+                      Free hit, no bowler twice in a row, strike rotation, Law 25 dismissals
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="oi-sheet-foot">
-              Test and the Hundred plates are on the roadmap; everything else is in the current
-              release.
+              One engine, one parameter. Every row above is the same code with a different number of
+              overs — which is why a 13-over club game is as first-class as a T20.
+            </p>
+          </Blueprint>
+        </div>
+      </section>
+
+      {/* Said plainly, and early. A scorer who turns up expecting to score a
+          Test needs to know at the toss, not at the declaration. */}
+      <section className="oi-sec oi-sec-pad">
+        <div className="oi-in">
+          <span className="oi-kick">Not yet</span>
+          <hr className="oi-rule oi-rule-md" />
+          <Blueprint>
+            <table className="oi-sheet-table table">
+              <thead>
+                <tr>
+                  <th>Format</th>
+                  <th>Why it is not a setting</th>
+                </tr>
+              </thead>
+              <tbody>
+                {NOT_YET.map((fmt) => (
+                  <tr key={fmt.n}>
+                    <td className="oi-fmt-name">{fmt.n}</td>
+                    <td className="oi-fmt-rules">{fmt.why}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="oi-sheet-foot">
+              Each of these is a different scoring model rather than a different innings length, so
+              none is a switch we have not flipped yet. They are on the roadmap, not in the build.
             </p>
           </Blueprint>
         </div>

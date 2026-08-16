@@ -200,6 +200,7 @@ export async function createMatch(input: {
   title?: string;
   venue?: string;
   oversPerInnings: number;
+  format?: string;
   teamAId: string;
   teamBId: string;
   tossWinnerTeamId?: string;
@@ -214,6 +215,7 @@ export async function createMatch(input: {
       title: input.title,
       venue: input.venue,
       oversPerInnings: input.oversPerInnings,
+      format: input.format,
       teamAId: input.teamAId,
       teamBId: input.teamBId,
       tossWinnerTeamId: input.tossWinnerTeamId,

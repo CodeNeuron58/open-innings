@@ -23,9 +23,9 @@ export const metadata: Metadata = {
 const SPEC_SHEET = [
   {
     no: '01',
-    prop: 'Formats supported',
-    val: '7',
-    rem: 'T20, ODI, custom overs, Test, the Hundred, box, gully',
+    prop: 'Innings length',
+    val: 'Any',
+    rem: 'T20, ODI, T10 — or the 13 overs you actually agreed at the toss',
   },
   {
     no: '02',
@@ -72,8 +72,8 @@ const SECTIONS = [
   {
     href: '/formats',
     kicker: 'Formats',
-    title: 'Seven formats, one console',
-    body: 'T20 through Tests, the Hundred, box and gully rules. What changes, and what never does.',
+    title: 'Any overs, one console',
+    body: 'Most club cricket is not 20 or 50 overs. Set the number at the toss and the maths follows.',
     cta: 'See the table ›',
   },
   {

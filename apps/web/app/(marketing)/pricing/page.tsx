@@ -18,7 +18,7 @@ const PLANS = [
     price: '₹0',
     unit: 'forever',
     lines: [
-      'All seven formats',
+      'Any innings length',
       'Unlimited matches and squads',
       'Live links for spectators',
       'Full scorecard, commentary, export',
@@ -42,7 +42,7 @@ const PLANS = [
 ] as const;
 
 const COMPARISON = [
-  { f: 'Ball-by-ball scoring, all seven formats', free: Y, pro: Y, self: Y },
+  { f: 'Ball-by-ball scoring, any innings length', free: Y, pro: Y, self: Y },
   { f: 'Unlimited matches, squads and seasons', free: Y, pro: Y, self: Y },
   { f: 'Full scorecard and over-by-over commentary', free: Y, pro: Y, self: Y },
   { f: 'Live follower link (no app needed to watch)', free: Y, pro: Y, self: Y },

@@ -39,6 +39,21 @@ export const PLAYER_ROLES = [
 ] as const;
 export type PlayerRole = (typeof PLAYER_ROLES)[number];
 
+/**
+ * What a match calls itself.
+ *
+ * Deliberately **not** a switch that changes how scoring works. Every value
+ * here is the same engine with a different `oversPerInnings`; the format is a
+ * label the match wears so its card can say "T20" instead of "20 overs", and
+ * so a club can filter their season later.
+ *
+ * Formats that would need a different engine — Test, The Hundred, box — are
+ * absent on purpose. Adding one here would let a scorer pick it and discover
+ * mid-match that declarations do not exist.
+ */
+export const MATCH_FORMATS = ['t20', 'odi', 't10', 'club', 'gully'] as const;
+export type MatchFormat = (typeof MATCH_FORMATS)[number];
+
 export const MATCH_STATUSES = [
   'scheduled',
   'live',

@@ -15,6 +15,7 @@ import {
   BATTING_STYLES,
   BOWLING_STYLES,
   PLAYER_ROLES,
+  MATCH_FORMATS,
   TOSS_DECISIONS,
   BALL_EVENT_TYPES,
   WICKET_TYPES,
@@ -126,6 +127,8 @@ export const createMatchSchema = z
       .int('Overs must be a whole number')
       .min(1, 'Overs must be a positive number')
       .max(200),
+    /** A label the match wears. Optional — an unlabelled match still scores. */
+    format: z.enum(MATCH_FORMATS).optional(),
     teamAId: idSchema,
     teamBId: idSchema,
     tossWinnerTeamId: idSchema.optional(),

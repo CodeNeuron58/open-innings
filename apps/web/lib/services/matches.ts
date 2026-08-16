@@ -73,6 +73,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     title: input.title,
     venue: input.venue,
     oversPerInnings: input.oversPerInnings,
+    format: input.format,
     teamAId: input.teamAId,
     teamBId: input.teamBId,
     tossWinnerTeamId: input.tossWinnerTeamId,

@@ -63,6 +63,8 @@ export type MatchSummary = {
   venue: string | null;
   status: string;
   oversPerInnings: number;
+  /** 't20', 'club', … — a label, null for matches created before it existed. */
+  format: string | null;
   teamAId: string;
   teamBId: string;
   result: string | null;
