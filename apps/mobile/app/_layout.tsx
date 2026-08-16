@@ -13,6 +13,7 @@ import {
 } from '@expo-google-fonts/barlow';
 import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed';
 import { SessionProvider } from '../lib/session';
+import { SettingsProvider } from '../lib/settings';
 import { initPurchases } from '../lib/purchases';
 
 /**
@@ -57,8 +58,10 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
+        <SettingsProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }} />
+        </SettingsProvider>
       </SessionProvider>
     </SafeAreaProvider>
   );

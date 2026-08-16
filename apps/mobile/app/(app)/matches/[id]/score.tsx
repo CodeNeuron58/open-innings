@@ -17,6 +17,7 @@
  *      240 taps, three hours. Ads live on the viewing surfaces. See TODO.md.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ import {
 import type { ScorerResponse, WicketTypeValue } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { useSession } from '../../../../lib/session';
+import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { Button, ErrorBanner, LoadingScreen } from '../../../../components/ui';
 import { BallChip } from '../../../../components/scorer/BallChip';
@@ -47,6 +49,35 @@ export default function Scorer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { token } = useSession();
+  const { keepAwakeWhileScoring } = useSettings();
+
+  /*
+   * Hold the screen on while this screen is mounted.
+   *
+   * The single most important comfort in the app. A scorer taps roughly two
+   * hundred times across three hours with thirty-second gaps between
+   * deliveries — long enough for a phone to sleep before every single ball.
+   * Unlocking between deliveries is how someone decides to go back to paper.
+   *
+   * Not `useKeepAwake`, which activates unconditionally and so could not be
+   * turned off. The effect releases the lock on unmount and whenever the
+   * setting changes, so leaving for the card or the result restores normal
+   * behaviour with no bookkeeping here. The tag scopes the lock to this
+   * screen.
+   */
+  useEffect(() => {
+    if (!keepAwakeWhileScoring) return;
+    void activateKeepAwakeAsync('scorer');
+    return () => {
+      // Throws if the lock was already released — which is not worth
+      // surfacing to someone in the middle of scoring an over.
+      try {
+        deactivateKeepAwake('scorer');
+      } catch {
+        /* already released */
+      }
+    };
+  }, [keepAwakeWhileScoring]);
 
   const query = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
   const mutation = useApiMutation();

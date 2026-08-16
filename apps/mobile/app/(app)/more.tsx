@@ -12,12 +12,13 @@
  * toggles that remember nothing. A switch that flips back on next launch is a
  * bug report; a greyed row that says "not built yet" is information.
  */
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { api } from '../../lib/api';
 import { useApiQuery } from '../../lib/use-api';
 import { useSession } from '../../lib/session';
+import { useSettings } from '../../lib/settings';
 import { useSupporter } from '../../lib/purchases';
 import { Kicker } from '../../components/ui';
 
@@ -76,6 +77,42 @@ function Row({
   );
 }
 
+/** A row that actually stores something. */
+function ToggleRow({
+  label,
+  note,
+  value,
+  onChange,
+}: {
+  label: string;
+  note?: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <View className="border-border flex-row items-center gap-3 border-b py-2.5">
+      <View className="min-w-0 flex-1">
+        <Text className="text-foreground text-[15px]">{label}</Text>
+        {note ? (
+          <Text className="text-foreground/55 mt-0.5 text-[11px]" numberOfLines={2}>
+            {note}
+          </Text>
+        ) : null}
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        accessibilityLabel={label}
+        // The accent, not the platform default green — this system has one
+        // colour and a stray hue on a settings screen is the loudest thing
+        // in the app.
+        trackColor={{ false: '#d4d4d7', true: '#5980a6' }}
+        thumbColor="#f2f2f3"
+      />
+    </View>
+  );
+}
+
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="pt-6">
@@ -89,6 +126,7 @@ export default function More() {
   const router = useRouter();
   const { user, signOut } = useSession();
   const { isSupporter } = useSupporter();
+  const { keepAwakeWhileScoring, set } = useSettings();
 
   const teams = useApiQuery((t, signal) => api.teams(t, signal));
   const clubCount = teams.data?.teams.length ?? 0;
@@ -172,10 +210,11 @@ export default function More() {
             asked for and which would break every link already sent.
           */}
           <Row label="Live match links" value="Always on" />
-          <Row
+          <ToggleRow
             label="Keep screen awake"
-            disabledNote="Not built — the screen can still sleep mid-match"
-            value="Off"
+            note="While you're on the scoring console"
+            value={keepAwakeWhileScoring}
+            onChange={(next) => set('keepAwakeWhileScoring', next)}
           />
           <Row label="Sound on each ball" disabledNote="Not built yet" value="Off" />
           <Row label="Export scorebook" disabledNote="Not built yet" value="CSV, JSON" />
