@@ -399,7 +399,90 @@ async function main() {
       again.json.inning?.id,
     );
 
-    // ── 7. Delete ───────────────────────────────────────────────────────────
+    // ── 7. Career stats ─────────────────────────────────────────────────────
+    // Must run before the delete section: these figures are derived from
+    // ball_events, and deleting the match cascades them away.
+    console.log('career stats');
+
+    // Nothing above this point posts a delivery — api-smoke exercises the
+    // endpoints, and ball-by-ball scoring is score-smoke's job. So the two
+    // balls the stats assertions need are scored here, deliberately, rather
+    // than assuming data that does not exist.
+    const inningsId = second.json.inning.id as string;
+    const striker = createdPlayerIds[2];
+    const nonStriker = createdPlayerIds[3];
+    const bowler = createdPlayerIds[0];
+
+    /*
+     * Two dots, and it has to be dots.
+     *
+     * The first innings scored nothing, so the target is 1 — any run at all
+     * wins the match on the spot, which both rejects the next delivery with
+     * "Innings is already completed" and leaves the delete section below with
+     * a finished match when it needs a live one.
+     *
+     * Boundary counting is covered by the engine's own tests; what these two
+     * balls exist to prove is that the aggregation reads real ball_events at
+     * all, and that a never-out batter's average comes back null.
+     */
+    for (const label of ['first', 'second']) {
+      const res = await call('POST', `/api/matches/${matchId}/ball`, {
+        inningsId,
+        eventType: 'dot',
+        runsOffBat: 0,
+        extraRuns: 0,
+        totalRuns: 0,
+        batsmanId: striker,
+        nonStrikerId: nonStriker,
+        bowlerId: bowler,
+      });
+      ok(res.status === 200 || res.status === 201, `score the ${label} dot → ok`, res);
+    }
+
+    const batterId = striker;
+    const career = await call('GET', `/api/players/${batterId}/stats`);
+    ok(career.status === 200, 'GET player stats → 200', career);
+
+    const bat = career.json.career?.batting;
+    ok(bat?.innings === 1, 'career shows one innings', bat);
+    ok(bat?.runs === 0, 'runs match the balls scored', bat?.runs);
+    ok(bat?.balls === 2, 'balls faced counts both deliveries', bat?.balls);
+    ok(
+      bat?.strikeRate === 0,
+      'a wicketless duck has a strike rate of 0, not null',
+      bat?.strikeRate,
+    );
+
+    // A never-out batter has no average. Null rather than Infinity or 0 — the
+    // single easiest figure in cricket to get wrong, and the reason average
+    // and strike rate are not the same nullability: strike rate needs balls,
+    // average needs dismissals.
+    ok(bat?.notOuts === 1 && bat?.average === null, 'never out → average is null', {
+      notOuts: bat?.notOuts,
+      average: bat?.average,
+    });
+
+    // The bowler's analysis is the same balls seen from the other end.
+    const bowlerCareer = await call('GET', `/api/players/${bowler}/stats`);
+    const bowl = bowlerCareer.json.career?.bowling;
+    ok(bowl?.balls === 2 && bowl?.runs === 0, 'bowling figures agree with the batting', bowl);
+    ok(bowl?.wickets === 0 && bowl?.average === null, 'wicketless → average is null', bowl);
+    ok(bowl?.economy === 0, 'two maiden-ish dots → economy 0, not null', bowl?.economy);
+
+    // The page is the shareable artifact — it has to open for someone with no
+    // account, so the endpoint must not require a session.
+    const publicCareer = await call('GET', `/api/players/${batterId}/stats`, undefined, false);
+    ok(publicCareer.status === 200, 'player stats are public (no auth) → 200', publicCareer);
+
+    const missing = await call(
+      'GET',
+      '/api/players/00000000-0000-0000-0000-000000000000/stats',
+      undefined,
+      false,
+    );
+    ok(missing.status === 404, 'unknown player → 404', missing);
+
+    // ── 8. Delete ───────────────────────────────────────────────────────────
     console.log('delete');
     const liveDelete = await call('DELETE', `/api/matches/${matchId}`);
     ok(liveDelete.status === 400, 'deleting a live match → 400', liveDelete);
@@ -411,7 +494,7 @@ async function main() {
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
 
-    // ── 8. Rate limiting ────────────────────────────────────────────────────
+    // ── 9. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');
     // Must exceed the login cap in app/api/auth/login/route.ts (30 per 15 min).
     // If that cap is raised, raise this too or the assertion silently rots.
@@ -430,7 +513,7 @@ async function main() {
     }
     ok(sawTooMany, 'repeated failed logins eventually → 429');
 
-    // ── 9. Logout ───────────────────────────────────────────────────────────
+    // ── 10. Logout ───────────────────────────────────────────────────────────
     console.log('logout');
     const loggedOut = await call('POST', '/api/auth/logout');
     ok(loggedOut.status === 200, 'logout → 200', loggedOut);

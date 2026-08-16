@@ -65,9 +65,30 @@ export type PlayerCareer = {
   batting: BattingCareer;
   bowling: BowlingCareer;
   fielding: { catches: number; runOuts: number; stumpings: number };
+  /**
+   * The same figures for the current season only.
+   *
+   * "This season" is what people actually check — a career average is a slow
+   * number that barely moves, while this season's is the one being argued
+   * about in the group chat. Null when the player hasn't played this season,
+   * so the page can omit the block rather than print a row of zeroes.
+   */
+  season: { label: string; batting: BattingCareer; bowling: BowlingCareer } | null;
   form: FormEntry[];
   milestones: string[];
 };
+
+/**
+ * The cricket season a date falls in.
+ *
+ * Indian club cricket runs across the calendar year rather than the English
+ * April-to-September split, so a season here is simply the year. Kept as one
+ * function so that if this ever needs to become April–March, there is a single
+ * place to change it.
+ */
+function seasonOf(date: Date): number {
+  return date.getFullYear();
+}
 
 function foldBatting(rows: BattingInnings[]): BattingCareer {
   const runs = rows.reduce((n, r) => n + r.runs, 0);
@@ -174,11 +195,34 @@ export async function careerFor(playerId: string): Promise<PlayerCareer> {
   const batting = foldBatting(battingRows);
   const bowling = foldBowling(bowlingRows);
 
+  // The current season is the newest one the player actually appears in, not
+  // today's year — otherwise someone who last played in December sees an empty
+  // block every January, which reads as "no record" rather than "off-season".
+  const played = [...battingRows, ...bowlingRows].map((r) => seasonOf(r.playedAt));
+  const latestSeason = played.length > 0 ? Math.max(...played) : null;
+
+  const seasonBattingRows = battingRows.filter((r) => seasonOf(r.playedAt) === latestSeason);
+  const seasonBowlingRows = bowlingRows.filter((r) => seasonOf(r.playedAt) === latestSeason);
+
+  // Only worth showing when it differs from the career — a player whose whole
+  // record is one season would otherwise see the same numbers twice.
+  const seasonIsWholeCareer =
+    seasonBattingRows.length === battingRows.length &&
+    seasonBowlingRows.length === bowlingRows.length;
+
   return {
     player: { id: player.id, fullName: player.fullName },
     batting,
     bowling,
     fielding,
+    season:
+      latestSeason === null || seasonIsWholeCareer
+        ? null
+        : {
+            label: String(latestSeason),
+            batting: foldBatting(seasonBattingRows),
+            bowling: foldBowling(seasonBowlingRows),
+          },
     // Rows arrive newest-first from the query.
     form: battingRows.slice(0, FORM_LENGTH).map((r) => ({
       matchId: r.matchId,

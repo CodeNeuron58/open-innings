@@ -83,7 +83,9 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
   const rows = await db.execute<{
     innings_id: string;
     match_id: string;
-    played_at: Date;
+    // Raw driver row: db.execute bypasses drizzle type mapping, so this
+    // arrives as whatever postgres.js hands back — a string, not a Date.
+    played_at: string | Date;
     opponent: string | null;
     runs: number;
     balls: number;
@@ -123,7 +125,7 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
   return rows.map((r) => ({
     inningsId: r.innings_id,
     matchId: r.match_id,
-    playedAt: r.played_at,
+    playedAt: new Date(r.played_at),
     opponent: r.opponent,
     runs: Number(r.runs),
     balls: Number(r.balls),
@@ -146,7 +148,9 @@ export async function bowlingInningsFor(playerId: string): Promise<BowlingInning
   const rows = await db.execute<{
     innings_id: string;
     match_id: string;
-    played_at: Date;
+    // Raw driver row: db.execute bypasses drizzle type mapping, so this
+    // arrives as whatever postgres.js hands back — a string, not a Date.
+    played_at: string | Date;
     opponent: string | null;
     balls: number;
     runs: number;
@@ -182,7 +186,7 @@ export async function bowlingInningsFor(playerId: string): Promise<BowlingInning
   return rows.map((r) => ({
     inningsId: r.innings_id,
     matchId: r.match_id,
-    playedAt: r.played_at,
+    playedAt: new Date(r.played_at),
     opponent: r.opponent,
     balls: Number(r.balls),
     runs: Number(r.runs),

@@ -71,7 +71,7 @@ function n(value: number | null, digits = 2): string {
 export default async function PlayerPage({ params }: Params) {
   const { playerId } = await params;
   const career = await load(playerId);
-  const { player, batting, bowling, fielding, form, milestones } = career;
+  const { player, batting, bowling, fielding, form, milestones, season } = career;
 
   const hasPlayed = batting.innings > 0 || bowling.innings > 0;
 
@@ -109,10 +109,42 @@ export default async function PlayerPage({ params }: Params) {
         </section>
       ) : null}
 
+      {/*
+        This season comes before the career on purpose. A career average is a
+        slow number that barely moves; this season's is the one being argued
+        about in the group chat, so it is what someone opened the page for.
+      */}
+      {season ? (
+        <section className="oi-sec oi-sec-pad-xl">
+          <div className="oi-in">
+            <span className="oi-kick">This season — {season.label}</span>
+            <hr className="oi-rule oi-rule-md" />
+            <div className="oi-figures">
+              {season.batting.innings > 0 ? (
+                <>
+                  <Figure value={String(season.batting.runs)} label="Runs" />
+                  <Figure value={n(season.batting.average)} label="Average" />
+                  <Figure
+                    value={`${season.batting.highScore}${season.batting.highScoreNotOut ? '*' : ''}`}
+                    label="High score"
+                  />
+                </>
+              ) : null}
+              {season.bowling.wickets > 0 ? (
+                <>
+                  <Figure value={String(season.bowling.wickets)} label="Wickets" />
+                  <Figure value={n(season.bowling.economy)} label="Economy" />
+                </>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {batting.innings > 0 ? (
         <section className="oi-sec oi-sec-pad-xl">
           <div className="oi-in">
-            <span className="oi-kick">Batting</span>
+            <span className="oi-kick">{season ? 'Batting — career' : 'Batting'}</span>
             <hr className="oi-rule oi-rule-md" />
             <div className="oi-figures">
               <Figure value={String(batting.runs)} label="Runs" />
@@ -177,7 +209,7 @@ export default async function PlayerPage({ params }: Params) {
       {bowling.innings > 0 ? (
         <section className="oi-sec oi-sec-pad-xl">
           <div className="oi-in">
-            <span className="oi-kick">Bowling</span>
+            <span className="oi-kick">{season ? 'Bowling — career' : 'Bowling'}</span>
             <hr className="oi-rule oi-rule-md" />
             <div className="oi-figures">
               <Figure value={String(bowling.wickets)} label="Wickets" />
