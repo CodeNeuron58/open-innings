@@ -469,6 +469,27 @@ async function main() {
     ok(bowl?.wickets === 0 && bowl?.average === null, 'wicketless → average is null', bowl);
     ok(bowl?.economy === 0, 'two maiden-ish dots → economy 0, not null', bowl?.economy);
 
+    /*
+     * Matches, not innings.
+     *
+     * This batter faced two balls in one match and did not bowl, so both
+     * counts happen to be 1 — but the bowler below bowled in that same match,
+     * and if `matches` were ever built by adding batting innings to bowling
+     * innings, a player who did both would show 2. It is the headline figure
+     * on the career page, sitting next to the runs.
+     */
+    ok(
+      career.json.career?.matches === 1,
+      'career counts distinct matches',
+      career.json.career?.matches,
+    );
+    ok(
+      career.json.career?.player?.fullName !== undefined &&
+        'role' in (career.json.career?.player ?? {}),
+      'career carries the player identity fields the profile header needs',
+      career.json.career?.player,
+    );
+
     // The page is the shareable artifact — it has to open for someone with no
     // account, so the endpoint must not require a session.
     const publicCareer = await call('GET', `/api/players/${batterId}/stats`, undefined, false);
@@ -541,6 +562,49 @@ async function main() {
       false,
     );
     ok(missingSummary.status === 404, 'summary for an unknown match → 404', missingSummary);
+
+    // ── 8b. The club page ───────────────────────────────────────────────────
+    console.log('club page');
+    const club = await call('GET', `/api/teams/${teamAId}/club`);
+    ok(club.status === 200, 'GET club page → 200', club);
+    ok(club.json.team?.id === teamAId, 'club page returns the team', club.json.team);
+    ok(
+      Array.isArray(club.json.squad) && club.json.squad.length > 0,
+      'club page returns the squad',
+      club.json.squad?.length,
+    );
+    ok(
+      Array.isArray(club.json.results) && club.json.results.length > 0,
+      'club page lists the matches this club played',
+      club.json.results?.length,
+    );
+    /*
+     * playedAt has to be a string, not a Date.
+     *
+     * It goes through JSON either way, so the client would receive a string
+     * regardless — but the route serialises it explicitly and the shared type
+     * says `string | null`. The career endpoint had exactly this bug: a field
+     * annotated as Date that arrived as a string, and `getFullYear` threw on
+     * it in production code that typechecked cleanly.
+     */
+    const firstResult = club.json.results?.[0];
+    ok(
+      firstResult?.playedAt === null || typeof firstResult?.playedAt === 'string',
+      'club results carry playedAt as an ISO string, not a Date',
+      firstResult?.playedAt,
+    );
+    ok('runs' in (club.json.leaders ?? {}), 'club page carries leaders', club.json.leaders);
+
+    const publicClub = await call('GET', `/api/teams/${teamAId}/club`, undefined, false);
+    ok(publicClub.status === 200, 'club page is public (no auth) → 200', publicClub);
+
+    const missingClub = await call(
+      'GET',
+      '/api/teams/00000000-0000-0000-0000-000000000000/club',
+      undefined,
+      false,
+    );
+    ok(missingClub.status === 404, 'club page for an unknown team → 404', missingClub);
 
     // ── 9. The full card ────────────────────────────────────────────────────
     // Feeds the scorecard and over-by-over tabs. Before delete, same reason.

@@ -347,7 +347,16 @@ export type FormEntryView = {
 /** `GET /api/players/[id]/stats` — public, no session required. */
 export type PlayerCareerResponse = {
   career: {
-    player: { id: string; fullName: string };
+    player: {
+      id: string;
+      fullName: string;
+      /** All nullable — a squad player is often just a name. */
+      role: PlayerRole | null;
+      battingStyle: BattingStyle | null;
+      bowlingStyle: BowlingStyle | null;
+    };
+    /** Distinct matches — not batting innings plus bowling innings. */
+    matches: number;
     batting: BattingCareerView;
     bowling: BowlingCareerView;
     fielding: { catches: number; runOuts: number; stumpings: number };
@@ -355,6 +364,31 @@ export type PlayerCareerResponse = {
     season: { label: string; batting: BattingCareerView; bowling: BowlingCareerView } | null;
     form: FormEntryView[];
     milestones: string[];
+  };
+};
+
+/**
+ * `GET /api/teams/[id]/club` — a club's public home.
+ *
+ * `leaders` are **career** figures for current squad members, not club-only
+ * ones. Attributing a run to a club would mean knowing which side a player
+ * turned out for in each innings, and players turn out for more than one — so
+ * the label says "career" rather than quietly getting it wrong.
+ */
+export type ClubPageResponse = {
+  team: { id: string; name: string };
+  squad: { id: string; fullName: string; role: PlayerRole | null }[];
+  results: {
+    matchId: string;
+    /** ISO string — this crossed a JSON boundary, so it is not a Date. */
+    playedAt: string | null;
+    opponent: string | null;
+    status: string;
+    summary: string | null;
+  }[];
+  leaders: {
+    runs: { playerId: string; name: string; value: number } | null;
+    wickets: { playerId: string; name: string; value: number } | null;
   };
 };
 

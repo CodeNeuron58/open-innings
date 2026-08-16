@@ -55,6 +55,7 @@ export const shareUrls = {
   match: (matchId: string) => `${API_BASE}/m/${matchId}`,
   playerInMatch: (matchId: string, playerId: string) => `${API_BASE}/m/${matchId}/p/${playerId}`,
   player: (playerId: string) => `${API_BASE}/p/${playerId}`,
+  club: (teamId: string) => `${API_BASE}/c/${teamId}`,
 
   /*
    * The card images themselves — the 1080×1080 PNGs Satori renders.

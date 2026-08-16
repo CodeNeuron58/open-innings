@@ -10,9 +10,9 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { createTeamSchema, type PlayerSummary, type TeamSummary } from '@open-innings/shared';
-import { api } from '../../lib/api';
-import { useApiQuery, useApiMutation } from '../../lib/use-api';
-import { Button, ErrorBanner, Field, LoadingScreen } from '../../components/ui';
+import { api } from '../../../lib/api';
+import { useApiQuery, useApiMutation } from '../../../lib/use-api';
+import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
 
 export default function Teams() {
   const router = useRouter();
@@ -145,7 +145,12 @@ export default function Teams() {
             </View>
           )
         }
-        renderItem={({ item }) => <TeamRow team={item} />}
+        renderItem={({ item }) => (
+          <TeamRow
+            team={item}
+            onPress={() => router.push({ pathname: '/teams/[id]', params: { id: item.id } })}
+          />
+        )}
       />
 
       <View className="border-border flex-row gap-3 border-t px-5 py-3">
@@ -187,13 +192,25 @@ function SquadChip({
   );
 }
 
-function TeamRow({ team }: { team: TeamSummary }) {
+function TeamRow({ team, onPress }: { team: TeamSummary; onPress: () => void }) {
   return (
-    <View className="border-border bg-card rounded-xl border px-4 py-3">
-      <Text className="text-foreground text-base font-medium">{team.name}</Text>
-      {team.homeGround ? (
-        <Text className="text-muted-foreground text-xs">{team.homeGround}</Text>
-      ) : null}
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${team.name} club page`}
+      onPress={onPress}
+      className="border-border flex-row items-center gap-3 border px-4 py-3 active:opacity-70"
+    >
+      <View className="min-w-0 flex-1">
+        <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
+          {team.name}
+        </Text>
+        {team.homeGround ? (
+          <Text className="text-foreground/55 mt-0.5 text-[12px]" numberOfLines={1}>
+            {team.homeGround}
+          </Text>
+        ) : null}
+      </View>
+      <Text className="text-foreground/35 shrink-0 text-[17px]">›</Text>
+    </Pressable>
   );
 }

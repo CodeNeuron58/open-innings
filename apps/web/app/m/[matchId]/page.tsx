@@ -277,14 +277,30 @@ export default async function PublicScorecardPage({ params }: Props) {
           );
         })}
 
-        {isLive && (
-          <p className="text-muted-foreground mt-4 text-center text-xs">
-            Updates automatically every few seconds.
+        {/*
+          The reassurance, for someone who followed a WhatsApp link and is
+          wondering what they have walked into.
+
+          It is worth saying plainly because it is unusual and it is true:
+          there is no wall, no account, and the page really does update as the
+          scorer taps — LiveRefresh above is what makes that a statement of
+          fact rather than a promise.
+
+          The design puts a "Follow this match" button here. Nothing stores a
+          follow and nothing counts followers, so it is not drawn — the live
+          page already does what following would do.
+        */}
+        <div className="border-border mt-6 rounded-lg border border-dashed p-4 text-center">
+          <p className="text-sm font-medium">No app, no account.</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            {isLive
+              ? 'This page updates itself as the scorer taps. Leave it open.'
+              : 'This scorecard stays at this address permanently.'}
           </p>
-        )}
+        </div>
       </main>
 
-      <footer className="border-border border-t py-6">
+      <footer className="border-border border-t py-6 pb-24">
         <div className="text-muted-foreground container flex max-w-3xl flex-col items-center gap-2 text-center text-xs">
           <p>
             Scored with{' '}
@@ -295,6 +311,34 @@ export default async function PublicScorecardPage({ params }: Props) {
           </p>
         </div>
       </footer>
+
+      {/*
+        The conversion bar, pinned.
+
+        This page is the growth loop: someone opened it because a friend sent
+        a scorecard, and this is the one moment they are looking at proof the
+        thing works. A CTA in the header is above the fold and ignored; this
+        one is in front of them at the moment they finish reading the score.
+
+        `pb-24` on the footer above keeps the last line clear of it.
+      */}
+      <div className="border-border bg-background/95 fixed inset-x-0 bottom-0 z-10 border-t backdrop-blur">
+        <div className="container flex max-w-3xl items-center justify-between gap-3 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">Score your own club</p>
+            <p className="text-muted-foreground truncate text-xs">
+              Free, open source, and no ads while you score.
+            </p>
+          </div>
+          {/*
+            Points at the app page, not a Play listing — there isn't one yet.
+            See docs/wiring.md.
+          */}
+          <ButtonLink href="/app" size="sm" className="shrink-0">
+            Get the app
+          </ButtonLink>
+        </div>
+      </div>
     </div>
   );
 }

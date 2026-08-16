@@ -86,6 +86,7 @@ export {
   type BowlingCareerView,
   type FormEntryView,
   type PlayerCareerResponse,
+  type ClubPageResponse,
 } from './api';
 
 export { resolveBattingSides } from './toss';

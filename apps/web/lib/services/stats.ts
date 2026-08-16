@@ -5,6 +5,7 @@
  * Nothing is stored, so a corrected ball corrects the career.
  */
 import 'server-only';
+import type { BattingStyle, BowlingStyle, PlayerRole } from '@open-innings/shared';
 import {
   battingInningsFor,
   bowlingInningsFor,
@@ -61,7 +62,18 @@ export type FormEntry = {
 };
 
 export type PlayerCareer = {
-  player: { id: string; fullName: string };
+  player: {
+    id: string;
+    fullName: string;
+    // The enums, not `string` — this object is returned straight down the
+    // wire as `PlayerCareerResponse`, and widening here would only move the
+    // mismatch to the route handler.
+    role: PlayerRole | null;
+    battingStyle: BattingStyle | null;
+    bowlingStyle: BowlingStyle | null;
+  };
+  /** Distinct matches played — not batting innings plus bowling innings. */
+  matches: number;
   batting: BattingCareer;
   bowling: BowlingCareer;
   fielding: { catches: number; runOuts: number; stumpings: number };
@@ -210,8 +222,27 @@ export async function careerFor(playerId: string): Promise<PlayerCareer> {
     seasonBattingRows.length === battingRows.length &&
     seasonBowlingRows.length === bowlingRows.length;
 
+  /*
+   * Matches, not innings.
+   *
+   * A player who bats and bowls in the same game appears in both row sets, so
+   * adding the two innings counts would say someone played twice as many
+   * matches as they did — and "33 matches" is the headline figure on a career
+   * page, sitting right next to the runs.
+   */
+  const matches = new Set([...battingRows, ...bowlingRows].map((r) => r.matchId)).size;
+
   return {
-    player: { id: player.id, fullName: player.fullName },
+    player: {
+      id: player.id,
+      fullName: player.fullName,
+      // How they play, for the line under the name. Nullable: a player can be
+      // added to a squad with nothing but a name, and usually is.
+      role: player.role ?? null,
+      battingStyle: player.battingStyle ?? null,
+      bowlingStyle: player.bowlingStyle ?? null,
+    },
+    matches,
     batting,
     bowling,
     fielding,

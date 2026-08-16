@@ -143,7 +143,7 @@ about whether guests persist as real players afterwards.
 B4 shows "SR 128 this season" beside a batter and "Econ 6.8" beside a bowler.
 Both exist behind `GET /api/players/[id]/stats` — but rendering them would be
 one request per row on a screen someone is trying to get past. Needs a batch
-endpoint before it is worth doing.
+endpoint before it is worth doing — the same one E3 wants.
 
 ### 🟡 Followers and sync status
 
@@ -276,6 +276,72 @@ have to hold a match id in layout state and decide what its tabs point at when
 no match is open — a routing problem invented to satisfy a visual one.
 
 **More** is drawn and disabled. There is no settings screen.
+
+---
+
+## The record (E-series)
+
+Career page, club page, add-a-player, and the public follower view. All four
+are real. The gaps are things the designs show that nothing computes.
+
+### 🟡 A player has no club
+
+E1's identity line reads "Koramangala XI · Opener · Right-hand bat". Role and
+batting style are now on the career response; **club is not a field on a
+player**, so the line starts at the role.
+
+This is the same schema question as the A5 profile: is a player's club a
+column, or is it derived from the squads they appear in? Derived is more
+honest — people move — but then "current club" needs a rule, probably the club
+of their most recent match.
+
+### 🟡 Milestones have no "when"
+
+The design puts "2 ago" beside each milestone — how many matches back it was
+reached. `milestonesFor` computes only _what_ has been achieved from career
+totals; dating them means walking the innings in order and recording where
+each threshold was crossed. Worth doing: "eighth fifty, two matches ago" is a
+much better sentence than "8 fifties".
+
+### 🟡 Two of the four club leaders are missing
+
+E2 lists most runs, most wickets, best strike rate, and most catches.
+`clubPageFor` ranks only runs and wickets. The other two are two more
+aggregates across the squad.
+
+### 🟡 Career context in the player search
+
+E3 shows "Top order · 812 runs · 33 matches" beside each search result — which
+is precisely what makes picking the _right_ S. Kurien possible, and it is the
+reason the screen exists. Career figures are one request per player and there
+is still no batch endpoint, so only what `PlayerListResponse` already carries
+is shown.
+
+This is now the **third** screen blocked on the same missing endpoint (B4's
+form figures, D-series were fine, E3). Worth building.
+
+### 🔴 "Invite by number so he claims his own career page"
+
+On E3, and the mechanism by which a locally-created player becomes a real
+person with an account. Needs phone auth (which does not exist — see A3) and a
+claim flow (which does not either). Not drawn.
+
+### 🟡 Nothing counts followers, and nothing can be followed
+
+E4 shows "24 following" and a **Follow this match** button. There is no follow
+table and no counter. Neither is drawn — the live page already does what
+following would do, and it says so instead.
+
+### 🟡 No ads on the web scorecard
+
+E4 shows an ad bar. `react-native-google-mobile-ads` is a native SDK; web ads
+would be AdSense, a separate product with its own account and review. Not
+started.
+
+### 🟢 "Get the app" points at /app
+
+There is no Play listing to link to yet, so the pinned bar on E4 points at the
+marketing page. Same gap as the button on `/app` itself.
 
 ---
 

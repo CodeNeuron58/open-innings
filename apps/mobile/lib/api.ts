@@ -32,6 +32,7 @@ import {
   type MatchCardResponse,
   type StartSecondInningsInput,
   type PlayerCareerResponse,
+  type ClubPageResponse,
 } from '@open-innings/shared';
 import type { BallEventInput, MatchState } from '@open-innings/scoring';
 import { API_BASE, MISSING_API_BASE_MESSAGE } from './config';
@@ -229,4 +230,8 @@ export const api = {
    */
   matchCard: (token: string, matchId: string, signal?: AbortSignal) =>
     apiFetch<MatchCardResponse>(`/api/matches/${matchId}/card`, { token, signal }),
+
+  /** A club's public home — squad, recent results, and who leads it. */
+  club: (token: string, teamId: string, signal?: AbortSignal) =>
+    apiFetch<ClubPageResponse>(`/api/teams/${teamId}/club`, { token, signal }),
 };
