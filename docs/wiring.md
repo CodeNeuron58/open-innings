@@ -424,19 +424,24 @@ has nothing to point at, so the row opens the player list instead.
 
 ## Web
 
-### 🔴 The site offers an iOS beta that will never exist
+### 🟢 The iOS claims are gone — decided 2026-08-17
 
-"Join the iOS beta" on `/app`. `apps/mobile/README` records the opposite
-decision: **iOS is not planned at all**, because AGPL-3.0 conflicts with the
-App Store's terms — the reason VLC and GNU Go were pulled.
+iOS was promised in three places: the "Join the iOS beta" button on `/app`,
+"Android today · iOS next" on the landing page, and "the iOS beta, when it
+opens" above the notify form.
 
-That is not a dead button, it is a promise that cannot be kept, and it is the
-one thing on the marketing site that is actively untrue rather than early.
-Left alone because rewriting positioning is a decision, not a wiring job.
-Either iOS is on the roadmap, or the button goes.
+None of them could ever have been true. AGPL-3.0 conflicts with the App
+Store's terms — the reason Apple pulled VLC and GNU Go — so this is a
+licensing wall, not a backlog item. All three are removed. The button now
+points at the source, which is the honest version of the same offer: you can
+have this on any platform you are willing to build it for.
 
-("Get it on Android" now points at the landing page's notify form, which is
-the honest destination while there is no Play listing.)
+`/pricing` still says "build from source for Android or iOS" and that **stays**
+— it is accurate. The conflict is with App Store _distribution_, not with
+compiling the source for your own device.
+
+("Get it on Android" points at the landing page's notify form until there is a
+Play listing.)
 
 ### 🟢 `notFound()` returned HTTP 200 — fixed
 

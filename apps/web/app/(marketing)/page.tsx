@@ -120,8 +120,14 @@ export default function HomePage() {
             <div className="oi-tag-row">
               <span className="tag tag-outline">Free with ads</span>
               <span className="tag tag-accent">₹99/mo ad-free</span>
+              {/* No iOS claim. AGPL-3.0 conflicts with the App Store's
+                  terms — the reason VLC and GNU Go were pulled — so "iOS
+                  next" was a promise this licence cannot keep. Self-hosting
+                  replaces it because it is true and is the actual answer to
+                  "what if I don't want your servers". */}
               <span className="oi-tag-note">
-                Android today &nbsp;·&nbsp; iOS next &nbsp;·&nbsp; no account needed to score
+                Android today &nbsp;·&nbsp; self-host anywhere &nbsp;·&nbsp; no account needed to
+                score
               </span>
             </div>
           </div>
@@ -271,7 +277,7 @@ export default function HomePage() {
           <hr className="oi-rule" />
           <h2 className="oi-h2 oi-h2-sm">Score your next match with it</h2>
           <p className="oi-card-body oi-dim oi-measure">
-            Release notes and the iOS beta, when it opens. No launch countdowns.
+            Release notes when there are some. No launch countdowns.
           </p>
           <NotifyForm source="landing" />
         </div>

@@ -18,12 +18,11 @@ export const metadata: Metadata = {
  * is no Play listing: someone who taps it wants to be told when they can have
  * it, and now they can be.
  *
- * ⚠️ "Join the iOS beta" is still inert, and it is a bigger problem than a
- * dead button. apps/mobile/README records that iOS is not planned at all —
- * AGPL-3.0 conflicts with the App Store's terms, which is why VLC and GNU Go
- * were pulled. Offering a beta for a platform the project has decided against
- * is a promise that cannot be kept. Left as-is rather than quietly rewriting
- * the positioning; see docs/wiring.md.
+ * The second CTA used to be "Join the iOS beta". There is no iOS beta and
+ * there will not be one: AGPL-3.0 conflicts with the App Store's terms, which
+ * is why Apple pulled VLC and GNU Go. It now points at the source, which is
+ * the honest version of the same offer — you can have this on any platform
+ * you are willing to build it for.
  */
 
 const PARTS = [
@@ -102,9 +101,14 @@ export default function AppPage() {
                 <i className="corner br" />
                 Get it on Android
               </Link>
-              <button type="button" className="btn btn-secondary oi-btn-lg oi-btn-plain">
-                Join the iOS beta
-              </button>
+              {/* "Join the iOS beta" was here. Removed rather than wired:
+                  AGPL-3.0 conflicts with the App Store's terms, so there is
+                  no iOS beta to join and there will not be one under this
+                  licence. Building from source for your own device is still
+                  fine — that is on /pricing, and it is true. */}
+              <Link href="/open-source" className="btn btn-secondary oi-btn-lg oi-btn-plain">
+                Read the source
+              </Link>
             </div>
             <div className="oi-figures oi-figures-lg">
               <div>
