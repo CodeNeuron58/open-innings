@@ -44,6 +44,14 @@ export type AuthResponse = {
 /** `GET /api/auth/session` — who am I? */
 export type SessionResponse = {
   user: AuthResponse['user'] | null;
+  /**
+   * Which player on the field this account is, if it has claimed one.
+   *
+   * An account and a player are different things and stay that way: a parent
+   * scoring their kid's match is an account with no player, and every
+   * opponent is a player with no account. Null until somebody says otherwise.
+   */
+  playerId: string | null;
 };
 
 /**

@@ -68,7 +68,7 @@ export class NetworkError extends Error {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string | null;
   signal?: AbortSignal;
@@ -134,6 +134,18 @@ export const api = {
     apiFetch<AuthResponse>('/api/auth/login', { method: 'POST', body }),
 
   logout: (token: string) => apiFetch<unknown>('/api/auth/logout', { method: 'POST', token }),
+
+  /**
+   * Say which player on the field this account is.
+   *
+   * Only a player you created and nobody else has claimed. An account and a
+   * player stay separate things — this is the join, made deliberately.
+   */
+  claimPlayer: (token: string, playerId: string) =>
+    apiFetch<{ playerId: string }>('/api/me/player', { method: 'PUT', body: { playerId }, token }),
+
+  releasePlayer: (token: string) =>
+    apiFetch<{ playerId: null }>('/api/me/player', { method: 'DELETE', token }),
 
   session: (token: string, signal?: AbortSignal) =>
     apiFetch<SessionResponse>('/api/auth/session', { token, signal }),

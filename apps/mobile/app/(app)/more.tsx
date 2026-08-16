@@ -124,7 +124,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 export default function More() {
   const router = useRouter();
-  const { user, isGuest, signOut } = useSession();
+  const { user, isGuest, playerId, signOut } = useSession();
   const { isSupporter } = useSupporter();
   const { keepAwakeWhileScoring, set } = useSettings();
 
@@ -139,15 +139,24 @@ export default function More() {
 
       <ScrollView contentContainerClassName="px-4 pb-8 pt-4">
         {/*
-          The account, not a career.
+          The account, and the player it says it is.
 
-          The design shows this row as a link to openinnings.in/p/a-menon. A
-          user account is not linked to a player row — there is no notion of
-          "this account is this person on the field" — so it shows the account
-          and does not promise a career page it cannot open. See
-          docs/wiring.md.
+          The two stay separate on purpose: a parent scoring their kid's match
+          is an account with no player, and every opponent is a player with no
+          account. When the account has claimed one, this row opens that
+          career page; until then it is just who you are signed in as.
         */}
-        <View className="border-border flex-row items-center gap-3 border p-3">
+        <Pressable
+          accessibilityRole={playerId ? 'button' : 'none'}
+          accessibilityLabel={playerId ? 'Your career page' : displayName}
+          onPress={
+            playerId
+              ? () => router.push({ pathname: '/players/[id]', params: { id: playerId } })
+              : undefined
+          }
+          disabled={!playerId}
+          className="border-border flex-row items-center gap-3 border p-3 active:opacity-70"
+        >
           <View className="border-border h-11 w-11 items-center justify-center border">
             <Text className="text-foreground font-heading text-[15px]">
               {initialsOf(displayName)}
@@ -164,7 +173,8 @@ export default function More() {
               {user?.email ?? (isGuest ? 'Looking around · no account' : 'No account')}
             </Text>
           </View>
-        </View>
+          {playerId ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
+        </Pressable>
 
         {/* The pitch. Inside the app, never in front of a feature. */}
         {!isSupporter ? (
@@ -213,13 +223,17 @@ export default function More() {
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/teams')}
           />
-          {/*
-            "My career" needs to know which player this account is. It does
-            not, so this opens the player list instead of guessing — which is
-            also the only way to reach a career page today.
-          */}
+          {/* Resolves once the account has claimed a player. Until then the
+              player list is where you go to say which one you are. */}
+          {playerId ? (
+            <Row
+              label="My career"
+              onPress={() => router.push({ pathname: '/players/[id]', params: { id: playerId } })}
+            />
+          ) : null}
           <Row
-            label="Players & careers"
+            label={playerId ? 'Players & careers' : 'Players & careers'}
+            value={playerId ? undefined : isGuest ? undefined : 'Say which is you'}
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/players')}
           />

@@ -70,18 +70,19 @@ check looks completely fine until someone finds it.
 Local scoring is still worth building; it is the same project as offline-first
 and should be done once, after the deadline.
 
-### 🟡 Profile fields have nowhere to go
+### 🟡 A5's profile fields still do not save
 
-A5 collects name, role, batting hand, bowling style and club. `players` carries
-a name, a role and the two styles — but:
+An account **can** now say which player it is — `players.user_id` is set by
+`PUT /api/me/player`, the session reports it, and "My career" resolves. That
+was the blocking half.
 
-- a player row is **not linked to a user account**; there is no notion of
-  "this account is this player"
-- there is no club field on a player
-- the career page is addressed by **UUID**, and A5 promises a slug
+What A5 still cannot do is save name, role, batting hand and bowling style,
+because it is an auth screen that writes to a player row it has not chosen
+yet. Two remaining gaps behind it: there is no club field on a player, and the
+career page is addressed by UUID while A5 promises a slug.
 
-Persisting any of it needs a schema change and a decision about what a profile
-_is_: the account, a player row, or both joined.
+The account/player split stays deliberate. A parent scoring their kid's match
+is an account with no player; every opponent is a player with no account.
 
 ### 🟡 Career URL is a slug in the design, a UUID in the code
 
@@ -314,9 +315,13 @@ form figures, D-series were fine, E3). Worth building.
 
 ### 🔴 "Invite by number so he claims his own career page"
 
-On E3, and the mechanism by which a locally-created player becomes a real
-person with an account. Needs phone auth (which does not exist — see A3) and a
-claim flow (which does not either). Not drawn.
+On E3. **Half of it exists now**: `PUT /api/me/player` is the claim flow, and
+an account can attach itself to a player row.
+
+What is missing is the invite — sending someone a link or a code that lets
+_them_ claim a player you created, rather than you claiming it yourself. That
+needs a signed invite token and a way to deliver it, and the design delivers
+it by SMS, which is deferred with the rest of phone auth.
 
 ### 🟢 Following became watching — decided 2026-08-17
 
@@ -423,11 +428,18 @@ Worth ranking them, because they are not equal:
 | Sound on each ball    | Needs audio plus a store. Genuinely useful for eyes-up scoring.                                                                        |
 | Live match links      | Not a switch. Scorecards are public and permanent by design; turning it off would break every link already sent. Shown as "always on". |
 
-### 🟡 "My career" cannot resolve
+### 🟢 "My career" resolves — decided 2026-08-17
 
-F1's profile row shows the account, not a career page, because a user account
-is not linked to a player row — the same gap as A5. Until it is, "my career"
-has nothing to point at, so the row opens the player list instead.
+`players.user_id` existed from the first schema and nothing ever set it. Now
+`PUT /api/me/player` claims a player as yourself from the players list ("this
+is me"), the session carries `playerId`, and F1's profile row and a "My
+career" entry both open that career page.
+
+Only a player you created, and only one nobody else has claimed — otherwise
+one account could inherit another person's whole career. One player per
+account: claiming a second releases the first, in a transaction. Tapping the
+star again releases it, because the common way to get this wrong is tapping
+the row above the one you meant.
 
 ---
 

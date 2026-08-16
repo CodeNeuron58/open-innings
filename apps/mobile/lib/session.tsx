@@ -43,6 +43,15 @@ type SessionState = {
    * token for every mutation; the flag here only decides what to draw.
    */
   isGuest: boolean;
+  /**
+   * Which player on the field this account is, if it has claimed one.
+   *
+   * Null for an account that has not said — a parent scoring their kid's
+   * match never will, and that is a legitimate way to use this app.
+   */
+  playerId: string | null;
+  /** Refresh it after claiming or releasing, without a full sign-in. */
+  refreshPlayer: () => Promise<void>;
   /** True until the stored token has been checked against the server. */
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -57,6 +66,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [token, setToken] = useState<string | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Restore on launch.
@@ -78,6 +88,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (result.user) {
           setToken(stored);
           setUser(result.user);
+          setPlayerId(result.playerId);
         } else {
           // Revoked or expired server-side — don't keep a dead credential.
           await SecureStore.deleteItemAsync(TOKEN_KEY);
@@ -105,7 +116,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setIsGuest(false);
     setToken(auth.token);
     setUser(auth.user);
+    // A fresh sign-in does not know yet; the session call fills it in.
+    void api
+      .session(auth.token)
+      .then((s) => setPlayerId(s.playerId))
+      .catch(() => {});
   }, []);
+
+  const refreshPlayer = useCallback(async () => {
+    if (!token) return;
+    try {
+      setPlayerId((await api.session(token)).playerId);
+    } catch {
+      /* best effort — the claim already succeeded server-side */
+    }
+  }, [token]);
 
   const continueAsGuest = useCallback(async () => {
     await SecureStore.setItemAsync(GUEST_KEY, '1');
@@ -136,6 +161,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
     setIsGuest(false);
+    setPlayerId(null);
 
     if (current) {
       try {
@@ -147,8 +173,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const value = useMemo<SessionState>(
-    () => ({ user, token, isGuest, isLoading, signIn, signUp, continueAsGuest, signOut }),
-    [user, token, isGuest, isLoading, signIn, signUp, continueAsGuest, signOut],
+    () => ({
+      user,
+      token,
+      isGuest,
+      playerId,
+      refreshPlayer,
+      isLoading,
+      signIn,
+      signUp,
+      continueAsGuest,
+      signOut,
+    }),
+    [
+      user,
+      token,
+      isGuest,
+      playerId,
+      refreshPlayer,
+      isLoading,
+      signIn,
+      signUp,
+      continueAsGuest,
+      signOut,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

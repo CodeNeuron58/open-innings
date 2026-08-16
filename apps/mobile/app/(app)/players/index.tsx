@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { createPlayerSchema, type PlayerSummary } from '@open-innings/shared';
 import { api } from '../../../lib/api';
+import { useSession } from '../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
 
@@ -21,6 +22,7 @@ export default function Players() {
   );
 
   const mutation = useApiMutation();
+  const { playerId, refreshPlayer } = useSession();
   const [adding, setAdding] = useState(false);
   const [fullName, setFullName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -39,6 +41,21 @@ export default function Players() {
       setAdding(false);
       await refresh();
     }
+  }
+
+  /*
+   * Claim a player as yourself, or let go of one.
+   *
+   * Tapping the star again releases it, because the common way to get this
+   * wrong is tapping the row above the one you meant — and an account stuck
+   * to the wrong career with no way back would be a support request.
+   */
+  async function claim(player: PlayerSummary) {
+    const mine = player.id === playerId;
+    const done = await mutation.run<{ playerId: string | null }>((token) =>
+      mine ? api.releasePlayer(token) : api.claimPlayer(token, player.id),
+    );
+    if (done !== null) await refreshPlayer();
   }
 
   if (isLoading) return <LoadingScreen />;
@@ -98,7 +115,9 @@ export default function Players() {
         ListEmptyComponent={
           <EmptyState onAdd={() => setAdding(true)} visible={!adding && !error} />
         }
-        renderItem={({ item }) => <PlayerRow player={item} />}
+        renderItem={({ item }) => (
+          <PlayerRow player={item} isMe={item.id === playerId} onClaim={() => void claim(item)} />
+        )}
       />
 
       <View className="border-border border-t px-5 py-3">
@@ -115,24 +134,49 @@ export default function Players() {
  * the natural doorway to it — a name here is a link to everything that person
  * has ever done.
  */
-function PlayerRow({ player }: { player: PlayerSummary }) {
+function PlayerRow({
+  player,
+  isMe,
+  onClaim,
+}: {
+  player: PlayerSummary;
+  isMe: boolean;
+  onClaim: () => void;
+}) {
   const router = useRouter();
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${player.fullName} — career record`}
+      accessibilityLabel={`${player.fullName} — career record${isMe ? ', this is you' : ''}`}
       onPress={() => router.push(`/players/${player.id}`)}
       className="border-border flex-row items-center justify-between gap-3 border px-4 py-3 active:opacity-70"
     >
       <Text className="text-foreground flex-1 text-base" numberOfLines={1}>
         {player.fullName}
       </Text>
-      {player.role ? (
-        <Text className="text-muted-foreground font-heading shrink-0 text-[11px] uppercase tracking-[1.2px]">
-          {player.role.replace(/_/g, ' ')}
+
+      {/*
+        "This is me" — the only way an account and a player get joined.
+        Deliberately a choice rather than an assumption: most people in this
+        list are opponents and team-mates, not the person holding the phone.
+      */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={isMe ? `${player.fullName} is you` : `Say ${player.fullName} is you`}
+        onPress={onClaim}
+        hitSlop={8}
+        className="shrink-0 px-1 py-1 active:opacity-60"
+      >
+        <Text
+          className={`font-heading text-[10px] uppercase tracking-[1.2px] ${
+            isMe ? 'text-steel-700' : 'text-neutral-500'
+          }`}
+        >
+          {isMe ? '★ You' : 'This is me'}
         </Text>
-      ) : null}
+      </Pressable>
+
       <Text className="text-steel-700 shrink-0 text-base">›</Text>
     </Pressable>
   );

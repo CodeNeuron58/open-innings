@@ -643,6 +643,53 @@ async function main() {
     );
     ok(missingSummary.status === 404, 'summary for an unknown match → 404', missingSummary);
 
+    // ── 7b2. Claiming a player ──────────────────────────────────────────────
+    /*
+     * An account saying which player on the field it is.
+     *
+     * The column existed from the first schema and nothing ever set it, so
+     * "my career" had nowhere to point. What is worth asserting is the
+     * refusals: claiming is how one account could otherwise inherit another
+     * person's entire career.
+     */
+    console.log('claiming a player');
+    const beforeClaim = await call('GET', '/api/auth/session');
+    ok(beforeClaim.json.playerId === null, 'a fresh account claims nobody', beforeClaim.json);
+
+    const claim = await call('PUT', '/api/me/player', { playerId: createdPlayerIds[0] });
+    ok(claim.status === 200, 'claim a player you created → 200', claim);
+
+    const afterClaim = await call('GET', '/api/auth/session');
+    ok(
+      afterClaim.json.playerId === createdPlayerIds[0],
+      'the session reports the claimed player',
+      afterClaim.json.playerId,
+    );
+
+    // Tapping twice is not an error.
+    const reclaim = await call('PUT', '/api/me/player', { playerId: createdPlayerIds[0] });
+    ok(reclaim.status === 200, 'claiming the same player again → 200', reclaim);
+
+    // One player per account: the second claim releases the first, rather
+    // than leaving an account pointing at two careers.
+    await call('PUT', '/api/me/player', { playerId: createdPlayerIds[1] });
+    const afterSecond = await call('GET', '/api/auth/session');
+    ok(
+      afterSecond.json.playerId === createdPlayerIds[1],
+      'claiming a second player replaces the first',
+      afterSecond.json.playerId,
+    );
+
+    const notMine = await call('PUT', '/api/me/player', {
+      playerId: '00000000-0000-0000-0000-000000000000',
+    });
+    ok(notMine.status === 400, 'a player you did not create cannot be claimed', notMine);
+
+    const released = await call('DELETE', '/api/me/player');
+    ok(released.status === 200, 'release → 200', released);
+    const afterRelease = await call('GET', '/api/auth/session');
+    ok(afterRelease.json.playerId === null, 'released, and the session says so', afterRelease.json);
+
     // ── 7c. Watching ────────────────────────────────────────────────────────
     /*
      * Presence, not followers. The value of this number is that it is true,
