@@ -5,9 +5,12 @@
  * this app mid-afternoon is to get back to the one you are scoring; finished
  * ones below as a record.
  *
- * Two things in the design are not wired and are marked where they appear:
- * the "synced" timestamp (there is no offline queue to be synced from) and
- * the follower count (nobody can follow a match yet).
+ * The design's "synced" timestamp is not drawn: there is no offline queue, so
+ * every ball is already on the server and a sync time would report on a thing
+ * that does not exist.
+ *
+ * Its follower count is drawn as a **watching** count, which is the true
+ * version — people reading the public scorecard right now, not subscribers.
  */
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,9 +49,16 @@ function LiveMatch({ match, onPress }: { match: MatchRow; onPress: () => void })
           Live
         </Text>
         {/*
-          Not wired: nothing counts followers yet. Left out rather than shown
-          as zero, which would read as "nobody is watching".
+          "Watching", not "following" — this counts people reading the public
+          scorecard right now, and nobody subscribes to anything. Hidden below
+          two, because "1 watching" is usually the scorer's own second device
+          and "0 watching" is discouraging on a match nobody has shared yet.
         */}
+        {match.watching >= 2 ? (
+          <Text className="text-foreground/55 font-heading ml-auto text-[10px] uppercase tracking-[1.3px]">
+            {match.watching} watching
+          </Text>
+        ) : null}
       </View>
 
       <Text className="text-foreground font-heading mt-3 text-[17px]" numberOfLines={1}>

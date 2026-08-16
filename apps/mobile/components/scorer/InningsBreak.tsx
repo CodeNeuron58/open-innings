@@ -26,6 +26,7 @@ export function InningsBreak({
   nameOf,
   battingSquad,
   bowlingSquad,
+  watching,
   onStart,
   onUndo,
   busy,
@@ -39,6 +40,8 @@ export function InningsBreak({
   nameOf: (playerId: string) => string;
   battingSquad: { id: string; fullName: string }[];
   bowlingSquad: { id: string; fullName: string }[];
+  /** Readers on the public scorecard right now. */
+  watching: number;
   onStart: (openers: {
     openingStrikerId: string;
     openingNonStrikerId: string;
@@ -211,11 +214,17 @@ export function InningsBreak({
             ) : null}
 
             {/*
-              The design puts "10 minute break · 24 people following this
-              match" here. Neither is real — there is no break timer and
-              nothing counts followers — so neither is drawn. See
-              docs/wiring.md.
+              The design says "10 minute break · 24 people following this
+              match". No break timer exists, and nobody follows anything — but
+              people reading the scorecard right now is real, and it is the
+              half of that line worth showing to someone who has just spent an
+              hour tapping.
             */}
+            {watching >= 2 ? (
+              <Text className="text-steel-700 font-heading pt-6 text-[11px] uppercase tracking-[1.4px]">
+                {watching} watching this match
+              </Text>
+            ) : null}
           </ScrollView>
 
           <View className="border-border border-t px-4 pb-3 pt-3">

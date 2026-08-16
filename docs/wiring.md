@@ -142,12 +142,13 @@ A season filter needs a season, and a picker showing nothing for everyone who
 has not played since January is worse than one showing a career. Revisit if
 "this season" turns out to be what captains actually want.
 
-### 🟡 Followers and sync status
+### 🟡 The sync timestamp
 
-B1 shows "24 following" on a live match and "SYNCED 15:41" in the header.
-Nothing counts followers, and there is no offline queue for a sync time to
-describe. Both omitted rather than shown as zero — "0 following" reads as
-nobody watching, which is a different claim from "we do not count yet".
+B1 shows "SYNCED 15:41". There is no offline queue, so every ball is already
+on the server and a sync time would report on a thing that does not exist. It
+comes back with offline-first.
+
+The follower count beside it is now a **watching** count — see below.
 
 ### 🟡 B1 itself has no tab bar
 
@@ -196,10 +197,10 @@ hard block.
 If the quota should be real, it belongs in the engine with the rest of the
 laws, not in a screen.
 
-### 🟡 "10 minute break" and the follower count
+### 🟡 "10 minute break"
 
-C4 shows both. There is no break timer and nothing counts followers, so
-neither is drawn — same call as on B1.
+C4 shows a break timer. There isn't one, so it is not drawn. The follower
+count beside it is now a watching count.
 
 ### 🟢 The full card is in-app now
 
@@ -317,11 +318,24 @@ On E3, and the mechanism by which a locally-created player becomes a real
 person with an account. Needs phone auth (which does not exist — see A3) and a
 claim flow (which does not either). Not drawn.
 
-### 🟡 Nothing counts followers, and nothing can be followed
+### 🟢 Following became watching — decided 2026-08-17
 
-E4 shows "24 following" and a **Follow this match** button. There is no follow
-table and no counter. Neither is drawn — the live page already does what
-following would do, and it says so instead.
+Three designs showed a follower count and E4 had a **Follow this match**
+button. Following was not built, and deliberately: a subscription needs push
+notifications to mean anything, OneSignal is not set up, and a follow button
+without them is a bookmark that does nothing.
+
+But the reason those counts were in the designs is real — social proof for the
+scorer. So what exists is **presence**: `match_watchers` counts distinct
+readers of the public scorecard in the last two minutes, heartbeated by the
+polling the live page already did.
+
+The label everywhere is "watching", never "following". They are different
+claims and only one is supported. Hidden below two readers, because "1
+watching" is usually the scorer's own second device.
+
+A real follow — with notifications — is still worth building, and is a
+different project that starts with OneSignal.
 
 ### 🟡 No ads on the web scorecard
 

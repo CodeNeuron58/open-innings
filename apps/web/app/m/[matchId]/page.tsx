@@ -14,6 +14,7 @@ import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';
 import { LiveRefresh } from '@/components/scorecard/LiveRefresh';
+import { countWatching } from '@/lib/services/watching';
 import { BallChip } from '@/components/BallChip';
 import { Logo, LiveBadge, Badge, ButtonLink } from '@/components/ui';
 
@@ -108,6 +109,10 @@ export default async function PublicScorecardPage({ params }: Props) {
   const rr = inn.ballsBowled > 0 ? ((inn.runs / inn.ballsBowled) * 6).toFixed(2) : '0.00';
 
   const isLive = inn.status === 'in_progress';
+
+  // Presence, not subscription — see lib/services/watching.ts. Only asked for
+  // while a match is live; a finished scorecard has nothing to watch.
+  const watching = isLive ? await countWatching(match.id) : 0;
   const totalBalls = match.oversPerInnings * 6;
   const ballsLeft = Math.max(0, totalBalls - inn.ballsBowled);
   const runsNeeded = inn.target !== undefined ? Math.max(0, inn.target - inn.runs) : undefined;
@@ -116,7 +121,7 @@ export default async function PublicScorecardPage({ params }: Props) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      {isLive && <LiveRefresh />}
+      {isLive && <LiveRefresh matchId={match.id} />}
 
       {/* Public top bar */}
       <header className="border-border bg-background/80 border-b backdrop-blur">
@@ -291,6 +296,15 @@ export default async function PublicScorecardPage({ params }: Props) {
           page already does what following would do.
         */}
         <div className="border-border mt-6 rounded-lg border border-dashed p-4 text-center">
+          {/* "Watching", not "following" — this counts presence, not a
+              subscription. Hidden below two so it never reads as "you are the
+              only person here", which is discouraging and usually just means
+              the count has not warmed up. */}
+          {isLive && watching >= 2 ? (
+            <p className="text-primary mb-2 text-xs font-semibold uppercase tracking-widest">
+              {watching} watching now
+            </p>
+          ) : null}
           <p className="text-sm font-medium">No app, no account.</p>
           <p className="text-muted-foreground mt-1 text-xs">
             {isLive

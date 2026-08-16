@@ -145,6 +145,7 @@ export default function Scorer() {
         nameOf={nameOf}
         battingSquad={data.nextBattingSquad}
         bowlingSquad={data.nextBowlingSquad}
+        watching={data.watching}
         // Both go through mutation.run so a failure lands in `mutation.error`
         // and is rendered, rather than becoming an unhandled rejection.
         onStart={async (openers) => {

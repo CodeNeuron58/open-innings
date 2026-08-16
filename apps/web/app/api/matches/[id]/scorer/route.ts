@@ -17,6 +17,7 @@ import { HTTP } from '@open-innings/shared';
 import { loadMatchInProgress, getTeam, getTeamMembers, getInnings } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { handle } from '@/lib/api/respond';
+import { countWatching } from '@/lib/services/watching';
 import { notFound, unauthorized } from '@/lib/services/errors';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -114,6 +115,7 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
       nextBattingSquad: awaitingSecondInnings ? bowlingSquad : [],
       nextBowlingSquad: awaitingSecondInnings ? battingSquad : [],
       firstInningsRuns: firstInnings?.runs ?? null,
+      watching: await countWatching(id),
     },
     { status: HTTP.ok },
   );

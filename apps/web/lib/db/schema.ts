@@ -515,6 +515,31 @@ export const notifySignups = pgTable(
   }),
 );
 
+/**
+ * Who is watching a match right now.
+ *
+ * Presence, not subscription. See the migration for why this is not a follow
+ * table: a follow button without push notifications is a bookmark, and what
+ * the designs wanted from that number was social proof for the scorer.
+ *
+ * `watcherKey` is an anonymous id a client generates and keeps. It identifies
+ * a browser or a device, never a person, and is never joined to `users`.
+ */
+export const matchWatchers = pgTable(
+  'match_watchers',
+  {
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id, { onDelete: 'cascade' }),
+    watcherKey: text('watcher_key').notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.matchId, t.watcherKey] }),
+    recentIdx: index('match_watchers_recent_idx').on(t.matchId, t.lastSeenAt),
+  }),
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Relations (for Drizzle's relational query API)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -619,6 +644,7 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type Tournament = typeof tournaments.$inferSelect;
 export type NewTournament = typeof tournaments.$inferInsert;
+export type MatchWatcher = typeof matchWatchers.$inferSelect;
 export type NotifySignup = typeof notifySignups.$inferSelect;
 export type NewNotifySignup = typeof notifySignups.$inferInsert;
 

@@ -643,6 +643,41 @@ async function main() {
     );
     ok(missingSummary.status === 404, 'summary for an unknown match → 404', missingSummary);
 
+    // ── 7c. Watching ────────────────────────────────────────────────────────
+    /*
+     * Presence, not followers. The value of this number is that it is true,
+     * so what is worth asserting is that it counts *distinct* readers: a
+     * heartbeat every ten seconds must update a row, not add one, or a single
+     * person reading for a minute would show as six.
+     */
+    console.log('watching');
+    const beat = (key: string) =>
+      call('POST', `/api/matches/${matchId}/watching`, { watcherKey: key }, false);
+
+    const firstBeat = await beat('watcher-aaaaaaaa');
+    ok(firstBeat.status === 200, 'POST watching → 200, no account needed', firstBeat);
+    ok(firstBeat.json.watching === 1, 'one reader counts as one', firstBeat.json.watching);
+
+    const repeatBeat = await beat('watcher-aaaaaaaa');
+    ok(
+      repeatBeat.json.watching === 1,
+      'the same reader beating again is still one',
+      repeatBeat.json.watching,
+    );
+
+    const secondBeat = await beat('watcher-bbbbbbbb');
+    ok(secondBeat.json.watching === 2, 'a second reader counts as two', secondBeat.json.watching);
+
+    const shortKey = await beat('nope');
+    ok(shortKey.status === 400, 'a too-short watcher key → 400', shortKey);
+
+    const listWithWatching = await call('GET', '/api/matches');
+    ok(
+      listWithWatching.json.matches?.some((m: Json) => m.id === matchId && m.watching === 2),
+      'the match list carries the watching count',
+      listWithWatching.json.matches?.find((m: Json) => m.id === matchId)?.watching,
+    );
+
     // ── 8b. The club page ───────────────────────────────────────────────────
     console.log('club page');
     const club = await call('GET', `/api/teams/${teamAId}/club`);

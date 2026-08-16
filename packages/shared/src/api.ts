@@ -71,6 +71,13 @@ export type MatchSummary = {
   summary: string | null;
   startedAt: string | null;
   createdAt: string;
+  /**
+   * How many people are reading this match's public scorecard right now.
+   *
+   * Presence, not followers — nobody subscribes to anything. Zero is a real
+   * answer and usually the right one for a match nobody has shared yet.
+   */
+  watching: number;
 };
 
 /** `GET /api/matches` */
@@ -186,6 +193,8 @@ export type ScorerResponse = {
   nextBattingSquad: ScorerPlayer[];
   nextBowlingSquad: ScorerPlayer[];
   firstInningsRuns: number | null;
+  /** Readers on the public scorecard right now. See MatchSummary.watching. */
+  watching: number;
 };
 
 /** `POST`/`DELETE /api/matches/[id]/ball` — the replayed state after the change. */
