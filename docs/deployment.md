@@ -21,10 +21,19 @@ connections (`apps/web/lib/db/client.ts`), not a serverless architecture.
 ## Why not the obvious alternatives
 
 - **Vercel free (Hobby) tier** — explicitly restricted to personal,
-  non-commercial use by a single developer. A donations-funded open-source
-  project accepting money for server costs sits in a gray zone against
-  that, independent of whether traffic would ever hit the 100GB/month
-  bandwidth cap. Not worth the platform risk.
+  non-commercial use by a single developer. **Updated 2026-08-16: this is
+  no longer a gray area.** The project now serves AdMob inventory and sells
+  a supporter tier, which is commercial by any reading of those terms. A
+  suspension mid-hackathon would be unrecoverable. Independent of that,
+  Hobby is serverless: this app is a long-running Node process with pooled
+  `postgres.js` connections, so it would need a connection pooler bolted on,
+  and Vercel hosts no database anyway.
+- **Render / Railway / Fly free tiers** — Render's free web services sleep
+  after 15 minutes and cold-start in ~50s, which breaks the one thing that
+  has to be instant: a shared scorecard link opened by someone who has never
+  heard of us. Render's free Postgres also expires outright. Railway's free
+  tier is gone (trial credit, then paid); Fly's was withdrawn in 2024.
+  See `hosting.md` for the full comparison.
 - **Neon / Supabase free-tier Postgres** — both cap free storage around
   500MB, which this app's own growth curve reaches well before "1,000
   users" sounds like it should (see sizing math below). Supabase also
