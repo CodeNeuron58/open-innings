@@ -11,6 +11,32 @@ const nextConfig: NextConfig = {
   // is consumed by Next.js here and by Metro in apps/mobile.
   transpilePackages: ['@open-innings/scoring', '@open-innings/shared'],
 
+  /**
+   * One canonical hostname.
+   *
+   * `www.openinnings.com` and `openinnings.com` both resolve to this app, so
+   * without this every page exists at two addresses — which splits search
+   * ranking, and means a shared scorecard link can arrive in two forms that
+   * look like different pages.
+   *
+   * The apex wins rather than www, and that is not a style preference:
+   * AdMob crawls `app-ads.txt` from the **bare** domain named in the Play
+   * listing, and it has to be reachable at exactly `openinnings.com/app-ads.txt`.
+   *
+   * Permanent, because the choice is not going to change and a 308 lets
+   * browsers and crawlers stop asking.
+   */
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.openinnings.com' }],
+        destination: 'https://openinnings.com/:path*',
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
