@@ -41,14 +41,6 @@
       "output": "static"
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "2.3.0"
-          }
-        }
-      ],
       "expo-router",
       "expo-secure-store",
       [
@@ -56,7 +48,8 @@
         {
           "androidAppId": "ca-app-pub-8954748975838698~4371071953"
         }
-      ]
+      ],
+      "expo-splash-screen"
     ],
     "experiments": {
       "typedRoutes": true
