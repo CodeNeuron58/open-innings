@@ -31,7 +31,8 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://openinnings.com",
-        "NODE_OPTIONS": "--max-old-space-size=4096"
+        "NODE_OPTIONS": "--max-old-space-size=4096",
+        "EXPO_PUBLIC_ADS_MODE": "live"
       }
     }
   },

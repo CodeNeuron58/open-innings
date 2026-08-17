@@ -7,7 +7,7 @@
  * every ID in the app resolves through `adUnit()`, which hands back Google's
  * public test unit unless this is a release build.
  *
- * `__DEV__` is false in `preview` and `production` EAS builds and true under
+ * ⚠️ `__DEV__` is false in `preview` and `production` EAS builds and true under
  * Metro, which is the line we want: testers on a preview APK see real ads,
  * whoever is running `expo start` never does.
  *
@@ -45,7 +45,21 @@ const TEST_UNITS: Record<Placement, string> = {
  * in a release build — so callers render nothing rather than an error. An
  * empty slot is a missing few pixels; a wrong slot is a policy strike.
  */
+/**
+ * Live ads are **opt-in**, and that direction is the whole point.
+ *
+ * `__DEV__` alone was not enough: it is false in a `preview` build too, so a
+ * build made purely to hand to testers was serving real ads against the real
+ * publisher id. Testers tap things — that is what testing is — and clicks on
+ * your own inventory are what gets an AdMob account suspended.
+ *
+ * So the default is test units, and only a build that explicitly says
+ * `EXPO_PUBLIC_ADS_MODE=live` gets the real ones. Forgetting to set it costs
+ * nothing; forgetting to unset the opposite arrangement costs the account.
+ */
+const LIVE_ADS_ENABLED = process.env.EXPO_PUBLIC_ADS_MODE === 'live';
+
 export function adUnit(placement: Placement): string | null {
-  if (__DEV__) return TEST_UNITS[placement];
+  if (__DEV__ || !LIVE_ADS_ENABLED) return TEST_UNITS[placement];
   return LIVE_UNITS[placement] || null;
 }

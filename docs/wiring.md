@@ -357,6 +357,17 @@ marketing page. Same gap as the button on `/app` itself.
 
 ## Monetisation
 
+### 🟢 Live ads are opt-in per build profile
+
+`__DEV__` was the only guard, and it is false in a **preview** build — so the
+APK built purely to hand to testers was serving real ads against the real
+publisher id. Testers tap things; clicks on your own inventory suspend
+accounts.
+
+Live units now require `EXPO_PUBLIC_ADS_MODE=live`, which only the
+`production` profile sets. The default is test units, so forgetting to set it
+costs nothing and there is no arrangement where forgetting costs the account.
+
 ### 🟡 AdMob renders — the removal pitch does not
 
 `AdBar` mounts a real `BannerAd` on the card, share and player-card screens,
