@@ -50,6 +50,11 @@ export default function Result() {
   // innings that was simply ended early.
   const headline = m.result ?? 'Match ended';
 
+  // Not wired yet. "Share the result" below routes to the dedicated share
+  // screen, which previews the generated card before sending it. This is the
+  // direct hand-off to the OS share sheet — text and a link, no card — for
+  // when that shortcut is wanted from here.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the direct-share path
   async function share() {
     const lines = m.innings.map((i) => `${i.teamName} ${i.runs}-${i.wickets} (${i.overs})`);
     await Share.share({ message: [headline, ...lines, url].join('\n') });

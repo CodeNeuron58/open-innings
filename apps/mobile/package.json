@@ -4,6 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "lint": "eslint .",
     "start": "expo start",
     "android": "expo run:android",
     "prebuild": "expo prebuild",
@@ -43,7 +44,10 @@
     "@babel/core": "^7.29.0",
     "@types/react": "^19.1.1",
     "babel-preset-expo": "~57.0.0",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "^57.0.1",
     "tailwindcss": "^3.4.13",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8"
   }
 }

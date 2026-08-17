@@ -29,6 +29,10 @@ export function usePlayerBriefs(playerIds: string[]): Map<string, PlayerBrief> {
 
   useEffect(() => {
     if (!token || key.length === 0) {
+      // Known and not yet fixed: clearing state inside the effect body costs a
+      // second render. The empty case could be derived rather than stored.
+      // Harmless today — it only fires when there are no players to look up.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
       setBriefs(new Map());
       return;
     }

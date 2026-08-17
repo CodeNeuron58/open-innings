@@ -9,7 +9,7 @@
  * Reversed steel field — the same one the score plate uses — so the first
  * thing anyone sees is the app's one heavy object.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Redirect, Stack } from 'expo-router';
@@ -22,7 +22,13 @@ export default function Index() {
   // A determinate-looking sweep rather than a spinner. It is honest about
   // being indeterminate — it never claims a percentage — but it reads as
   // progress instead of a stall.
-  const sweep = useRef(new Animated.Value(0)).current;
+  //
+  // `useState` with a lazy initialiser rather than the more familiar
+  // `useRef(new Animated.Value(0)).current`. Both construct the value exactly
+  // once, but reading `.current` during render is what that idiom does, and a
+  // ref is not guaranteed to be stable across a render that React discards.
+  // The interpolations below are read during render, so this has to be state.
+  const [sweep] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const loop = Animated.loop(

@@ -22,8 +22,8 @@ import {
   resolveBattingSides,
   type TeamListResponse,
   type TeamDetailResponse,
+  type PlayerBrief,
 } from '@open-innings/shared';
-import type { PlayerBrief } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { battingLine, bowlingLine, usePlayerBriefs } from '../../../lib/briefs';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
@@ -229,6 +229,11 @@ export default function NewMatch() {
     useCallback(() => {
       void battingSquad.refresh();
       void bowlingSquad.refresh();
+      // Depending on `.refresh` rather than the whole query object is
+      // deliberate. `refresh` is a useCallback over `run` and is stable; the
+      // query object around it is a fresh literal on every render, so taking
+      // the dependency the rule asks for would re-run this on each one.
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refresh is stable, the object around it is not
     }, [battingSquad.refresh, bowlingSquad.refresh]),
   );
 

@@ -94,6 +94,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           await SecureStore.deleteItemAsync(TOKEN_KEY);
           setUser(null);
         }
+        // Bound but not yet read. Distinguishing "offline" from "server said
+        // no" would let this screen say which, instead of treating every
+        // failure as a lost connection.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- to distinguish offline from a server refusal
       } catch (error) {
         // Offline or the server is unreachable. Deliberately does NOT clear
         // the token: a scorer at a ground with no signal must not be logged

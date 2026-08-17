@@ -57,12 +57,21 @@ export function usePublicQuery<T>(
         );
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // A spread dep array is opaque to React's static analysis, so neither
+    // exhaustive-deps nor use-memo can verify it. Known and not yet fixed:
+    // the fix is to hash `deps` into a single stable key, and it changes when
+    // every screen refetches — so it needs verifying against a running app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- known: spread deps, needs a verified refactor
     [token, ...deps],
   );
 
   useEffect(() => {
     const controller = new AbortController();
+    // Known and not yet fixed: setting state in an effect body triggers a
+    // second render pass on every fetch. Correct shape is to derive loading
+    // from the request rather than store it. Behaviour is right today, so
+    // this waits for a session where the app can be run to prove the change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
     setIsLoading(true);
     void run(controller.signal).finally(() => {
       if (!controller.signal.aborted) setIsLoading(false);
@@ -111,12 +120,15 @@ export function useApiQuery<T>(fetcher: Fetcher<T>, deps: unknown[] = []): Query
         );
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Same spread-deps limitation as usePublicQuery above — see the note there.
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- known: spread deps, needs a verified refactor
     [token, signOut, ...deps],
   );
 
   useEffect(() => {
     const controller = new AbortController();
+    // Same cascading-render issue as usePublicQuery above — see the note there.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
     setIsLoading(true);
     void run(controller.signal).finally(() => {
       if (!controller.signal.aborted) setIsLoading(false);

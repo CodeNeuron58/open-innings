@@ -13,10 +13,9 @@
  * finishing setup is the thing they are getting for it.
  */
 import { useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import { ScrollView, Text, TextInput, View, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable } from 'react-native';
 import { Button, Kicker } from '../../components/ui';
 
 const ROLES = ['Batter', 'Bowler', 'All-rounder', 'Keeper'] as const;

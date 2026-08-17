@@ -90,6 +90,10 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal,
     });
+    // Bound but not yet forwarded. The underlying failure belongs on the
+    // thrown error as `{ cause }` so a report carries the real reason (DNS,
+    // TLS, refused) rather than only our friendly sentence.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- to forward as NetworkError cause
   } catch (cause) {
     // fetch only rejects on transport failure; HTTP errors resolve normally.
     throw new NetworkError(

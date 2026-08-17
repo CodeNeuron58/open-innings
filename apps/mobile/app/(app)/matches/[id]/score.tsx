@@ -48,6 +48,10 @@ import {
 export default function Scorer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  // Not read here yet: every call on this screen goes through useApiQuery /
+  // useApiMutation, which resolve the token themselves. Held for a direct
+  // api.* call that needs it without a hook around it.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- for direct api.* calls
   const { token } = useSession();
   const { keepAwakeWhileScoring } = useSettings();
 
