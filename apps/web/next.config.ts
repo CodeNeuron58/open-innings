@@ -34,6 +34,29 @@ const nextConfig: NextConfig = {
         destination: 'https://openinnings.com/:path*',
         permanent: true,
       },
+      /*
+       * Plain HTTP → HTTPS.
+       *
+       * Nothing else does this. Next does not redirect by default, and
+       * Cloudflare cannot help because the DNS records are unproxied — which
+       * they must be, or Heroku could not issue the certificate. So typing
+       * "openinnings.com" reached the app unencrypted and the browser said
+       * "Not secure", which on a page carrying a login form is not a cosmetic
+       * problem.
+       *
+       * Heroku terminates TLS at the router and forwards the original scheme
+       * in `x-forwarded-proto`, so that header is the only way the dyno can
+       * know. It is absent locally, so this never fires in development.
+       *
+       * Lands on the apex rather than echoing the host back, which also
+       * canonicalises anyone arriving on the herokuapp hostname.
+       */
+      {
+        source: '/:path*',
+        has: [{ type: 'header', key: 'x-forwarded-proto', value: 'http' }],
+        destination: 'https://openinnings.com/:path*',
+        permanent: true,
+      },
     ];
   },
 
@@ -43,6 +66,22 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          /*
+           * Tell browsers to stop trying HTTP at all.
+           *
+           * The redirect above fixes the request that has already been sent
+           * in the clear; this stops the next one being sent that way. Both
+           * are needed — a redirect still leaks the first request.
+           *
+           * One year, subdomains included. Deliberately **not** `preload`:
+           * that bakes the domain into a list shipped inside browsers, and
+           * getting off it takes months. Worth doing once the domain is
+           * settled, not on its first day.
+           */
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains',
+          },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {
