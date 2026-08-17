@@ -125,9 +125,17 @@ export async function GET(_request: Request, ctx: { params: Promise<{ matchId: s
         </div>
       ) : null}
 
-      {/* Stacked, not in a row — a square has the height for it, and one
-            per line survives being viewed at thumbnail size. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 26, marginTop: 'auto' }}>
+      {/*
+        Stacked, not in a row — a square has the height for it, and one per
+        line survives being viewed at thumbnail size.
+
+        Not bottom-anchored: a match still being played has one innings line
+        and often one performer, so anchoring left a third of the frame as a
+        hole in the middle. That is not an edge case — it is every card shared
+        *during* a match, which is when a link is worth sending. The badge
+        takes the slack instead.
+      */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 26, marginTop: 64 }}>
         {performers.map((p) => (
           <div key={p.label} style={{ display: 'flex', flexDirection: 'column' }}>
             <div
@@ -159,7 +167,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ matchId: s
       <div
         style={{
           display: 'flex',
-          marginTop: 44,
+          marginTop: 'auto',
           background: STEEL_900,
           color: GROUND,
           padding: '18px 26px',
