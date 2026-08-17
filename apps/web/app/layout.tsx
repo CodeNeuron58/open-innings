@@ -1,8 +1,27 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+/**
+ * Where this site lives, for absolute URLs in metadata.
+ *
+ * `APP_URL` first, and the ordering is the point. Anything prefixed
+ * `NEXT_PUBLIC_` is **inlined at build time** — Next replaces it with a
+ * literal string during compilation — so changing that config var on a
+ * running app does nothing until the next rebuild. That is a quiet failure:
+ * the dashboard shows the new value, the app keeps serving the old one, and
+ * the only visible symptom is share-card images pointing at the wrong host.
+ *
+ * This is only read on the server, so it does not need to be public at all.
+ * `APP_URL` is read at runtime, which means a domain change takes effect on
+ * a dyno restart instead of a redeploy.
+ *
+ * `NEXT_PUBLIC_APP_URL` is still honoured so existing deployments do not
+ * break, and localhost is the last resort for a dev machine with neither.
+ */
+const APP_URL = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(APP_URL),
   title: {
     default: 'Open Innings — Free cricket scoring, forever',
     template: '%s · Open Innings',
