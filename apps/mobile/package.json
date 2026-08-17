@@ -40,7 +40,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.0",
     "@types/react": "^19.1.1",
+    "babel-preset-expo": "~57.0.0",
     "tailwindcss": "^3.4.13",
     "typescript": "^6.0.3"
   }
