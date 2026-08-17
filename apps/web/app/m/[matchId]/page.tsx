@@ -129,7 +129,10 @@ export default async function PublicScorecardPage({ params }: Props) {
           <Link href="/" aria-label="Open Innings home">
             <Logo />
           </Link>
-          <ButtonLink href="/signup" size="sm" variant="outline">
+          {/* /signup does not exist on the web — scoring is the app, and this
+              site is the landing page for it. Points at /app, same as the
+              pinned bar at the foot of this page. */}
+          <ButtonLink href="/app" size="sm" variant="outline">
             Score your own — free
           </ButtonLink>
         </div>

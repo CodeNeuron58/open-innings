@@ -35,11 +35,14 @@ export default function GlobalError({
         >
           Try again
         </button>
+        {/* There is no dashboard on the web any more — that moved to the app
+            when this site became the landing page. Home is the only place
+            worth offering someone who has just hit an error. */}
         <a
-          href="/dashboard"
+          href="/"
           className="border-border hover:bg-accent inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-medium transition-colors"
         >
-          Back to dashboard
+          Back to home
         </a>
       </div>
     </main>
