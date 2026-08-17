@@ -35,9 +35,17 @@ export default function GlobalError({
         >
           Try again
         </button>
-        {/* There is no dashboard on the web any more — that moved to the app
-            when this site became the landing page. Home is the only place
-            worth offering someone who has just hit an error. */}
+        {/*
+          There is no dashboard on the web any more — that moved to the app
+          when this site became the landing page. Home is the only place worth
+          offering someone who has just hit an error.
+
+          A plain `<a>`, not `<Link>`, and deliberately. This is the error
+          boundary: soft navigation would keep the same React tree that just
+          threw, so "go home" could land on the same broken state it was meant
+          to escape. A full document load is the point.
+        */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a
           href="/"
           className="border-border hover:bg-accent inline-flex h-10 items-center justify-center rounded-md border px-5 text-sm font-medium transition-colors"
