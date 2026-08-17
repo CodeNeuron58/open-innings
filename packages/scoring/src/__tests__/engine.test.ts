@@ -209,7 +209,16 @@ describe('applyBall — no-balls', () => {
       { eventType: 'no_ball', runsOffBat: 0, totalRuns: 1 },
       { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
     ]);
-    expect(state.batting[STRIKER]?.balls).toBe(1);
+    // Two, and it used to expect one.
+    //
+    // A no-ball is a ball faced (Law 21.3 — the batter had a chance to play
+    // it), and with nobody running, the strike does not change. So the same
+    // batter faces the no-ball and then the free hit it earned them: two.
+    //
+    // The old expectation of one was an artefact of the rotation bug — the
+    // penalty run was treated as a run completed, so the strike turned over
+    // and the partner was credited with facing the free hit.
+    expect(state.batting[STRIKER]?.balls).toBe(2);
   });
 });
 

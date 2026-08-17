@@ -19,7 +19,7 @@ import {
   asMatchId,
 } from './types';
 import { applyBall } from './engine';
-import { STANDARD_MAX_WICKETS } from './rules';
+import { STANDARD_MAX_WICKETS, SUPER_OVER_MAX_WICKETS, SUPER_OVER_OVERS } from './rules';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial state factory
@@ -39,6 +39,8 @@ export type InitialStateInput = {
   bowlerId: string;
   target?: number;
   maxWickets?: number;
+  /** Overrides the match length for this innings. Defaults to one for a Super Over. */
+  inningsOvers?: number;
 };
 
 /**
@@ -49,9 +51,15 @@ export function initialState(input: InitialStateInput): MatchState {
   const matchId = asMatchId(input.matchId);
   const inningsId = asInningsId(input.inningsId);
 
+  // Innings 3 and 4 are a Super Over: two wickets, and one over rather than
+  // the match's. Both caps travel with the innings, not the match.
+  const isSuperOver = input.inningsNumber === 3 || input.inningsNumber === 4;
+
   const maxWickets =
-    input.maxWickets ??
-    (input.inningsNumber === 3 || input.inningsNumber === 4 ? 2 : STANDARD_MAX_WICKETS);
+    input.maxWickets ?? (isSuperOver ? SUPER_OVER_MAX_WICKETS : STANDARD_MAX_WICKETS);
+
+  const oversPerInnings =
+    input.inningsOvers ?? (isSuperOver ? SUPER_OVER_OVERS : input.oversPerInnings);
 
   const innings: InningsState = {
     id: inningsId,
@@ -69,6 +77,7 @@ export function initialState(input: InitialStateInput): MatchState {
     status: 'in_progress',
     target: input.target,
     maxWickets,
+    oversPerInnings,
   };
 
   return {

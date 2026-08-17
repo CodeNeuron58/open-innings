@@ -131,13 +131,11 @@ export function buildScorecard(
   resolveName: NameResolver = fallbackName,
 ): ScorecardView {
   const inn = state.currentInnings;
+  // The innings' own length where it has one — a Super Over chase needs a rate
+  // over its single over, not over the match's twenty.
+  const inningsOvers = inn.oversPerInnings ?? state.match.oversPerInnings;
   const rrr = inn.target
-    ? requiredRunRate(
-        inn.target,
-        inn.runs,
-        inn.ballsBowled,
-        maxLegalBallsForOvers(state.match.oversPerInnings),
-      )
+    ? requiredRunRate(inn.target, inn.runs, inn.ballsBowled, maxLegalBallsForOvers(inningsOvers))
     : undefined;
 
   return {

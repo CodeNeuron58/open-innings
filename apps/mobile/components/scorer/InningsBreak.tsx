@@ -65,7 +65,9 @@ export function InningsBreak({
 
   const inn = state.currentInnings;
   const target = inn.runs + 1;
-  const ballsAvailable = state.match.oversPerInnings * 6;
+  // The chase gets the innings' own length, not the match's — they differ for
+  // a Super Over, and the asking rate is the number this screen exists to show.
+  const ballsAvailable = (inn.oversPerInnings ?? state.match.oversPerInnings) * 6;
   const askingRate = ((target / ballsAvailable) * 6).toFixed(2);
 
   // Who is worth naming: the three biggest scores that were actually scores,

@@ -300,7 +300,10 @@ export default function Scorer() {
     overLabel = 'Last over';
   }
 
-  const ballsLeft = Math.max(0, state.match.oversPerInnings * 6 - inn.ballsBowled);
+  // The innings' own length where it has one. A Super Over is one over inside
+  // a twenty-over match, so the match figure would show nineteen overs left.
+  const inningsOvers = inn.oversPerInnings ?? state.match.oversPerInnings;
+  const ballsLeft = Math.max(0, inningsOvers * 6 - inn.ballsBowled);
   const runsNeeded = inn.target !== undefined ? Math.max(0, inn.target - inn.runs) : undefined;
 
   const strikerStats = state.batting[String(effStriker)];
@@ -606,7 +609,7 @@ export default function Scorer() {
       {showBowlerSheet ? (
         <EndOfOver
           oversCompleted={Math.floor(inn.ballsBowled / 6)}
-          oversPerInnings={state.match.oversPerInnings}
+          oversPerInnings={inningsOvers}
           runs={inn.runs}
           wickets={inn.wickets}
           target={inn.target}

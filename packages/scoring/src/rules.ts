@@ -43,6 +43,20 @@ export const WIDE_PENALTY = 1;
  */
 export const BATSMAN_FACING_EXCLUDED_TYPES = new Set(['wide', 'bye', 'leg_bye'] as const);
 
+/**
+ * Extras that are NOT charged to the bowler's analysis.
+ *
+ * A bye beat the wicketkeeper and a leg-bye came off the batter's pad. Law 24
+ * puts neither on the bowler, so neither enters runs conceded, economy, or the
+ * question of whether an over was a maiden. Wide and no-ball penalties are
+ * charged, because those are the bowling's own fault.
+ *
+ * Mirrored by `bowlingInningsFor` in apps/web/lib/db/stats.ts, which sums
+ * career figures straight from the ball log. If the two ever disagree, a
+ * bowler's economy on a match card contradicts their career page.
+ */
+export const BOWLER_EXEMPT_EXTRAS: ReadonlySet<string> = new Set(['bye', 'leg_bye']);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Law 25 — Wickets
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,6 +124,9 @@ export const REQUIRES_FIELDER: ReadonlySet<WicketType> = new Set([
 /** Standard limited-overs wickets fall at 10. Super Over caps at 2. */
 export const STANDARD_MAX_WICKETS = 10;
 export const SUPER_OVER_MAX_WICKETS = 2;
+
+/** A Super Over is one over, whatever length the match itself was. */
+export const SUPER_OVER_OVERS = 1;
 
 /**
  * Per Law 16.2, a bowler may not bowl two consecutive overs.

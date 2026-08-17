@@ -7,7 +7,7 @@
 
 import type { BowlerStats, BatsmanStats, InningsState } from './types';
 import { asPlayerId, type PlayerId } from './types';
-import { BALLS_PER_OVER } from './rules';
+import { BALLS_PER_OVER, NO_BALL_PENALTY, WIDE_PENALTY } from './rules';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Display formatting
@@ -88,17 +88,42 @@ export function emptyBowlerStats(playerId: PlayerId): BowlerStats {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * How many runs the batters actually ran.
+ *
+ * The distinction that matters for the strike: a penalty run is *awarded*, not
+ * run. Nobody crosses for it. A plain wide is one run on the board with both
+ * batters standing exactly where they were.
+ */
+function runsCrossed(args: { eventType: string; runsOffBat: number; totalRuns: number }): number {
+  switch (args.eventType) {
+    case 'wide':
+      // Law 22.2: one penalty; anything beyond it was run, or went to the fence.
+      return Math.max(0, args.totalRuns - WIDE_PENALTY);
+    case 'no_ball':
+      // Law 21.3: likewise. What remains was struck, or taken as byes off it.
+      return Math.max(0, args.totalRuns - NO_BALL_PENALTY);
+    case 'bye':
+    case 'leg_bye':
+      // No penalty attached, so every run on the board was run.
+      return args.totalRuns;
+    default:
+      return args.runsOffBat;
+  }
+}
+
+/**
  * Should the strike swap after this ball?
  *
- * Rules:
- *   - End of over → always swap
- *   - Odd runs off the bat (1, 3) → swap
- *   - Odd runs in total for byes/leg-byes (where runsOffBat = 0) → swap based on totalRuns
- *   - Wides where batsmen ran → swap based on totalRuns
- *   - Even runs, not end of over → no swap
+ * Two independent things can change the striker and they **compose** rather
+ * than override:
  *
- * For wides/no-balls: the batsmen CAN run, so swap on odd totalRuns.
- * For byes/leg-byes: no runsOffBat, so use totalRuns.
+ *   1. The batters cross for an odd number of runs.
+ *   2. The over ends, and the next one is bowled from the other end.
+ *
+ * Both true is a swap and a swap back — which is precisely why a single off
+ * the last ball of an over *keeps* the strike, and why a tail-ender takes one
+ * off the fifth ball rather than the sixth. Treating end-of-over as "always
+ * swap" gets that backwards on every over that ends in an odd run.
  */
 export function shouldSwapStrike(args: {
   eventType: string;
@@ -106,18 +131,9 @@ export function shouldSwapStrike(args: {
   totalRuns: number;
   isEndOfOver: boolean;
 }): boolean {
-  if (args.isEndOfOver) return true;
-
-  const isExtra =
-    args.eventType === 'wide' ||
-    args.eventType === 'no_ball' ||
-    args.eventType === 'bye' ||
-    args.eventType === 'leg_bye';
-
-  // For extras, swap based on total runs completed
-  // For non-extras, swap based on runs off the bat
-  const runsForSwap = isExtra ? args.totalRuns : args.runsOffBat;
-  return runsForSwap % 2 === 1;
+  const crossed = runsCrossed(args) % 2 === 1;
+  // XOR: either one swaps, both cancel.
+  return crossed !== args.isEndOfOver;
 }
 
 /** Compute new striker / non-striker IDs after a ball. */
@@ -169,16 +185,24 @@ export function ballNumberInOver(legalBallsBowledBefore: number): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Compute whether a bowler just bowled a maiden over.
- * A maiden is an over where no runs are scored off the bat AND no extras
- * are conceded. Byes and leg-byes DO count against a maiden (Law 12.2.4).
- * Wides and no-balls break the maiden (penalty runs + any off-bat runs).
+ * Did this over's deliveries make a maiden?
  *
- * We compute this in the engine at end-of-over time by inspecting the over's
- * balls. See `isMaidenOver` in helpers.
+ * A maiden is an over off which no runs were scored **from the bat** and in
+ * which the bowler conceded no wide and no no-ball. Byes and leg-byes do not
+ * break it: they came off the keeper or the pad, Law 24 does not charge them
+ * to the bowler, and a maiden is a statement about the bowling.
+ *
+ * The previous version tested `totalRuns === 0`, which denied a bowler their
+ * maiden the moment a bye slipped through — and the comment above it claimed
+ * byes *should* break a maiden, which is not what Law 24 says. Both are fixed
+ * here; the figure was never displayed before because nothing called this.
  */
-export function isMaidenOver(ballsInOver: { eventType: string; totalRuns: number }[]): boolean {
-  return ballsInOver.every((b) => b.totalRuns === 0);
+export function isMaidenOver(ballsInOver: { eventType: string; runsOffBat: number }[]): boolean {
+  // An over with no deliveries in it is not a maiden, it is nothing.
+  if (ballsInOver.length === 0) return false;
+  return ballsInOver.every(
+    (b) => b.runsOffBat === 0 && b.eventType !== 'wide' && b.eventType !== 'no_ball',
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

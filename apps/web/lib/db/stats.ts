@@ -21,7 +21,11 @@
  */
 import 'server-only';
 import { sql, type SQL } from 'drizzle-orm';
-import { BOWLER_CREDITED_WICKETS, TEAM_WICKET_COUNTED } from '@open-innings/scoring';
+import {
+  BOWLER_CREDITED_WICKETS,
+  BOWLER_EXEMPT_EXTRAS,
+  TEAM_WICKET_COUNTED,
+} from '@open-innings/scoring';
 import { db } from './client';
 
 /**
@@ -39,6 +43,13 @@ function enumList(values: ReadonlySet<string>): SQL {
     sql`, `,
   );
 }
+
+/**
+ * Event types that never enter a bowler's runs conceded — Law 24's byes and
+ * leg-byes. Imported from the engine so the figure a career page shows cannot
+ * drift from the one on the scorecard the same balls produced.
+ */
+const exemptExtras = enumList(BOWLER_EXEMPT_EXTRAS);
 
 /** One innings of batting. */
 export type BattingInnings = {
@@ -165,12 +176,12 @@ export async function bowlingInningsFor(playerId: string): Promise<BowlingInning
       coalesce(m.completed_at, m.started_at, m.scheduled_at, m.created_at) as played_at,
       bat_team.name as opponent,
       count(*) filter (where be.is_legal_delivery)::int as balls,
-      (
-        coalesce(sum(be.runs_off_bat), 0)
-        + coalesce(sum(be.extra_runs) filter (
-            where be.event_type in ('wide', 'no_ball')
-          ), 0)
-      )::int as runs,
+      -- Byes and leg-byes are not charged to the bowler; the wide and no-ball
+      -- penalties are. The exempt list is imported from the engine rather than
+      -- written out here, so this cannot drift from what a scorecard shows.
+      coalesce(sum(be.total_runs) filter (
+        where be.event_type not in (${exemptExtras})
+      ), 0)::int as runs,
       count(*) filter (
         where be.wicket_type in (${credited})
       )::int as wickets
@@ -285,14 +296,11 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
         be.bowler_id as player_id,
         count(*) filter (where be.is_legal_delivery)::int as balls,
         -- Byes and leg-byes are not charged to the bowler; the wide and
-        -- no-ball penalties are. Same rule as bowlingInningsFor — if these
-        -- two ever disagree, one screen contradicts another.
-        (
-          coalesce(sum(be.runs_off_bat), 0)
-          + coalesce(sum(be.extra_runs) filter (
-              where be.event_type in ('wide', 'no_ball')
-            ), 0)
-        )::int as runs,
+        -- no-ball penalties are. Same imported list as bowlingInningsFor — if
+        -- these two ever disagree, one screen contradicts another.
+        coalesce(sum(be.total_runs) filter (
+          where be.event_type not in (${exemptExtras})
+        ), 0)::int as runs,
         count(*) filter (where be.wicket_type in (${credited}))::int as wickets,
         count(distinct i.match_id)::int as matches
       from ball_events be

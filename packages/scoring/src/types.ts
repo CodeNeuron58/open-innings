@@ -154,6 +154,15 @@ export type InningsState = {
 
   // For Super Over: cap wickets at 2 instead of 10
   maxWickets: number;
+
+  /**
+   * This innings' own length in overs, where it differs from the match's.
+   *
+   * A Super Over is one over inside a twenty-over match, so the match figure
+   * is the wrong number to end it on. Undefined means "same as the match",
+   * which is every ordinary innings.
+   */
+  oversPerInnings?: number;
 };
 
 export type MatchState = {

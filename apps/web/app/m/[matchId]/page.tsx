@@ -113,7 +113,9 @@ export default async function PublicScorecardPage({ params }: Props) {
   // Presence, not subscription — see lib/services/watching.ts. Only asked for
   // while a match is live; a finished scorecard has nothing to watch.
   const watching = isLive ? await countWatching(match.id) : 0;
-  const totalBalls = match.oversPerInnings * 6;
+  // The innings' own length where it has one — a Super Over is one over inside
+  // a twenty-over match, so the match figure overstates what is left.
+  const totalBalls = (inn.oversPerInnings ?? match.oversPerInnings) * 6;
   const ballsLeft = Math.max(0, totalBalls - inn.ballsBowled);
   const runsNeeded = inn.target !== undefined ? Math.max(0, inn.target - inn.runs) : undefined;
   const reqRate =

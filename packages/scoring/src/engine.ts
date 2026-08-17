@@ -57,6 +57,7 @@ import {
 import {
   BATSMAN_FACING_EXCLUDED_TYPES,
   BOWLER_CREDITED_WICKETS,
+  BOWLER_EXEMPT_EXTRAS,
   FREE_HIT_VALID_WICKETS,
   NO_CONSECUTIVE_OVERS,
   REQUIRES_FIELDER,
@@ -68,6 +69,7 @@ import {
   emptyBatsmanStats,
   emptyBowlerStats,
   isEndOfOver as isEndOfOverCheck,
+  isMaidenOver,
   maxLegalBallsForOvers,
   overNumberFor,
   playerIdKey,
@@ -241,10 +243,15 @@ function validate(state: MatchState, event: BallEvent): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function compose(state: MatchState, event: BallEvent): MatchState {
+  // Computed once, against the innings state as it stands BEFORE this ball
+  // increments the legal-ball counter, and shared by the two steps that need
+  // it: the bowler's maiden and the strike rotation.
+  const isEOOver = isEndOfOverCheck(state.currentInnings, event.isLegalDelivery);
+
   const updatedBatting = updateBatting(state, event);
-  const updatedBowling = updateBowling(state, event);
+  const updatedBowling = updateBowling(state, event, isEOOver);
   const { partnerships, fallOfWickets } = updatePartnershipAndFall(state, event, updatedBatting);
-  const updatedInnings = updateInnings(state, event, fallOfWickets);
+  const updatedInnings = updateInnings(state, event, fallOfWickets, isEOOver);
 
   const balls = [...state.balls, event];
 
@@ -338,6 +345,7 @@ function updateBatting(
 function updateBowling(
   state: MatchState,
   event: BallEvent,
+  isEndOfOver: boolean,
 ): { stats: Record<string, BowlerStats>; maidenCheck: boolean } {
   const stats: Record<string, BowlerStats> = { ...state.bowling };
   const bowlerKey = playerIdKey(event.bowlerId);
@@ -346,8 +354,18 @@ function updateBowling(
 
   const bowler = { ...stats[bowlerKey]! };
 
-  // Runs conceded by the bowler: totalRuns (incl wides/no-balls/penalties)
-  bowler.runs += event.totalRuns;
+  // Runs conceded: everything except byes and leg-byes.
+  //
+  // Law 24 does not charge those to the bowler — a bye beat the keeper and a
+  // leg-bye came off the pad, and neither is a fault of the bowling. The wide
+  // and no-ball penalties are charged, because those are.
+  //
+  // This has to agree with `bowlingInningsFor` in apps/web/lib/db/stats.ts,
+  // which computes career economy the same way. Charging byes here made a
+  // bowler's figures on a match card disagree with their career page for the
+  // same over.
+  const chargedToBowler = BOWLER_EXEMPT_EXTRAS.has(event.eventType) ? 0 : event.totalRuns;
+  bowler.runs += chargedToBowler;
 
   // Legal ball count
   if (event.isLegalDelivery) {
@@ -364,6 +382,21 @@ function updateBowling(
   // Extras tracking
   if (event.eventType === 'wide') bowler.wides += 1;
   if (event.eventType === 'no_ball') bowler.noBalls += 1;
+
+  // Maidens, credited when the over closes.
+  //
+  // This is the step the module docstring has always claimed to perform and
+  // never did: `maidens` was initialised to zero and never touched again, so
+  // every bowling figure in the app rendered "4-0-22-1" whatever was bowled.
+  if (isEndOfOver) {
+    const overBalls = [...state.balls, event].filter((b) => b.overNumber === event.overNumber);
+    // Only when this bowler bowled the whole over. `validate` blocks a bowler
+    // taking two overs in a row but not a change part-way through one, so
+    // without this check whoever happened to send down the sixth ball would be
+    // credited with a maiden they only partly bowled — "0.3-1-0-0".
+    const bowledWholeOver = overBalls.every((b) => b.bowlerId === event.bowlerId);
+    if (bowledWholeOver && isMaidenOver(overBalls)) bowler.maidens += 1;
+  }
 
   stats[bowlerKey] = bowler;
 
@@ -435,6 +468,7 @@ function updateInnings(
   state: MatchState,
   event: BallEvent,
   _fallOfWickets: FallOfWicket[],
+  isEOOver: boolean,
 ): InningsState {
   const inn = state.currentInnings;
 
@@ -449,14 +483,17 @@ function updateInnings(
     wickets += 1;
   }
 
-  // Free hit — this ball IS a free hit, AND this ball (if a no-ball) makes
-  // the NEXT ball a free hit
-  const isFreeHitNext = event.eventType === 'no_ball';
+  // Free hit — granted by a no-ball, and NOT consumed by an illegal delivery.
+  //
+  // Law 21.18 grants it for the next *delivery*, and a wide is re-bowled
+  // rather than counted, so a wide between the no-ball and the free hit does
+  // not spend it. Previously this read `eventType === 'no_ball'` alone, so a
+  // single wide silently cancelled the free hit the batter had earned.
+  const isFreeHitNext =
+    event.eventType === 'no_ball' || (inn.isFreeHitNext && !event.isLegalDelivery);
 
-  // Strike rotation
-  // isEndOfOver must be computed against the innings state BEFORE this ball
-  // increments the legal-ball counter (otherwise the 6th ball misfires).
-  const isEOOver = isEndOfOverCheck(inn, event.isLegalDelivery);
+  // Strike rotation. `isEOOver` was computed by the caller against the innings
+  // state BEFORE this ball incremented the legal-ball counter.
   const shouldSwap = shouldSwapStrike({
     eventType: event.eventType,
     runsOffBat: event.runsOffBat,
@@ -484,7 +521,11 @@ function updateInnings(
   const currentBowlerId = event.bowlerId;
 
   // Status — did this ball end the innings?
-  const maxBalls = maxLegalBallsForOvers(state.match.oversPerInnings);
+  //
+  // The innings carries its own length where it differs from the match's. A
+  // Super Over is one over inside a twenty-over game, and reading the match
+  // figure meant innings 3 and 4 ran on for the full twenty.
+  const maxBalls = maxLegalBallsForOvers(inn.oversPerInnings ?? state.match.oversPerInnings);
   const isAllOut = wickets >= inn.maxWickets;
   const oversDone = ballsBowled >= maxBalls;
   const targetReached = inn.target !== undefined && runs >= inn.target;

@@ -64,8 +64,14 @@ export {
 export {
   STANDARD_MAX_WICKETS,
   SUPER_OVER_MAX_WICKETS,
+  SUPER_OVER_OVERS,
   NO_CONSECUTIVE_OVERS,
   BALLS_PER_OVER,
+  // Which extras stay off the bowler's analysis. Exported for the same reason
+  // as the dismissal sets below: apps/web/lib/db/stats.ts computes career
+  // bowling figures straight from the ball log, and a second hand-written copy
+  // of Law 24 there would disagree with this one the first time either moved.
+  BOWLER_EXEMPT_EXTRAS,
   // The dismissal classifications. Exported because career statistics are
   // derived from the ball log outside this package, and re-stating "which
   // dismissals credit the bowler" anywhere else would create a second source
