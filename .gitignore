@@ -69,3 +69,10 @@ learn/
 # Database dumps from `pnpm db:backup`. Never commit these — they contain
 # every ball of every match, and on a real database, real people.
 backups/
+
+# Local agent tooling — installed per-machine with `npx skills add`, not part
+# of the project. Kept out so a clone is not obliged to adopt one person's
+# assistant setup, and so the repo stays buildable with nothing but pnpm.
+.claude/
+skills-lock.json
+
