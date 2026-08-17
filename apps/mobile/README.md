@@ -61,16 +61,13 @@ Metro (see below) — but a standalone build has no Metro, and without the
 variable it starts with no API URL at all and every request fails with "No API
 URL".
 
-⚠️ **It currently points at the `herokuapp.com` hostname, not
-`openinnings.com`.** That is deliberate while the custom domain is not yet
-pointed at the app: a build baked with a domain that does not resolve is
-broken for everyone who installs it, and nobody finds out until they try to
-score.
+It points at `https://openinnings.com`, which is live and certificated.
 
-Change both profiles to `https://openinnings.com` **once DNS is live**, and do
-it before the Play Store build — a released binary has its API URL baked in,
-and the herokuapp hostname is tied to the Heroku app's name, so renaming the
-app would strand every installed copy.
+Use the custom domain rather than the `herokuapp.com` hostname, and not only
+for tidiness: a released binary has its API URL **baked in**, and the herokuapp
+hostname is tied to the Heroku app's name. Renaming or recreating that app
+would strand every installed copy with no way to reach a server. The custom
+domain can be repointed at anything.
 
 ### Environment variables
 
