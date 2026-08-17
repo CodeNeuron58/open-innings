@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import { sslFor } from './ssl';
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
 
@@ -16,9 +17,11 @@ declare global {
 
 /**
  * Drizzle client for the Open Innings web app. Connects directly to
- * Postgres — no pooler service, self-hosted or otherwise. For a remote
- * database, add `?sslmode=require` to DATABASE_URL; postgres.js reads that
- * straight off the connection string, no extra config needed here.
+ * Postgres — no pooler service, self-hosted or otherwise.
+ *
+ * TLS is decided by `sslFor` rather than by the connection string, because a
+ * managed provider owns that string and rewrites it on credential rotation.
+ * See lib/db/ssl.ts.
  *
  * The client is cached on `globalThis` in development to survive Next.js
  * hot reloads without leaking a new connection pool on every edit.
@@ -28,12 +31,14 @@ function getClient() {
   const connectionString =
     process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/open_innings';
 
+  const options = { prepare: false, max: 10, ssl: sslFor(connectionString) } as const;
+
   if (process.env.NODE_ENV === 'production') {
-    return postgres(connectionString, { prepare: false, max: 10 });
+    return postgres(connectionString, options);
   }
 
   if (!global.__openInningsPgClient) {
-    global.__openInningsPgClient = postgres(connectionString, { prepare: false, max: 10 });
+    global.__openInningsPgClient = postgres(connectionString, options);
   }
   return global.__openInningsPgClient;
 }

@@ -13,6 +13,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import postgres from 'postgres';
 import { config } from 'dotenv';
+import { sslFor } from '../lib/db/ssl';
 
 // Load .env.local first (Next.js convention), then .env as a fallback.
 config({ path: resolve(process.cwd(), '.env.local') });
@@ -27,7 +28,11 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  // Same TLS rule as the app. This runs in Heroku's release phase, so it is
+  // the first thing to fail if a managed database refuses an unencrypted
+  // connection — and "release command failed" is a confusing place to learn
+  // that.
+  const sql = postgres(url, { max: 1, onnotice: () => {}, ssl: sslFor(url) });
 
   try {
     // Track which migrations have run.
