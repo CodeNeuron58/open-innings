@@ -355,3 +355,56 @@ Heroku path. Everything below is roughly two hours.
 
 **Option C (paying) and the Aug 25 decision point are now moot.** Two
 independent free paths exist: Heroku for 24 months, Oracle indefinitely.
+
+---
+
+## Running it — the operational bits
+
+**Live at `https://openinnings.com`** since 2026-08-17. Auto-deploys from
+`master`; the Procfile's release phase runs migrations on every deploy.
+
+### Backups — read this before touching the schema
+
+Essential-tier Postgres has **no rollback and no continuous protection**;
+those start at Standard. So the only thing between a bad migration and a lost
+season is a dump somebody remembered to take.
+
+That matters more here than in most apps. Every figure — every career average,
+every scorecard, every share card — is derived from `ball_events`. Losing it
+is not losing a cache that can be rebuilt. It is losing the match.
+
+```sh
+pnpm db:backup                              # a local .dump, off Heroku entirely
+heroku pg:backups:capture -a open-innings   # Heroku's own snapshot, short retention
+```
+
+Use both, for different jobs: Heroku's for "undo the last hour", the local one
+for "keep a copy somewhere Heroku cannot lose". Run one **before every schema
+change**. Restoring is `pg_restore --clean --no-owner --dbname "$DATABASE_URL"`.
+
+The dump is custom-format, so a single table can be restored from it — which
+is what you actually want when one table is wrong and the rest is fine.
+
+### Two settings that are hard to undo
+
+- **Region is Europe**, chosen at creation and unchangeable. Closest Heroku
+  region to India.
+- **Basic dyno, never Eco.** Eco sleeps after 30 minutes; a scorer opening the
+  app at a ground would wait through a cold start before every match.
+
+### Things that bit during setup, so they do not bite twice
+
+- **TLS is decided in code**, not on the connection string. Heroku rewrites
+  `DATABASE_URL` on credential rotation, so `?sslmode=require` appended by hand
+  disappears. See `lib/db/ssl.ts`.
+- **ACM is not automatic.** Adding a domain does not issue a certificate —
+  Settings → Configure SSL → _Automatic Certificate Management_. Until then the
+  domain simply refuses connections, with no obvious cause.
+- **Cloudflare records must be grey (DNS only).** Proxied records stop Heroku
+  validating the domain, so the certificate never issues.
+- **`NEXT_PUBLIC_*` is inlined at build time.** Changing it on a running app
+  does nothing until the next rebuild — the dashboard shows the new value and
+  the app serves the old one. `APP_URL` is read at runtime instead.
+- **HTTP does not redirect by itself.** Next does not, and Cloudflare cannot
+  while records are unproxied. Handled in `next.config.ts` off
+  `x-forwarded-proto`.

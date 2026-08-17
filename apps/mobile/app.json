@@ -10,7 +10,31 @@
       "package": "app.openinnings",
       "adaptiveIcon": {
         "backgroundColor": "#0F2A20"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "openinnings.com",
+              "pathPrefix": "/m"
+            },
+            {
+              "scheme": "https",
+              "host": "openinnings.com",
+              "pathPrefix": "/p"
+            },
+            {
+              "scheme": "https",
+              "host": "openinnings.com",
+              "pathPrefix": "/c"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "bundler": "metro",

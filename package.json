@@ -30,6 +30,7 @@
     "smoke:p1": "pnpm --filter web smoke:p1",
     "db:generate": "pnpm --filter web db:generate",
     "db:migrate": "pnpm --filter web db:migrate",
+    "db:backup": "pnpm --filter web db:backup",
     "db:seed": "pnpm --filter web db:seed",
     "db:reset": "pnpm --filter web db:reset",
     "db:studio": "pnpm --filter web db:studio",
