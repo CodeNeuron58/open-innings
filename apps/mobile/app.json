@@ -41,6 +41,14 @@
       "output": "static"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.3.0"
+          }
+        }
+      ],
       "expo-router",
       "expo-secure-store",
       [
