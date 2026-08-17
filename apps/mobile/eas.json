@@ -9,6 +9,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     },
     "preview": {
@@ -17,7 +20,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://openinnings.com"
+        "EXPO_PUBLIC_API_URL": "https://openinnings.com",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     },
     "production": {
@@ -26,7 +30,8 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://openinnings.com"
+        "EXPO_PUBLIC_API_URL": "https://openinnings.com",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     }
   },
