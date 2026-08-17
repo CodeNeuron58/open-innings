@@ -55,12 +55,22 @@ Three profiles in `eas.json`:
 | `preview`     | APK             | Handing a build to testers            |
 | `production`  | AAB             | Play Store upload                     |
 
-⚠️ **`EXPO_PUBLIC_API_URL` is empty in every profile and must be filled in for
-`preview` and `production`.** A `development` build is fine without it — it
-derives the API host from Metro (see below). A standalone build has no Metro,
-so with the variable unset it starts with no API URL at all and every request
-fails with "No API URL". Set it to the deployed server before building anything
-you hand to someone else.
+`EXPO_PUBLIC_API_URL` is set in `preview` and `production` to the deployed
+server. A `development` build does not need it — it derives the API host from
+Metro (see below) — but a standalone build has no Metro, and without the
+variable it starts with no API URL at all and every request fails with "No API
+URL".
+
+⚠️ **It currently points at the `herokuapp.com` hostname, not
+`openinnings.com`.** That is deliberate while the custom domain is not yet
+pointed at the app: a build baked with a domain that does not resolve is
+broken for everyone who installs it, and nobody finds out until they try to
+score.
+
+Change both profiles to `https://openinnings.com` **once DNS is live**, and do
+it before the Play Store build — a released binary has its API URL baked in,
+and the herokuapp hostname is tied to the Heroku app's name, so renaming the
+app would strand every installed copy.
 
 ### Environment variables
 
