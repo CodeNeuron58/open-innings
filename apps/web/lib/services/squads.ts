@@ -2,7 +2,12 @@
  * Players and teams, transport-free.
  */
 import 'server-only';
-import type { CreatePlayerInput, CreateTeamInput, UpdateTeamInput } from '@open-innings/shared';
+import type {
+  CreatePlayerInput,
+  CreateTeamInput,
+  UpdateTeamInput,
+  UpdateTeamMemberInput,
+} from '@open-innings/shared';
 import {
   createPlayer,
   createTeam,
@@ -11,6 +16,8 @@ import {
   updateTeam,
   addPlayerToTeam,
   removeTeamMember,
+  updateTeamMemberRole,
+  getTeamMembers,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { notFound, unauthorized } from './errors';
@@ -80,6 +87,29 @@ export async function addMemberToOwnedTeam(teamId: string, playerId: string) {
   const { userId } = await requireOwnedTeam(teamId);
   await requireOwnedPlayer(playerId, userId);
   await addPlayerToTeam(teamId, playerId);
+}
+
+/**
+ * Set captaincy, keeping, or a jersey number on a squad membership.
+ *
+ * These three columns have existed since the first migration and nothing has
+ * ever written them, so every squad in the system has had no captain and no
+ * keeper. The keeper is not decoration: they are who takes byes and stumpings,
+ * and the obvious default fielder on a caught-behind.
+ *
+ * The player has to be in the squad already. Adding somebody by giving them
+ * the gloves would skip `requireOwnedPlayer` and reopen the hole that closed.
+ */
+export async function updateOwnedTeamMember(teamId: string, input: UpdateTeamMemberInput) {
+  await requireOwnedTeam(teamId);
+
+  const members = await getTeamMembers(teamId);
+  if (!members.some((m) => m.id === input.playerId)) {
+    throw notFound('That player is not in this squad');
+  }
+
+  const { playerId, ...patch } = input;
+  await updateTeamMemberRole(teamId, playerId, patch);
 }
 
 export async function removeMemberFromOwnedTeam(teamId: string, playerId: string) {
