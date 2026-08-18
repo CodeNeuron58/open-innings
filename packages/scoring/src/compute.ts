@@ -104,6 +104,7 @@ export function initialState(input: InitialStateInput): MatchState {
     partnerships: [],
     fallOfWickets: [],
     balls: [],
+    violations: [],
   };
 }
 
@@ -117,7 +118,21 @@ export function initialState(input: InitialStateInput): MatchState {
  * is reflected in `currentInnings`. (For multi-innings, use replayMatch.)
  */
 export function replayEvents(seed: MatchState, events: readonly BallEventInput[]): MatchState {
-  return events.reduce<MatchState>((state, event) => applyBall(state, event), seed);
+  /*
+   * Replay mode, always — these deliveries are already in the ball log.
+   *
+   * A rule tightened today cannot un-bowl a ball bowled last season, and
+   * refusing to load the match is not a way of disagreeing with it. Anything
+   * the current rules object to lands on `state.violations`, where a report
+   * can read it and a repair can act on it, while the scorecard still renders.
+   *
+   * `applyBall` on its own stays strict, which is what recording a new
+   * delivery needs — so the split is exactly write versus read.
+   */
+  return events.reduce<MatchState>(
+    (state, event) => applyBall(state, event, { mode: 'replay' }),
+    seed,
+  );
 }
 
 /**

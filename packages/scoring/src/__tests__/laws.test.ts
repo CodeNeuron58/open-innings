@@ -421,3 +421,91 @@ describe('partnerships end when a batter walks off', () => {
     expect(s.fallOfWickets).toHaveLength(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Validate on write, tolerate on read
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a stored delivery is never un-bowled by a rule added later', () => {
+  /*
+   * `applyBall` validates *and* composes, and replay calls it for every stored
+   * delivery — so validation runs on every read: scorecards, share cards, the
+   * scorer console. Without a replay mode, each rule added here would
+   * retroactively break every match scored before it.
+   *
+   * Not theoretical. The wicket sheet used to offer both squads as fielders,
+   * so a catch could be credited to a batter, and `validateRoles` now refuses
+   * exactly that. Strict replay would 500 the public scorecard of every match
+   * containing one — a shared link, broken by a fix.
+   */
+  const unlawful = (state: MatchState): BallEventInput =>
+    ball(state, {
+      eventType: 'wicket',
+      wicketType: 'caught',
+      wicketPlayerId: asPlayerId('b1'),
+      // In the batting side. Refused when recorded today.
+      fielderId: asPlayerId('b2'),
+    });
+
+  it('refuses it when a scorer is recording it', () => {
+    expect(codeFor(() => applyBall(seedWith(), unlawful(seedWith())))).toBe('PLAYER_IN_TWO_ROLES');
+  });
+
+  it('applies it when reading the ball log back', () => {
+    const state = seedWith();
+    const replayed = applyBall(state, unlawful(state), { mode: 'replay' });
+
+    expect(replayed.balls).toHaveLength(1);
+    expect(replayed.currentInnings.wickets).toBe(1);
+  });
+
+  it('records what it objected to, rather than swallowing it', () => {
+    const state = seedWith();
+    const replayed = applyBall(state, unlawful(state), { mode: 'replay' });
+
+    expect(replayed.violations).toHaveLength(1);
+    expect(replayed.violations[0]!.code).toBe('PLAYER_IN_TWO_ROLES');
+    expect(replayed.violations[0]!.ballNumber).toBe(1);
+  });
+
+  it('leaves violations empty for an innings the rules are happy with', () => {
+    let s = seedWith();
+    for (let i = 0; i < 6; i++) s = bowl(s, { eventType: '1', runsOffBat: 1 });
+    expect(s.violations).toEqual([]);
+  });
+
+  it('tolerates a dismissal thrown from composition, not validation', () => {
+    // BATSMAN_ALREADY_OUT is raised inside updateBatting rather than validate,
+    // so it needs its own tolerance or a stored match still fails to load.
+    let s = seedWith();
+    s = applyBall(
+      s,
+      ball(s, {
+        eventType: 'wicket',
+        wicketType: 'bowled',
+        wicketPlayerId: asPlayerId('b1'),
+      }),
+      { mode: 'replay' },
+    );
+
+    // The same batter dismissed a second time — impossible, and stored.
+    s = applyBall(
+      s,
+      {
+        inningsId: asInningsId('i1'),
+        eventType: 'wicket',
+        runsOffBat: 0,
+        extraRuns: 0,
+        batsmanId: asPlayerId('b1'),
+        nonStrikerId: asPlayerId('b2'),
+        bowlerId: asPlayerId('w1'),
+        wicketType: 'bowled',
+        wicketPlayerId: asPlayerId('b1'),
+      },
+      { mode: 'replay' },
+    );
+
+    expect(s.balls).toHaveLength(2);
+    expect(s.violations.some((v) => v.code === 'BATSMAN_ALREADY_OUT')).toBe(true);
+  });
+});

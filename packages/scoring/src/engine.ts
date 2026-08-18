@@ -52,6 +52,7 @@ import {
   type BowlerStats,
   type Partnership,
   type FallOfWicket,
+  type BallViolation,
   ScoringError,
 } from './types';
 import {
@@ -87,14 +88,76 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Apply a ball event to a match state, returning the new state.
- * Throws ScoringError on invalid events.
+ * How to treat a delivery the rules refuse.
+ *
+ * **`strict`** — the default, and what recording a ball must do. An unlawful
+ * delivery throws, the scorer is told which rule they broke, and nothing is
+ * written.
+ *
+ * **`replay`** — what reading the ball log back must do. The delivery is
+ * already committed; it cannot be un-bowled by tightening a rule afterwards.
+ * So it is applied, and the objection is recorded on `state.violations`.
+ *
+ * ## Why this distinction has to exist
+ *
+ * `applyBall` both validates and composes, and replay calls it for every
+ * stored delivery — so validation runs on **every read**. Every scorecard,
+ * every share card, every career-page-adjacent replay. That means any rule
+ * added later retroactively breaks reads of matches scored before it.
+ *
+ * That is not theoretical here. The wicket sheet used to offer both squads as
+ * fielders, so a catch could be credited to a batter; `validateRoles` now
+ * refuses exactly that. Without this mode, every match containing one would
+ * 500 on its public scorecard — a growth-loop link, broken by a fix.
+ *
+ * The rule that falls out: **validate on write, tolerate on read.** A stored
+ * match always renders. What is wrong with it is data to be reported and
+ * repaired, not a reason to refuse to show it.
  */
-export function applyBall(state: MatchState, input: BallEventInput): MatchState {
+export type ApplyBallOptions = {
+  mode?: 'strict' | 'replay';
+};
+
+/**
+ * Apply a ball event to a match state, returning the new state.
+ *
+ * Throws ScoringError on an unlawful delivery. In `replay` mode it records the
+ * objection on the returned state instead — see ApplyBallOptions.
+ */
+export function applyBall(
+  state: MatchState,
+  input: BallEventInput,
+  opts: ApplyBallOptions = {},
+): MatchState {
   const event: BallEvent = normalizeEvent(state, input);
-  validate(state, event);
-  return compose(state, event);
+  const replaying = opts.mode === 'replay';
+  const violations: BallViolation[] = [];
+
+  const object = (error: unknown): void => {
+    if (!replaying || !(error instanceof ScoringError)) throw error;
+    violations.push({
+      ballId: event.id,
+      ballNumber: event.ballNumber,
+      code: error.code,
+      message: error.message,
+    });
+  };
+
+  try {
+    validate(state, event);
+  } catch (error) {
+    object(error);
+  }
+
+  return compose(state, event, { replaying, object, violations });
 }
+
+/** Threaded through composition so a stored delivery is never dropped. */
+type ComposeContext = {
+  replaying: boolean;
+  object: (error: unknown) => void;
+  violations: BallViolation[];
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Event normalization
@@ -417,13 +480,13 @@ function validateBatters(state: MatchState, event: BallEvent): void {
 // Composition — the orchestrator
 // ─────────────────────────────────────────────────────────────────────────────
 
-function compose(state: MatchState, event: BallEvent): MatchState {
+function compose(state: MatchState, event: BallEvent, ctx: ComposeContext): MatchState {
   // Computed once, against the innings state as it stands BEFORE this ball
   // increments the legal-ball counter, and shared by the two steps that need
   // it: the bowler's maiden and the strike rotation.
   const isEOOver = isEndOfOverCheck(state.currentInnings, event.isLegalDelivery);
 
-  const updatedBatting = updateBatting(state, event);
+  const updatedBatting = updateBatting(state, event, ctx);
   const updatedBowling = updateBowling(state, event, isEOOver);
   const { partnerships, fallOfWickets } = updatePartnershipAndFall(state, event, updatedBatting);
   const updatedInnings = updateInnings(state, event, fallOfWickets, isEOOver);
@@ -438,6 +501,8 @@ function compose(state: MatchState, event: BallEvent): MatchState {
     partnerships,
     fallOfWickets,
     balls,
+    violations:
+      ctx.violations.length > 0 ? [...state.violations, ...ctx.violations] : state.violations,
   };
 }
 
@@ -448,6 +513,7 @@ function compose(state: MatchState, event: BallEvent): MatchState {
 function updateBatting(
   state: MatchState,
   event: BallEvent,
+  ctx: ComposeContext,
 ): { stats: Record<string, BatsmanStats>; strikerOut: BatsmanStats | null } {
   const stats: Record<string, BatsmanStats> = { ...state.batting };
   const strikerKey = playerIdKey(event.batsmanId);
@@ -477,7 +543,9 @@ function updateBatting(
   let strikerOut: BatsmanStats | null = null;
   if (event.wicketType && event.wicketPlayerId === event.batsmanId) {
     if (striker.isOut) {
-      throw new ScoringError('BATSMAN_ALREADY_OUT', 'Batsman is already out');
+      // Thrown from composition rather than validation, so replay has to
+      // tolerate it here as well or a stored match would still fail to load.
+      ctx.object(new ScoringError('BATSMAN_ALREADY_OUT', 'Batsman is already out'));
     }
     if (event.wicketType === 'retired_hurt') {
       striker.isRetiredHurt = true;
@@ -497,7 +565,7 @@ function updateBatting(
   // Wicket on the non-striker (run-out is the common case)
   if (event.wicketType && event.wicketPlayerId === event.nonStrikerId) {
     if (nonStriker.isOut) {
-      throw new ScoringError('BATSMAN_ALREADY_OUT', 'Batsman is already out');
+      ctx.object(new ScoringError('BATSMAN_ALREADY_OUT', 'Batsman is already out'));
     }
     if (event.wicketType !== 'retired_hurt') {
       nonStriker.isOut = true;

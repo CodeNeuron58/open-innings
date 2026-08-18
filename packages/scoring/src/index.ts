@@ -5,7 +5,7 @@
  * individual files, so the API surface stays small and stable.
  */
 
-export { applyBall } from './engine';
+export { applyBall, type ApplyBallOptions } from './engine';
 export { initialState, replayEvents, replayInnings, replayWithLastRemoved } from './compute';
 export {
   buildScorecard,
@@ -42,6 +42,7 @@ export {
   ScoringError,
   type BallEvent,
   type BallEventInput,
+  type BallViolation,
   type MatchState,
   type InningsState,
   type BatsmanStats,

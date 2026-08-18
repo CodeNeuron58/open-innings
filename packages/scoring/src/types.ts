@@ -190,6 +190,21 @@ export type InningsState = {
   maxOversPerBowler?: number;
 };
 
+/**
+ * A stored delivery that the current rules would refuse.
+ *
+ * Only ever produced while replaying. A delivery being recorded now is
+ * rejected outright — that is the whole point of validation — but one already
+ * committed to the ball log cannot be un-bowled by tightening a rule, and a
+ * scorecard that throws is worse than one that says which ball is wrong.
+ */
+export type BallViolation = {
+  ballId: string;
+  ballNumber: number;
+  code: ScoringErrorCode;
+  message: string;
+};
+
 export type MatchState = {
   match: {
     id: MatchId;
@@ -206,6 +221,16 @@ export type MatchState = {
   fallOfWickets: FallOfWicket[];
 
   balls: BallEvent[]; // all balls bowled in this innings, in order
+
+  /**
+   * Stored deliveries the current rules would refuse. Empty for any innings
+   * scored under the rules as they now stand, which is the normal case.
+   *
+   * Populated only in replay mode — see `applyBall`. Somewhere to put the
+   * answer matters because the alternative is throwing, and throwing on read
+   * takes a public scorecard down over a ball bowled months ago.
+   */
+  violations: BallViolation[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
