@@ -101,6 +101,10 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       wicketType: parsed.wicketType,
       wicketPlayerId: parsed.wicketPlayerId ? asPlayerId(parsed.wicketPlayerId) : undefined,
       fielderId: parsed.fielderId ? asPlayerId(parsed.fielderId) : undefined,
+      // The one client-asserted fact the engine cannot derive: Law 17.4 lets
+      // the bowler change mid-over only when they cannot continue, and nothing
+      // in the ball log distinguishes an injury from a mis-tap.
+      bowlerReplacedMidOver: parsed.bowlerReplacedMidOver,
       commentary: parsed.commentary,
     };
 
@@ -151,6 +155,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         wicketType: newBall.wicketType ?? null,
         wicketPlayerId: newBall.wicketPlayerId ?? null,
         fielderId: newBall.fielderId ?? null,
+        bowlerReplacedMidOver: newBall.bowlerReplacedMidOver ?? false,
         commentary: newBall.commentary ?? null,
       },
       currentInnings.id,
@@ -272,7 +277,13 @@ type LoadedMatch = Awaited<ReturnType<typeof loadMatchInProgress>>;
 type LoadedInnings = NonNullable<LoadedMatch>['currentInnings'];
 
 function buildSeed(
-  match: { id: string; oversPerInnings: number; teamAId: string; teamBId: string },
+  match: {
+    id: string;
+    oversPerInnings: number;
+    teamAId: string;
+    teamBId: string;
+    maxOversPerBowler: number | null;
+  },
   currentInnings: LoadedInnings,
 ): MatchState {
   // Use the opening trio as the seed. After the first ball is recorded, the
@@ -296,6 +307,11 @@ function buildSeed(
     bowlerId,
     target: currentInnings.target ?? undefined,
     maxWickets: currentInnings.maxWickets,
+    // Null in the row means the match set no limit; the engine reads
+    // undefined as unenforced. Replay must see the same condition the
+    // delivery was validated under, or a lawfully-scored innings stops
+    // replaying.
+    maxOversPerBowler: match.maxOversPerBowler ?? undefined,
   });
 }
 
@@ -314,6 +330,7 @@ function ballsToInputs(
     wicketType: string | null;
     wicketPlayerId: string | null;
     fielderId: string | null;
+    bowlerReplacedMidOver: boolean;
     commentary: string | null;
     id: string;
   }>,
@@ -332,6 +349,7 @@ function ballsToInputs(
     wicketType: (b.wicketType ?? undefined) as BallEventInput['wicketType'],
     wicketPlayerId: b.wicketPlayerId ? asPlayerId(b.wicketPlayerId) : undefined,
     fielderId: b.fielderId ? asPlayerId(b.fielderId) : undefined,
+    bowlerReplacedMidOver: b.bowlerReplacedMidOver,
     commentary: b.commentary ?? undefined,
     id: b.id,
   }));

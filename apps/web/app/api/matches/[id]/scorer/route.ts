@@ -69,6 +69,11 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
       bowlerId: inning.openingBowlerId ?? '',
       maxWickets: inning.maxWickets,
       target: inning.target ?? undefined,
+      // Null in the row means the match set no limit; the engine reads
+      // undefined as unenforced. Replay must see the same condition the
+      // delivery was validated under, or a lawfully-scored innings stops
+      // replaying.
+      maxOversPerBowler: match.maxOversPerBowler ?? undefined,
     },
     events,
   );

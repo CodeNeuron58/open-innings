@@ -25,6 +25,55 @@ import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { invalid, notFound, unauthorized } from './errors';
 
+/*
+ * The two functions below are exported for tests, not for callers.
+ *
+ * They are the only arithmetic in this file and both are pure, but they were
+ * reachable only through `createMatchWithFirstInnings`, which needs a database.
+ * Sizing an innings wrongly is invisible until a six-a-side side cannot be
+ * bowled out, so they are worth asserting directly.
+ */
+
+/**
+ * How many wickets this side can lose before the innings is over.
+ *
+ * One fewer than the number of players, because the last batter has nobody to
+ * bat with. This used to be a hardcoded ten, so a six-a-side or box-cricket
+ * team could **never be bowled out** — the innings ran to the over limit with
+ * nobody left to come in, and the scorer had to notice and end it by hand.
+ *
+ * Capped at ten rather than taken from the squad alone: a club may register
+ * fifteen players against a team, but only eleven bat.
+ */
+export function sizeMaxWickets(squadSize: number): number {
+  return Math.min(10, Math.max(1, squadSize - 1));
+}
+
+/**
+ * The per-bowler over limit to apply, given what the client asked for.
+ *
+ * Three-way, matching the schema. `undefined` means "use the competition's
+ * usual rule" and is the common case; explicit `null` means no limit, which
+ * gully cricket needs; a number is taken as given.
+ *
+ * The usual rule is a fifth of the innings rounded up — four overs in a T20,
+ * ten in a fifty-over game. It is applied **only when the bowling side can
+ * actually cover the innings under it**, which is the check that makes turning
+ * this on safe: five bowlers at four overs cover twenty, but four players
+ * capped at one over each cannot bowl five, and a quota nobody is left to
+ * satisfy would deadlock the innings with every remaining delivery refused.
+ */
+export function sizeBowlerQuota(
+  requested: number | null | undefined,
+  oversPerInnings: number,
+  bowlingSquadSize: number,
+): number | null {
+  if (requested !== undefined) return requested;
+
+  const standard = Math.ceil(oversPerInnings / 5);
+  return bowlingSquadSize * standard >= oversPerInnings ? standard : null;
+}
+
 /** Load a match the current user owns, or throw. */
 async function requireOwnedMatch(matchId: string) {
   const userId = await getUserId();
@@ -74,6 +123,13 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     venue: input.venue,
     oversPerInnings: input.oversPerInnings,
     format: input.format,
+    // Both playing conditions are sized from the squads that are already
+    // loaded above, because this is the only place that knows them.
+    maxOversPerBowler: sizeBowlerQuota(
+      input.maxOversPerBowler,
+      input.oversPerInnings,
+      bowlingSquad.length,
+    ),
     teamAId: input.teamAId,
     teamBId: input.teamBId,
     tossWinnerTeamId: input.tossWinnerTeamId,
@@ -91,6 +147,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     openingStrikerId: input.openingStrikerId,
     openingNonStrikerId: input.openingNonStrikerId,
     openingBowlerId: input.openingBowlerId,
+    maxWickets: sizeMaxWickets(battingSquad.length),
   });
   if (!inning) throw new Error('Could not create innings');
 
@@ -123,6 +180,11 @@ export async function startSecondInnings(matchId: string, input: StartSecondInni
   const existing = allInnings.find((i) => i.inningsNumber === 2);
   if (existing) return { match, inning: existing, alreadyExisted: true as const };
 
+  // The sides swap, so the squad that bowled the first innings is the one now
+  // batting. Loaded for the same reason as in the first innings: ten wickets is
+  // the wrong number for a side that does not have eleven players.
+  const chasingSquad = await getTeamMembers(first.bowlingTeamId);
+
   const inning = await createInning({
     matchId: match.id,
     inningsNumber: 2,
@@ -132,6 +194,7 @@ export async function startSecondInnings(matchId: string, input: StartSecondInni
     openingStrikerId: input.openingStrikerId,
     openingNonStrikerId: input.openingNonStrikerId,
     openingBowlerId: input.openingBowlerId,
+    maxWickets: sizeMaxWickets(chasingSquad.length),
   });
   if (!inning) throw new Error('Could not create the second innings');
 

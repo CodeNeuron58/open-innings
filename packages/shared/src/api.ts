@@ -73,6 +73,8 @@ export type MatchSummary = {
   oversPerInnings: number;
   /** 't20', 'club', … — a label, null for matches created before it existed. */
   format: string | null;
+  /** Overs any one bowler may bowl. Null when the match sets no limit. */
+  maxOversPerBowler: number | null;
   teamAId: string;
   teamBId: string;
   result: string | null;

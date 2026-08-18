@@ -307,6 +307,14 @@ export const matches = pgTable(
      * 20-over game is not necessarily a T20.
      */
     format: text('format'),
+    /**
+     * How many overs any one bowler may bowl.
+     *
+     * A playing condition rather than a Law, which is why it lives on the
+     * match and not in `packages/scoring/src/rules.ts`. Null means unenforced
+     * — see the migration for why that has to remain expressible.
+     */
+    maxOversPerBowler: smallint('max_overs_per_bowler'),
     ballType: ballType('ball_type').notNull().default('leather'),
     status: matchStatus('status').notNull().default('scheduled'),
 
@@ -456,6 +464,16 @@ export const ballEvents = pgTable(
     fielderId: uuid('fielder_id').references(() => players.id, {
       onDelete: 'set null',
     }),
+
+    /**
+     * Law 17.4's escape hatch: this delivery changed the bowler mid-over
+     * because the previous one could not continue.
+     *
+     * Stored, not merely accepted. Replay re-validates every delivery, so an
+     * override that lived only in the request would make the innings that
+     * used it un-replayable.
+     */
+    bowlerReplacedMidOver: boolean('bowler_replaced_mid_over').notNull().default(false),
 
     // Free text — scorer commentary
     commentary: text('commentary'),

@@ -201,6 +201,8 @@ export async function createMatch(input: {
   venue?: string;
   oversPerInnings: number;
   format?: string;
+  /** Null means the match sets no per-bowler limit. See migration 0009. */
+  maxOversPerBowler?: number | null;
   teamAId: string;
   teamBId: string;
   tossWinnerTeamId?: string;
@@ -216,6 +218,7 @@ export async function createMatch(input: {
       venue: input.venue,
       oversPerInnings: input.oversPerInnings,
       format: input.format,
+      maxOversPerBowler: input.maxOversPerBowler,
       teamAId: input.teamAId,
       teamBId: input.teamBId,
       tossWinnerTeamId: input.tossWinnerTeamId,
@@ -320,6 +323,10 @@ export async function createInning(input: {
       openingStrikerId: input.openingStrikerId,
       openingNonStrikerId: input.openingNonStrikerId,
       openingBowlerId: input.openingBowlerId,
+      // A last-resort fallback, not the rule. The caller knows the squad and
+      // should size this from it — a six-a-side team cannot lose ten wickets,
+      // and an innings that can never end that way runs to the over limit with
+      // nobody left to bat. See sizeMaxWickets in lib/services/matches.ts.
       maxWickets: input.maxWickets ?? (input.inningsNumber >= 3 ? 2 : 10),
       status: 'not_started',
     })

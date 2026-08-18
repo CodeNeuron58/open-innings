@@ -129,6 +129,16 @@ export const createMatchSchema = z
       .max(200),
     /** A label the match wears. Optional — an unlabelled match still scores. */
     format: z.enum(MATCH_FORMATS).optional(),
+    /**
+     * How many overs one bowler may bowl.
+     *
+     * Three-way on purpose. Omitted means "apply the competition's usual
+     * rule", and the server works it out from the over count and the squad —
+     * it is the only party that knows whether the bowling side can actually
+     * cover the innings under it. Explicit `null` means no limit, which gully
+     * and box cricket need. A number is that number.
+     */
+    maxOversPerBowler: z.coerce.number().int().min(1).max(200).nullable().optional(),
     teamAId: idSchema,
     teamBId: idSchema,
     tossWinnerTeamId: idSchema.optional(),
@@ -223,6 +233,17 @@ export const ballEventSchema = z.object({
   wicketType: z.enum(WICKET_TYPES).optional(),
   wicketPlayerId: idSchema.optional(),
   fielderId: idSchema.optional(),
+
+  /**
+   * Law 17.4 — the bowler changed part-way through this over because the
+   * previous one could not continue.
+   *
+   * Accepted from the client, unlike the other server-owned flags above,
+   * because it is a fact only the scorer knows: nothing in the ball log can
+   * distinguish an injury from a mis-tap. It is refused by default and has to
+   * be asserted, which is the right way round — the common case is the error.
+   */
+  bowlerReplacedMidOver: z.boolean().optional(),
 
   commentary: optionalText(280),
 });

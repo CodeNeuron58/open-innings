@@ -41,7 +41,13 @@ function toEvents(rows: BallRow[]) {
 }
 
 function replayInningsRow(
-  match: { id: string; oversPerInnings: number; teamAId: string; teamBId: string },
+  match: {
+    id: string;
+    oversPerInnings: number;
+    teamAId: string;
+    teamBId: string;
+    maxOversPerBowler: number | null;
+  },
   inn: Innings,
   rows: BallRow[],
 ): MatchState {
@@ -60,6 +66,11 @@ function replayInningsRow(
       bowlerId: inn.openingBowlerId ?? '',
       maxWickets: inn.maxWickets,
       target: inn.target ?? undefined,
+      // Null in the row means the match set no limit; the engine reads
+      // undefined as unenforced. Replay must see the same condition the
+      // delivery was validated under, or a lawfully-scored innings stops
+      // replaying.
+      maxOversPerBowler: match.maxOversPerBowler ?? undefined,
     },
     toEvents(rows),
   );
