@@ -296,7 +296,11 @@ async function main() {
       openingStrikerId: chaseBatting[0]!.id,
       openingNonStrikerId: chaseBatting[1]!.id,
       openingBowlerId: chaseBowling[0]!.id,
-      maxWickets: 10,
+      // Sized from the squad, the same rule `startSecondInnings` applies. This
+      // said 10 against a four-player side, so the chase reported "won by 10
+      // wickets" with six batters who do not exist — the fixture was asserting
+      // against the defect rather than the fix.
+      maxWickets: Math.min(10, Math.max(1, chaseBatting.length - 1)),
       status: 'in_progress',
       startedAt: new Date(),
     })

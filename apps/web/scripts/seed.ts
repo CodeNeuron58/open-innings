@@ -169,7 +169,12 @@ async function getOrCreateSampleMatch(
     openingStrikerId: strikerId,
     openingNonStrikerId: nonStrikerId,
     openingBowlerId: bowlerId,
-    maxWickets: 10,
+    // Four players a side here, so three wickets is all out — the same rule
+    // `sizeMaxWickets` applies in lib/services/matches.ts. This wrote a flat
+    // ten, which meant the seeded match could never be bowled out and dev data
+    // quietly demonstrated the bug rather than the fix. The seed inserts rows
+    // directly, so it does not inherit the service's sizing and has to say so.
+    maxWickets: Math.min(10, Math.max(1, TEAM_A_PLAYERS.length - 1)),
   });
 
   return matchId;
