@@ -260,6 +260,42 @@ export async function completeMatch(
     .where(eq(matches.id, matchId));
 }
 
+/**
+ * Abandon a match — rain, a dispute, or one created by mistake.
+ *
+ * The two enum values this writes have existed since the first migration and
+ * had never been used: `matches.status` has carried 'abandoned' and
+ * `matches.result` has carried 'no_result' the whole time, while
+ * `completeMatch` accepted only a win or a tie. So the only way out of 'live'
+ * was to finish a chase, and a match that could not be finished stayed live
+ * forever — which also made it undeletable, because `deleteOwnedMatch` refuses
+ * while a match is live and told the caller to "abandon" it.
+ *
+ * Any innings still in progress is closed in the same transaction. Leaving one
+ * open would keep the match in `loadMatchInProgress`, so the scorer console
+ * would still offer to take deliveries for a match that is over.
+ */
+export async function abandonMatch(matchId: string, summary: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(matches)
+      .set({
+        status: 'abandoned',
+        result: 'no_result',
+        winningTeamId: null,
+        summary,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(matches.id, matchId));
+
+    await tx
+      .update(inningsTable)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(and(eq(inningsTable.matchId, matchId), eq(inningsTable.status, 'in_progress')));
+  });
+}
+
 /** Revert a completed match to live (used when the final ball is undone). */
 export async function reopenMatch(matchId: string): Promise<void> {
   await db
@@ -441,6 +477,75 @@ export async function deleteBallEvent(id: string): Promise<void> {
   await db.delete(ballEvents).where(eq(ballEvents.id, id));
 }
 
+/**
+ * Undo a delivery and move the innings back, in one transaction.
+ *
+ * The mirror of `recordBall`, and it exists for the same reason. The undo path
+ * used to delete the ball and then update the cached score as two separate
+ * awaits, so anything failing between them — a dropped connection at a ground,
+ * a dyno restart — left the delivery gone and the cache a ball ahead, with
+ * nothing to recompute it but the next successful delivery.
+ *
+ * **Deletes by id rather than "whichever is last".** The caller has already
+ * replayed the innings without this specific ball to produce `cache`, so
+ * deleting a different one would apply a score that does not describe the
+ * remaining deliveries. Two overlapping undos now leave the second with
+ * nothing to delete, and it is refused instead of quietly eating two balls.
+ *
+ * `reopenMatchId` closes the last gap: undoing the winning run of a chase has
+ * to reopen the match, and that was a third write outside the pair.
+ */
+export async function removeLastBall(
+  ballId: string,
+  inningsId: string,
+  cache: {
+    runs: number;
+    wickets: number;
+    ballsBowled: number;
+    extras: number;
+    status: 'not_started' | 'in_progress' | 'completed';
+  },
+  opts: { reopenMatchId?: string } = {},
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(ballEvents)
+      .where(eq(ballEvents.id, ballId))
+      .returning({ id: ballEvents.id });
+
+    // Somebody else undid it first. Report it rather than writing a score
+    // computed against a ball that is no longer there.
+    if (deleted.length === 0) return false;
+
+    await tx
+      .update(inningsTable)
+      .set({ ...cache, completedAt: cache.status === 'completed' ? new Date() : null })
+      .where(eq(inningsTable.id, inningsId));
+
+    if (opts.reopenMatchId) {
+      await tx
+        .update(matches)
+        .set({
+          status: 'live',
+          completedAt: null,
+          updatedAt: new Date(),
+          result: null,
+          winningTeamId: null,
+          summary: null,
+        })
+        .where(eq(matches.id, opts.reopenMatchId));
+    }
+
+    return true;
+  });
+}
+
+/**
+ * @deprecated Prefer `removeLastBall`, which also moves the innings back.
+ *
+ * Deleting the row on its own leaves the cached score a delivery ahead, and
+ * nothing recomputes it until the next successful ball.
+ */
 export async function deleteLastBallEvent(inningsId: string): Promise<void> {
   const last = await db
     .select()

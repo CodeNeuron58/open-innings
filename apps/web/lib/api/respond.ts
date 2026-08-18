@@ -42,6 +42,63 @@ export async function readJson<T extends z.ZodTypeAny>(
   return parsed.data;
 }
 
+/** Postgres `unique_violation`. */
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * What a broken unique constraint means to a client, per constraint.
+ *
+ * Keyed on the constraint **name** rather than on the bare SQLSTATE, because
+ * more than one thing in this schema is unique and they mean different things
+ * to whoever is asking. Anything not listed falls through to a generic 409:
+ * still the right status, just without a code worth branching on.
+ */
+const UNIQUE_CONFLICTS: Record<string, { error: string; code: string; field?: string }> = {
+  /*
+   * Two requests recorded the same delivery.
+   *
+   * POST /ball derives ballNumber from a count, so a double tap — or a retry
+   * after a timeout on ground-side mobile data — computes the same number
+   * twice. The index refuses the second write, which is correct and is the
+   * whole reason it exists.
+   *
+   * What was wrong is what the client heard: an unrecognised driver error
+   * became `500 Internal error`, indistinguishable from a real fault, so a
+   * retrying client kept retrying something that could never succeed. A 409
+   * says "already recorded" — refresh, do not resend.
+   */
+  ball_events_innings_idx: {
+    error: 'That delivery is already recorded. Refresh to see the current score.',
+    code: 'DUPLICATE_BALL',
+  },
+  users_email_unique: {
+    error: 'An account with that email already exists',
+    code: 'EMAIL_TAKEN',
+    field: 'email',
+  },
+};
+
+/**
+ * The constraint a driver error names, if it names one.
+ *
+ * postgres.js puts the SQLSTATE on `code` and the constraint on
+ * `constraint_name`. Read defensively — this is an untyped driver object, and
+ * guessing wrong here would turn a conflict back into a 500.
+ */
+function uniqueViolation(error: unknown): { error: string; code: string; field?: string } | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const driver = error as { code?: unknown; constraint_name?: unknown };
+  if (driver.code !== UNIQUE_VIOLATION) return null;
+
+  const constraint = typeof driver.constraint_name === 'string' ? driver.constraint_name : '';
+  return (
+    UNIQUE_CONFLICTS[constraint] ?? {
+      error: 'That already exists.',
+      code: 'DUPLICATE',
+    }
+  );
+}
+
 /**
  * Map a thrown error onto the API's error contract.
  *
@@ -54,6 +111,15 @@ export function toErrorResponse(error: unknown): NextResponse<ApiError> {
     const body: ApiError = { error: error.message };
     if (error.field) body.field = error.field;
     return NextResponse.json(body, { status: error.status });
+  }
+
+  // A unique constraint did its job. That is a conflict, not a server fault,
+  // and the difference decides whether a client retries forever.
+  const conflict = uniqueViolation(error);
+  if (conflict) {
+    const body: ApiError = { error: conflict.error, code: conflict.code };
+    if (conflict.field) body.field = conflict.field;
+    return NextResponse.json(body, { status: HTTP.conflict });
   }
 
   // The scoring engine rejected the delivery — a client bug or a rule the

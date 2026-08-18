@@ -30,10 +30,8 @@ import {
 import {
   loadMatchInProgress,
   recordBall,
-  deleteLastBallEvent,
-  updateInningCache,
+  removeLastBall,
   completeMatch,
-  reopenMatch,
   getTeam,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
@@ -241,23 +239,49 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'No balls to undo' }, { status: 400 });
     }
 
-    await deleteLastBallEvent(currentInnings.id);
-
+    /*
+     * Replay first, write second.
+     *
+     * Replay is pure, so computing the innings as it will stand *without* the
+     * last delivery costs nothing before touching the database — and it means
+     * the delete and the corrected score go down together rather than as two
+     * awaits with a window between them.
+     */
+    const last = balls[balls.length - 1]!;
     const remaining = balls.slice(0, -1);
     const seed = buildSeed(match, currentInnings);
     const state = replayEvents(seed, ballsToInputs(remaining));
 
-    await updateInningCache(currentInnings.id, {
-      runs: state.currentInnings.runs,
-      wickets: state.currentInnings.wickets,
-      ballsBowled: state.currentInnings.ballsBowled,
-      extras: state.currentInnings.extras,
-      status: state.currentInnings.status,
-    });
+    // Undoing the winning run of a chase reopens the match, and that is part
+    // of the same undo rather than a write that follows it.
+    const reopenMatchId =
+      match.status === 'completed' && state.currentInnings.status !== 'completed'
+        ? matchId
+        : undefined;
 
-    // Undoing the final ball of a finished chase reopens the match.
-    if (match.status === 'completed' && state.currentInnings.status !== 'completed') {
-      await reopenMatch(matchId);
+    const removed = await removeLastBall(
+      last.id,
+      currentInnings.id,
+      {
+        runs: state.currentInnings.runs,
+        wickets: state.currentInnings.wickets,
+        ballsBowled: state.currentInnings.ballsBowled,
+        extras: state.currentInnings.extras,
+        status: state.currentInnings.status,
+      },
+      { reopenMatchId },
+    );
+
+    // Another undo got there first. The score we computed describes a ball
+    // that is already gone, so it must not be written.
+    if (!removed) {
+      return NextResponse.json(
+        {
+          error: 'That delivery was already undone. Refresh to see the current score.',
+          code: 'ALREADY_UNDONE',
+        },
+        { status: 409 },
+      );
     }
 
     return NextResponse.json({ state });
