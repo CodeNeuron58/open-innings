@@ -14,3 +14,15 @@ export const MARKETING_LINKS: ReadonlyArray<{ href: Route; label: string }> = [
   { href: '/open-source', label: 'Open source' },
   { href: '/faq', label: 'FAQ' },
 ];
+
+/**
+ * Links that belong in the footer but not the nav.
+ *
+ * Privacy is a legal document, not a section of the site — nobody browses to
+ * it, they go looking for it, and the footer is where people look. It is also
+ * the URL Google Play requires before it will publish, so it has to exist at a
+ * stable path and be reachable from every page.
+ */
+export const FOOTER_ONLY_LINKS: ReadonlyArray<{ href: Route; label: string }> = [
+  { href: '/privacy', label: 'Privacy' },
+];
