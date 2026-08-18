@@ -153,6 +153,32 @@ If a user requests account deletion, we **anonymise** rather than hard-delete:
 This is the pattern Lichess uses. We never break references to historical
 match data, but the user's identity is removed from anything user-facing.
 
+> ### ⚠️ Not implemented, and the last bullet is currently impossible
+>
+> **2026-08-18.** This section describes a policy, not behaviour. `anonymised_at`
+> exists and every read path honours it — `getUserFromToken` and
+> `authenticateUser` both refuse an anonymised user — but **nothing ever writes
+> it.** There is no `DELETE /api/me`, no settings entry, and no public
+> `/delete-account` page.
+>
+> That matters beyond tidiness: Google Play requires deletion both in-app and at
+> a publicly reachable URL, and the Data Safety form asks for that URL. **It
+> blocks publication.**
+>
+> The teams bullet also cannot be implemented as written: `teams.owner_id` is
+> `NOT NULL` with `ON DELETE restrict`, so it can never be set to null. Before
+> building the endpoint, pick one and change this document to match:
+>
+> 1. **Make the column nullable** — matches the text above, and orphan squads
+>    stay reclaimable.
+> 2. **Transfer ownership** to another squad member — needs a rule for who, and
+>    for a squad of one.
+> 3. **Delete the squad** with the account — simplest, and destroys other
+>    people's fixtures, which is the reason we anonymise rather than delete
+>    everywhere else.
+>
+> Tracked as the first item in [`checklist.md`](../checklist.md) §1.
+
 ## Performance considerations
 
 `ball_events` is the only table that grows fast — one row per ball bowled,

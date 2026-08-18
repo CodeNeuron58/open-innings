@@ -8,7 +8,9 @@ perfectly and silently does nothing reaches a tester as a bug report, and
 reaches a judge as a broken feature. Everything here is a known gap, written
 down so it stays known.
 
-**Last updated: 2026-08-17**
+**Last updated: 2026-08-18.** This file covers _UI that exists but does
+nothing_. For everything else still to be done — Play blockers, backend gaps,
+infrastructure — see [`checklist.md`](../checklist.md), which is the tracker.
 
 Legend: 🔴 needs a backend · 🟡 needs a decision · 🟢 cosmetic or trivial
 
@@ -170,7 +172,7 @@ The C-series. All five screens are real and the flow runs end to end — console
 wicket, end of over, innings break, result. What follows is what the designs
 show that the data does not carry.
 
-### 🔴 Swap ends is not buildable yet
+### 🟢 Swap ends — resolved 2026-08-18, and never built
 
 C3 shows a **Swap ends** control beside the strike. The engine rotates the
 strike itself at the end of an over, and there is no event that would let the
@@ -181,6 +183,21 @@ It is worth having: the reason a scorer wants it is that the players crossed on
 the last ball and nobody noticed until the next over started. Until then the
 only fix is undo, and the screen shows who is on strike as **information**
 rather than offering a control that would silently do nothing.
+
+**Resolved 2026-08-18, by building something else.** `PATCH .../ball/[ballId]`
+landed, and a patched ball _is_ a corrected end: the innings replays and the
+strike falls out of it. The engine capability this section said was missing
+turned out to be the replay that already existed.
+
+So the control is still not drawn, and should not be — there is now exactly one
+way to correct the mistake, which is to correct the delivery that caused it.
+Tapping a chip in the over strip opens it. A bespoke swap-ends mutation would
+have been a second way to express the same fix, disagreeing with the first
+whenever the runs and the strike implied different things.
+
+**The general lesson is worth keeping**: this sat here for weeks as "needs an
+engine capability that does not exist", and the capability was never the
+missing piece. The missing piece was a route.
 
 ### 🟡 The bowler quota is a UI-only guard
 
@@ -420,24 +437,38 @@ comes back first.
 
 ## Settings (`apps/mobile/app/(app)/more.tsx`)
 
-### 🔴 There is no settings store
+### 🟢 The settings store landed — 2026-08-18
 
-F1 shows four switches: live match links, keep screen awake, sound on each
-ball, export scorebook. **None is backed by anything** — there is no
-preferences store on the device and no user-settings table on the server.
+F1 showed four switches, none of them backed by anything. Three of the four are
+now settled, and the section is kept because the fourth still is not.
 
-They are drawn disabled with the reason on the row, because a switch that
-flips back on next launch is a bug report while a greyed row that says "not
-built yet" is information.
+`apps/mobile/lib/settings.tsx` is the store: a `SettingsProvider` over
+`expo-secure-store`, per-device rather than per-account, because "keep this
+screen awake" is a property of the phone in your hand and not of who you are.
+Unknown keys are merged over `DEFAULTS` on read, so an older build reading a
+newer file does not crash.
 
-Worth ranking them, because they are not equal:
+| Setting               | Now                                                                                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Keep screen awake** | ✅ Built, defaults **on**. `expo-keep-awake`, activated by tag and scoped to the scorer route only — `activateKeepAwakeAsync('scorer')`, not `useKeepAwake`, which would activate unconditionally and could not be turned off. |
+| Export scorebook      | ✅ Resolved differently than planned. A scorebook is a property of a **match**, not an account, so the row navigates to the match list rather than toggling anything. `GET /api/matches/[id]/export` serves CSV and JSON.      |
+| Live match links      | ✅ Shown as **"Always on"**, not a switch. Scorecards are public and permanent by design; turning it off would break every link already sent.                                                                                  |
+| Sound on each ball    | ❌ Still unbuilt — needs an audio file and `expo-audio`. Drawn disabled with "Not built yet". Deferred in `checklist.md` §9.                                                                                                   |
 
-| Setting               | Verdict                                                                                                                                |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Keep screen awake** | The one that actually matters. A three-hour match on a phone that sleeps every 30s is miserable. `expo-keep-awake` is tiny.            |
-| Export scorebook      | Real feature — needs a CSV/JSON endpoint. It is also on the F2 free list, so it is a promise.                                          |
-| Sound on each ball    | Needs audio plus a store. Genuinely useful for eyes-up scoring.                                                                        |
-| Live match links      | Not a switch. Scorecards are public and permanent by design; turning it off would break every link already sent. Shown as "always on". |
+The greyed-row convention stands and is worth restating, because it is the
+reason this file exists: a switch that flips back on next launch reaches a
+tester as a bug report, while a greyed row that says **why** reaches them as
+information.
+
+### 🔴 Account deletion has no row here yet
+
+Google Play requires deletion from inside the app as well as from a public web
+URL. There is no settings entry and no `DELETE /api/me` behind it — the
+mechanism exists (`users.anonymised_at`, honoured on every read) and nothing
+writes it.
+
+**This blocks publication, not just quality.** Tracked as the first item in
+`checklist.md` §1.
 
 ### 🟢 "My career" resolves — decided 2026-08-17
 
