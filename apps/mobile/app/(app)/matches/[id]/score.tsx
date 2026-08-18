@@ -119,10 +119,25 @@ export default function Scorer() {
   const [pendingBatterId, setPendingBatterId] = useState<string | null>(null);
   const [pendingBowlerId, setPendingBowlerId] = useState<string | null>(null);
 
+  /*
+   * Law 17.4's exception: the bowler could not continue.
+   *
+   * Separate from `pendingBowlerId`, which is the ordinary end-of-over change.
+   * This one happens part-way through an over, the engine refuses it unless
+   * the delivery says so, and it has to say so on the ball itself — replay
+   * re-validates every stored delivery, so the flag is persisted rather than
+   * being a property of the request.
+   */
+  const [midOverBowlerId, setMidOverBowlerId] = useState<string | null>(null);
+  const [pickingMidOverBowler, setPickingMidOverBowler] = useState(false);
+
   const applyState = useCallback((next: MatchState) => {
     setLive(next);
     setPendingBatterId(null);
     setPendingBowlerId(null);
+    // The replacement is on the server now; the flag must not ride a second
+    // delivery, or every ball of the over would claim an injury.
+    setMidOverBowlerId(null);
   }, []);
 
   // A finished match is a result, not a console. Redirected rather than
@@ -210,8 +225,18 @@ export default function Scorer() {
     pendingWicketId === inn.nonStrikerId && pendingBatterId
       ? asPlayerId(pendingBatterId)
       : inn.nonStrikerId;
-  const effBowler =
-    needsBowlerChange && pendingBowlerId ? asPlayerId(pendingBowlerId) : inn.currentBowlerId;
+  const effBowler = midOverBowlerId
+    ? asPlayerId(midOverBowlerId)
+    : needsBowlerChange && pendingBowlerId
+      ? asPlayerId(pendingBowlerId)
+      : inn.currentBowlerId;
+
+  /*
+   * An over is under way when a delivery has been bowled in it — which is not
+   * the same as `ballsBowled % 6 !== 0`, because a wide starts an over without
+   * advancing that counter. Same test the engine uses.
+   */
+  const overInProgress = state.balls.some((b) => b.overNumber === Math.floor(inn.ballsBowled / 6));
 
   const completed = inn.status === 'completed';
 
@@ -235,6 +260,7 @@ export default function Scorer() {
       batsmanId: effStriker,
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
+      bowlerReplacedMidOver: midOverBowlerId !== null,
     });
   }
 
@@ -262,6 +288,7 @@ export default function Scorer() {
       batsmanId: effStriker,
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
+      bowlerReplacedMidOver: midOverBowlerId !== null,
     });
   }
 
@@ -282,6 +309,7 @@ export default function Scorer() {
         batsmanId: effStriker,
         nonStrikerId: effNonStriker,
         bowlerId: effBowler,
+        bowlerReplacedMidOver: midOverBowlerId !== null,
         wicketType: type,
         wicketPlayerId: asPlayerId(outBatterId),
         fielderId: fielderId ? asPlayerId(fielderId) : undefined,
@@ -439,13 +467,33 @@ export default function Scorer() {
           <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
         </View>
 
-        {/* Bowler */}
-        <View className="border-border flex-row items-center gap-2.5 border-b px-4 py-2">
+        {/*
+          Bowler.
+
+          Pressable part-way through an over, and only then, because that is
+          the one case the scorer cannot otherwise record: Law 17.4 lets the
+          bowler change mid-over when they cannot continue, and the end-of-over
+          sheet is no help when the injury happens off the third ball.
+        */}
+        <Pressable
+          accessibilityRole={overInProgress && !completed ? 'button' : 'none'}
+          accessibilityLabel={
+            overInProgress && !completed
+              ? `Bowling: ${nameOf(effBowler)}. Tap to change if they cannot continue.`
+              : `Bowling: ${nameOf(effBowler)}`
+          }
+          onPress={() => setPickingMidOverBowler(true)}
+          disabled={!overInProgress || completed || mutation.busy}
+          className="border-border flex-row items-center gap-2.5 border-b px-4 py-2 active:opacity-70"
+        >
           <Text className="font-heading shrink-0 text-[9px] uppercase tracking-[1.3px] text-neutral-600">
             Bowling
           </Text>
           <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
             {nameOf(effBowler)}
+            {midOverBowlerId ? (
+              <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
+            ) : null}
           </Text>
           <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
             {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
@@ -454,7 +502,7 @@ export default function Scorer() {
           <Text className="text-foreground/60 font-heading shrink-0 text-[12px]">
             {rate(bowlerStats?.runs ?? 0, bowlerStats?.balls ?? 0)}
           </Text>
-        </View>
+        </Pressable>
 
         {/* This over */}
         <View className="px-4 pb-3.5 pt-3">
@@ -634,6 +682,28 @@ export default function Scorer() {
             const done = await mutation.run((t) => api.endInnings(t, id));
             if (done !== null) await query.refresh();
           }}
+        />
+      ) : null}
+
+      {pickingMidOverBowler ? (
+        <NextPlayerSheet
+          title="Change bowler"
+          subtitle="Only if this bowler cannot continue — Law 17.4. The over carries on from where it is."
+          candidates={data.bowlingSquad
+            .filter(
+              (p) => p.id !== String(inn.currentBowlerId) && p.id !== String(inn.lastBowlerId),
+            )
+            .map((p) => ({
+              id: p.id,
+              label: p.fullName,
+              tag: state.bowling[p.id] ? formatOvers(state.bowling[p.id]!.balls) : undefined,
+            }))}
+          emptyMessage="Nobody else in the squad can take over this over."
+          onSelect={(playerId) => {
+            setMidOverBowlerId(playerId);
+            setPickingMidOverBowler(false);
+          }}
+          onCancel={() => setPickingMidOverBowler(false)}
         />
       ) : null}
 

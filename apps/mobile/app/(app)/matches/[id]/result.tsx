@@ -11,13 +11,15 @@
  * match, best bowling and most sixes are all computed server-side from the
  * ball log, so this screen and the share card can never disagree.
  */
+import { useState } from 'react';
 import { ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { MatchPerformer, MatchResultResponse } from '@open-innings/shared';
+import type { MatchPerformer, MatchResultResponse, ScorerPlayer } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
-import { usePublicQuery } from '../../../../lib/use-api';
+import { usePublicQuery, useApiMutation } from '../../../../lib/use-api';
+import { OpenersSheet } from '../../../../components/scorer/Sheets';
 import { Button, Card, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
 
 export default function Result() {
@@ -27,6 +29,45 @@ export default function Result() {
     (t, signal) => api.matchSummary(t, id, signal),
     [id],
   );
+  /*
+   * The Super Over.
+   *
+   * Offered only when the server says so. `canStartSuperOver` is true for a
+   * tied match and nothing else, and `startNextInnings` refuses innings 3
+   * otherwise — a button offering what the API will reject is worse than no
+   * button, so the rule stays where it belongs and this reads the answer.
+   *
+   * Squads are fetched on the tap, not with the result. This screen is public
+   * and most people opening it are not the scorer; the scorer endpoint is
+   * owner-only, so asking for it up front would fail for every viewer who
+   * followed a shared link.
+   */
+  const mutation = useApiMutation();
+  const [superOverSquads, setSuperOverSquads] = useState<{
+    batting: ScorerPlayer[];
+    bowling: ScorerPlayer[];
+  } | null>(null);
+
+  async function openSuperOver() {
+    const scorer = await mutation.run((t) => api.scorer(t, id));
+    if (!scorer) return;
+    // The side that batted second in the match bats first in the Super Over,
+    // and the scorer endpoint's current innings *is* that second innings — so
+    // its squads already come back the right way round.
+    setSuperOverSquads({ batting: scorer.battingSquad, bowling: scorer.bowlingSquad });
+  }
+
+  async function startSuperOver(openers: {
+    openingStrikerId: string;
+    openingNonStrikerId: string;
+    openingBowlerId: string;
+  }) {
+    const started = await mutation.run((t) => api.startNextInnings(t, id, openers));
+    if (started === null) return;
+    setSuperOverSquads(null);
+    router.replace({ pathname: '/matches/[id]/score', params: { id } });
+  }
+
   if (query.isLoading) return <LoadingScreen />;
 
   if (query.error || !query.data) {
@@ -128,6 +169,30 @@ export default function Result() {
           <Standout label="Most sixes" performer={m.mostSixes} format={(p) => String(p.primary)} />
         </View>
 
+        {/*
+          A tie is not the end of the match where the competition plays a Super
+          Over — and the app had nowhere to go from here, though the engine has
+          handled innings 3 and 4 since the first version of it.
+        */}
+        {m.canStartSuperOver ? (
+          <View className="border-steel-300 bg-steel-100 mx-4 mt-6 border p-3.5">
+            <Text className="text-steel-900 font-heading text-[15px]">Scores level</Text>
+            <Text className="text-steel-800/75 mt-1 text-[12.5px] leading-[18px]">
+              One over each, two wickets. The side that batted second bats first.
+            </Text>
+            {mutation.error ? (
+              <Text className="text-destructive mt-2 text-[12.5px]">{mutation.error}</Text>
+            ) : null}
+            <View className="mt-3">
+              <Button
+                label={mutation.busy ? 'Loading squads…' : 'Start the Super Over'}
+                disabled={mutation.busy}
+                onPress={() => void openSuperOver()}
+              />
+            </View>
+          </View>
+        ) : null}
+
         <Text className="text-foreground/55 mt-6 px-4 text-[12.5px] leading-[18px]">
           Everything above is generated from the ball log: a card for each side, one per player,
           plus the public scorecard link.
@@ -165,6 +230,19 @@ export default function Result() {
           />
         </View>
       </View>
+
+      {superOverSquads ? (
+        <OpenersSheet
+          title="Super Over"
+          subtitle="One over each, two wickets. Who opens?"
+          battingSquad={superOverSquads.batting}
+          bowlingSquad={superOverSquads.bowling}
+          busy={mutation.busy}
+          error={mutation.error}
+          onConfirm={(openers) => void startSuperOver(openers)}
+          onCancel={() => setSuperOverSquads(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

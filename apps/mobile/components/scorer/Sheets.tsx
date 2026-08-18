@@ -436,20 +436,28 @@ export function NextPlayerSheet({
   onSelect,
   onUndo,
   onEndInnings,
+  onCancel,
 }: {
   title: string;
   subtitle: string;
   candidates: { id: string; label: string; tag?: string }[];
   emptyMessage: string;
   onSelect: (id: string) => void;
-  onUndo: () => void;
+  onUndo?: () => void;
   /** Only offered on the batter sheet — a short squad can't lose ten wickets. */
   onEndInnings?: () => void;
+  /**
+   * Makes the sheet dismissable.
+   *
+   * Omitted for the mandatory ones — after a wicket or an over the engine
+   * cannot validate the next delivery until a replacement is named, so there
+   * must be no way to tap past them. A mid-over bowler change is the opposite:
+   * it is a correction the scorer chose to make and must be able to abandon.
+   */
+  onCancel?: () => void;
 }) {
   return (
-    // No onDismiss: this sheet is mandatory. The engine cannot validate the
-    // next ball until the replacement is named.
-    <SheetShell title={title} subtitle={subtitle}>
+    <SheetShell title={title} subtitle={subtitle} onDismiss={onCancel}>
       {candidates.length === 0 ? (
         <Text className="text-foreground/70 text-[13.5px]">{emptyMessage}</Text>
       ) : (
@@ -478,10 +486,126 @@ export function NextPlayerSheet({
         {onEndInnings ? (
           <Button label="End the innings" variant="secondary" onPress={onEndInnings} />
         ) : null}
-        {/* The usual reason a scorer is stuck here is a mis-recorded previous
-            ball, so undo is always within reach. */}
-        <Button label="Undo last ball" variant="ghost" onPress={onUndo} />
+        {/* The usual reason a scorer is stuck on a mandatory sheet is a
+            mis-recorded previous ball, so undo is always within reach there.
+            A dismissable sheet is a deliberate choice rather than a trap, and
+            does not need the escape hatch. */}
+        {onUndo ? <Button label="Undo last ball" variant="ghost" onPress={onUndo} /> : null}
       </View>
+    </SheetShell>
+  );
+}
+
+// ─── Openers ─────────────────────────────────────────────────────────────────
+
+/**
+ * The three players who open an innings.
+ *
+ * Built for the Super Over, which is the one innings that starts from a screen
+ * with no picker on it — the result screen, after a tie. The innings break has
+ * its own inline version; this one is a sheet because it opens on top of a
+ * finished match rather than being the whole screen.
+ *
+ * The two batters cannot be the same person and the server refuses it, so the
+ * chosen striker is removed from the non-striker's list rather than allowed
+ * and then rejected.
+ */
+export function OpenersSheet({
+  title,
+  subtitle,
+  battingSquad,
+  bowlingSquad,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  subtitle: string;
+  battingSquad: { id: string; fullName: string }[];
+  bowlingSquad: { id: string; fullName: string }[];
+  busy: boolean;
+  error: string | null;
+  onConfirm: (openers: {
+    openingStrikerId: string;
+    openingNonStrikerId: string;
+    openingBowlerId: string;
+  }) => void;
+  onCancel: () => void;
+}) {
+  const [strikerId, setStrikerId] = useState<string | null>(null);
+  const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
+  const [bowlerId, setBowlerId] = useState<string | null>(null);
+
+  const ready = strikerId !== null && nonStrikerId !== null && bowlerId !== null;
+
+  return (
+    <SheetShell title={title} subtitle={subtitle} onDismiss={onCancel}>
+      <View className="gap-2">
+        <Label>On strike</Label>
+        <View className="flex-row flex-wrap gap-1.5">
+          {battingSquad.map((p) => (
+            <Chip
+              key={p.id}
+              label={p.fullName}
+              selected={strikerId === p.id}
+              onPress={() => {
+                setStrikerId(p.id);
+                if (nonStrikerId === p.id) setNonStrikerId(null);
+              }}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View className="gap-2">
+        <Label>At the other end</Label>
+        <View className="flex-row flex-wrap gap-1.5">
+          {battingSquad
+            .filter((p) => p.id !== strikerId)
+            .map((p) => (
+              <Chip
+                key={p.id}
+                label={p.fullName}
+                selected={nonStrikerId === p.id}
+                onPress={() => setNonStrikerId(p.id)}
+              />
+            ))}
+        </View>
+      </View>
+
+      <View className="gap-2">
+        <Label>Opening bowler</Label>
+        <View className="flex-row flex-wrap gap-1.5">
+          {bowlingSquad.map((p) => (
+            <Chip
+              key={p.id}
+              label={p.fullName}
+              selected={bowlerId === p.id}
+              onPress={() => setBowlerId(p.id)}
+            />
+          ))}
+        </View>
+      </View>
+
+      {error ? (
+        <View className="border-destructive/40 bg-destructive/5 border p-2.5">
+          <Text className="text-foreground text-[12.5px]">{error}</Text>
+        </View>
+      ) : null}
+
+      <Button
+        label={busy ? 'Starting…' : 'Start'}
+        disabled={!ready || busy}
+        onPress={() =>
+          ready &&
+          onConfirm({
+            openingStrikerId: strikerId,
+            openingNonStrikerId: nonStrikerId,
+            openingBowlerId: bowlerId,
+          })
+        }
+      />
     </SheetShell>
   );
 }
