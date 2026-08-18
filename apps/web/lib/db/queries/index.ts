@@ -159,6 +159,42 @@ export async function addPlayerToTeam(teamId: string, playerId: string): Promise
   await db.insert(teamMembers).values({ teamId, playerId }).onConflictDoNothing();
 }
 
+/**
+ * Set the two facts that belong to a squad membership, and the jersey number.
+ *
+ * Captaincy and keeping are **exclusive within a squad**, so claiming either
+ * releases whoever held it — in the same transaction, or a failure between the
+ * two would leave a side with two captains or none.
+ *
+ * Undefined leaves a field alone. Setting a jersey number must not silently
+ * strip a captaincy, and a partial update is the normal case here.
+ */
+export async function updateTeamMemberRole(
+  teamId: string,
+  playerId: string,
+  patch: { isCaptain?: boolean; isWicketkeeper?: boolean; jerseyNumber?: number | null },
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    if (patch.isCaptain === true) {
+      await tx
+        .update(teamMembers)
+        .set({ isCaptain: false })
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.isCaptain, true)));
+    }
+    if (patch.isWicketkeeper === true) {
+      await tx
+        .update(teamMembers)
+        .set({ isWicketkeeper: false })
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.isWicketkeeper, true)));
+    }
+
+    await tx
+      .update(teamMembers)
+      .set(patch)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.playerId, playerId)));
+  });
+}
+
 export async function removeTeamMember(teamId: string, playerId: string): Promise<void> {
   await db
     .delete(teamMembers)
@@ -229,6 +265,31 @@ export async function createMatch(input: {
     })
     .returning();
   return rows[0] ?? null;
+}
+
+/**
+ * Change what a match says about itself. Scoped to the owner — a no-op
+ * otherwise, like `updateTeam`.
+ *
+ * The teams and the toss are deliberately absent: every recorded ball names
+ * players from the squads that were picked, and the innings rows already carry
+ * the answer the toss produced.
+ */
+export async function updateMatchDetails(
+  matchId: string,
+  userId: string,
+  patch: {
+    title?: string;
+    venue?: string;
+    format?: string;
+    oversPerInnings?: number;
+    maxOversPerBowler?: number | null;
+  },
+): Promise<void> {
+  await db
+    .update(matches)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(and(eq(matches.id, matchId), eq(matches.createdBy, userId)));
 }
 
 export async function startMatch(matchId: string): Promise<void> {

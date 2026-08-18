@@ -324,6 +324,48 @@ async function main() {
     });
     ok(removed.json.members.length === 1, 'remove squad member', removed.json.members?.length);
 
+    /*
+     * Captaincy, keeping and the jersey number.
+     *
+     * All three columns have existed since the first migration and nothing had
+     * ever written them, so every squad in the system had no captain and no
+     * keeper. The keeper matters beyond decoration — they are who takes byes
+     * and stumpings, and the obvious default fielder on a caught-behind.
+     */
+    const capped = await call('PATCH', `/api/teams/${teamAId}/members`, {
+      playerId: createdPlayerIds[0],
+      isCaptain: true,
+      isWicketkeeper: true,
+      jerseyNumber: 7,
+    });
+    ok(capped.status === 200, 'PATCH squad member → 200', capped);
+    const skipper = (capped.json.members as Json[]).find((m) => m.id === createdPlayerIds[0]);
+    ok(skipper?.isCaptain === true, 'captaincy is set', skipper);
+    ok(skipper?.isWicketkeeper === true, 'keeping is set', skipper);
+
+    // Both are exclusive within a squad: claiming either releases whoever had
+    // it, or a side ends up with two captains and no way to tell which.
+    const moved = await call('PATCH', `/api/teams/${teamAId}/members`, {
+      playerId: createdPlayerIds[1],
+      isCaptain: true,
+    });
+    const oldSkipper = (moved.json.members as Json[]).find((m) => m.id === createdPlayerIds[0]);
+    const newSkipper = (moved.json.members as Json[]).find((m) => m.id === createdPlayerIds[1]);
+    ok(newSkipper?.isCaptain === true, 'the new captain has it', newSkipper);
+    ok(oldSkipper?.isCaptain === false, 'the old captain gives it up', oldSkipper);
+    // …and only the captaincy moved. A partial update must not strip the rest.
+    ok(
+      oldSkipper?.isWicketkeeper === true,
+      'keeping is untouched by a captaincy change',
+      oldSkipper,
+    );
+
+    const notInSquad = await call('PATCH', `/api/teams/${teamAId}/members`, {
+      playerId: createdPlayerIds[2],
+      isCaptain: true,
+    });
+    ok(notInSquad.status === 404, 'cannot captain a squad you are not in', notInSquad);
+
     const foreignTeam = await call('GET', '/api/teams/00000000-0000-0000-0000-000000000000');
     ok(foreignTeam.status === 404, "someone else's team → 404, not 403", foreignTeam);
 
@@ -396,6 +438,31 @@ async function main() {
     // The native scorer loads from one endpoint, so a missing field here is a
     // blank screen at a ground rather than a caught error.
     console.log('scorer');
+    /*
+     * A match was permanent the moment it was created. The title and venue are
+     * cosmetic; oversPerInnings is not — set it wrong at the toss and the
+     * innings ends at the wrong point, with no way back but deleting the match.
+     * Tested here, before any delivery, so the recompute it triggers has
+     * nothing to reinterpret.
+     */
+    console.log('edit match');
+    const renamedMatch = await call('PATCH', `/api/matches/${matchId}`, {
+      title: 'Smoke Match Renamed',
+      venue: 'A Different Ground',
+    });
+    ok(renamedMatch.status === 200, 'PATCH match → 200', renamedMatch);
+    ok(
+      renamedMatch.json.match?.title === 'Smoke Match Renamed',
+      'title changed',
+      renamedMatch.json,
+    );
+
+    const relength = await call('PATCH', `/api/matches/${matchId}`, { oversPerInnings: 8 });
+    ok(relength.json.match?.oversPerInnings === 8, 'innings length changed', relength.json.match);
+
+    const nothing = await call('PATCH', `/api/matches/${matchId}`, {});
+    ok(nothing.status === 400, 'an empty patch → 400', nothing);
+
     const scorer = await call('GET', `/api/matches/${matchId}/scorer`);
     ok(scorer.status === 200, 'GET scorer → 200', scorer);
 
@@ -985,6 +1052,111 @@ async function main() {
 
     const badFormat = await call('GET', `/api/matches/${matchId}/export?format=pdf`);
     ok(badFormat.status === 400, 'an unsupported format → 400', badFormat);
+
+    // ── 9c. Super Over ──────────────────────────────────────────────────────
+    //
+    // A tie is reachable by ordinary scoring — bowl the chase out one short —
+    // so setting one up here is arranging the *precondition*, not reaching
+    // past the endpoint under test. What is under test is everything that
+    // happens next, and none of it was reachable at all before: `initialState`
+    // has always handled innings 3 and 4, and no route could create one.
+    console.log('super over');
+
+    await db
+      .update(inningsTable)
+      .set({ status: 'completed', runs: 0 })
+      .where(and(eq(inningsTable.matchId, matchId), eq(inningsTable.inningsNumber, 2)));
+
+    // Decided, not level: a super over is not something a scorer may choose.
+    await db
+      .update(matches)
+      .set({ status: 'completed', result: 'team_b_win' })
+      .where(eq(matches.id, matchId));
+
+    const notTied = await call('POST', `/api/matches/${matchId}/innings`, {
+      openingStrikerId: createdPlayerIds[2],
+      openingNonStrikerId: createdPlayerIds[3],
+      openingBowlerId: createdPlayerIds[0],
+    });
+    ok(notTied.status === 400, 'a Super Over on a decided match → 400', notTied);
+
+    await db.update(matches).set({ result: 'tie' }).where(eq(matches.id, matchId));
+
+    const tiedSummary = await call('GET', `/api/matches/${matchId}/summary`);
+    ok(
+      tiedSummary.json.canStartSuperOver === true,
+      'a tied match offers a Super Over',
+      tiedSummary.json,
+    );
+
+    const superOver = await call('POST', `/api/matches/${matchId}/innings`, {
+      openingStrikerId: createdPlayerIds[2],
+      openingNonStrikerId: createdPlayerIds[3],
+      openingBowlerId: createdPlayerIds[0],
+    });
+    ok(superOver.status === 201, 'a tied match opens a Super Over → 201', superOver);
+    ok(
+      superOver.json.inning?.inningsNumber === 3,
+      'the Super Over is innings 3',
+      superOver.json.inning,
+    );
+    ok(
+      superOver.json.inning?.target === null,
+      'the side batting first has no target',
+      superOver.json.inning,
+    );
+    // Two wickets, and never more than the side has players for.
+    ok(
+      superOver.json.inning?.maxWickets <= 2,
+      'a Super Over is capped at two wickets',
+      superOver.json.inning?.maxWickets,
+    );
+    /*
+     * The side that batted second in the match bats first in the Super Over.
+     * That is the playing condition, and it is the one transition where the
+     * sides do NOT swap — getting it backwards would look right until somebody
+     * checked whose name was on the scorecard.
+     */
+    const secondInningsRow = await db
+      .select()
+      .from(inningsTable)
+      .where(and(eq(inningsTable.matchId, matchId), eq(inningsTable.inningsNumber, 2)))
+      .limit(1);
+    ok(
+      superOver.json.inning?.battingTeamId === secondInningsRow[0]?.battingTeamId,
+      'the side that batted second bats first in the Super Over',
+      {
+        superOver: superOver.json.inning?.battingTeamId,
+        chase: secondInningsRow[0]?.battingTeamId,
+      },
+    );
+
+    // A tie closed the match; the Super Over has to reopen it, or the ball
+    // endpoint would refuse every delivery of the innings just created.
+    const reopened = await call('GET', `/api/matches/${matchId}`);
+    ok(
+      reopened.json.match?.status === 'live',
+      'the match reopens for the Super Over',
+      reopened.json.match?.status,
+    );
+
+    const superAgain = await call('POST', `/api/matches/${matchId}/innings`, {
+      openingStrikerId: createdPlayerIds[2],
+      openingNonStrikerId: createdPlayerIds[3],
+      openingBowlerId: createdPlayerIds[0],
+    });
+    ok(superAgain.status === 200, 'a second tap does not open a fourth innings', superAgain);
+    ok(
+      superAgain.json.inning?.id === superOver.json.inning?.id,
+      'it returns the Super Over that exists',
+      superAgain.json.inning?.id,
+    );
+
+    // The innings length is load-bearing, so it is fixed once a match is over.
+    await db.update(matches).set({ status: 'completed' }).where(eq(matches.id, matchId));
+    const lateRelength = await call('PATCH', `/api/matches/${matchId}`, { oversPerInnings: 3 });
+    ok(lateRelength.status === 400, 'the length of a finished match is fixed', lateRelength);
+    await db.update(matches).set({ status: 'live' }).where(eq(matches.id, matchId));
 
     // ── 10. Abandon, then delete ────────────────────────────────────────────
     //
