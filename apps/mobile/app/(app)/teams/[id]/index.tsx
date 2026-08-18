@@ -11,14 +11,14 @@
  * side a player turned out for in each innings — and club cricketers turn out
  * for more than one.
  */
-import { Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { ClubLeaderView, ClubPageResponse } from '@open-innings/shared';
+import type { ClubLeaderView, ClubPageResponse, TeamListResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
 import { useRequireAccount } from '../../../../lib/guest';
-import { usePublicQuery } from '../../../../lib/use-api';
+import { usePublicQuery, useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
 
 type Result = ClubPageResponse['results'][number];
@@ -44,6 +44,57 @@ export default function ClubPage() {
   const requireAccount = useRequireAccount();
 
   const query = usePublicQuery<ClubPageResponse>((t, signal) => api.club(t, id, signal), [id]);
+
+  /*
+   * Only the owner can hand out the armband.
+   *
+   * A club page is public — most people opening one followed a link from a
+   * WhatsApp group — so ownership is worked out from the teams this account
+   * owns rather than asked for. `useApiQuery` returns nothing without a token,
+   * so a guest simply never sees the option.
+   */
+  const myTeams = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal), []);
+  const isOwner = myTeams.data?.teams.some((t) => t.id === id) ?? false;
+  const mutation = useApiMutation();
+
+  /**
+   * Captaincy and keeping, which are properties of the squad rather than of
+   * the person — somebody captains one club and bats at six for another.
+   *
+   * Both columns have existed since the first migration and nothing could ever
+   * write them, so every squad in the app has had no captain and no keeper.
+   * The keeper is not decoration: they are who takes the byes and the
+   * stumpings, and the obvious fielder on a caught-behind.
+   */
+  function editRole(player: {
+    id: string;
+    fullName: string;
+    isCaptain: boolean;
+    isWicketkeeper: boolean;
+  }) {
+    const set = async (patch: { isCaptain?: boolean; isWicketkeeper?: boolean }) => {
+      const done = await mutation.run((t) =>
+        api.updateTeamMember(t, id, { playerId: player.id, ...patch }),
+      );
+      if (done) await query.refresh();
+    };
+
+    Alert.alert(player.fullName, 'Who is this in the squad?', [
+      {
+        text: player.isCaptain ? 'Not captain' : 'Make captain',
+        onPress: () => void set({ isCaptain: !player.isCaptain }),
+      },
+      {
+        text: player.isWicketkeeper ? 'Not wicketkeeper' : 'Make wicketkeeper',
+        onPress: () => void set({ isWicketkeeper: !player.isWicketkeeper }),
+      },
+      {
+        text: 'Open career',
+        onPress: () => router.push({ pathname: '/players/[id]', params: { id: player.id } }),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
 
   if (query.isLoading) return <LoadingScreen />;
 
@@ -196,7 +247,12 @@ export default function ClubPage() {
                   key={p.id}
                   accessibilityRole="button"
                   accessibilityLabel={`${p.fullName}'s career`}
+                  accessibilityHint={isOwner ? 'Hold to set captain or wicketkeeper' : undefined}
                   onPress={() => router.push({ pathname: '/players/[id]', params: { id: p.id } })}
+                  // Held rather than tapped: reading a career is what everyone
+                  // opening a club page came for, and naming a captain is
+                  // something the owner does once a season.
+                  onLongPress={isOwner ? () => editRole(p) : undefined}
                   className="border-border h-9 shrink-0 justify-center border px-2.5 active:opacity-70"
                 >
                   <Text className="text-foreground font-heading text-[12.5px]" numberOfLines={1}>

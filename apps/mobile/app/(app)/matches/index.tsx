@@ -12,6 +12,7 @@
  * Its follower count is drawn as a **watching** count, which is the true
  * version — people reading the public scorecard right now, not subscribers.
  */
+import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -20,6 +21,7 @@ import { api } from '../../../lib/api';
 import { formatLabel } from '../../../lib/formats';
 import { useApiQuery } from '../../../lib/use-api';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
+import { MatchSettings } from '../../../components/MatchSettings';
 
 type MatchRow = MatchListResponse['matches'][number];
 
@@ -35,12 +37,22 @@ function shortDate(value: string | Date | null | undefined): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }).toUpperCase();
 }
 
-function LiveMatch({ match, onPress }: { match: MatchRow; onPress: () => void }) {
+function LiveMatch({
+  match,
+  onPress,
+  onLongPress,
+}: {
+  match: MatchRow;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Resume ${match.title ?? 'match'}`}
+      accessibilityHint="Hold to edit, abandon or delete"
       onPress={onPress}
+      onLongPress={onLongPress}
       className="border-border border p-4 active:opacity-70"
     >
       <View className="flex-row items-center gap-2">
@@ -78,12 +90,22 @@ function LiveMatch({ match, onPress }: { match: MatchRow; onPress: () => void })
   );
 }
 
-function FinishedMatch({ match, onPress }: { match: MatchRow; onPress: () => void }) {
+function FinishedMatch({
+  match,
+  onPress,
+  onLongPress,
+}: {
+  match: MatchRow;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={match.title ?? 'Match'}
+      accessibilityHint="Hold to edit or delete"
       onPress={onPress}
+      onLongPress={onLongPress}
       className="border-border border-b py-4 active:opacity-70"
     >
       <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
@@ -108,6 +130,16 @@ function FinishedMatch({ match, onPress }: { match: MatchRow; onPress: () => voi
 export default function Matches() {
   const router = useRouter();
   const query = useApiQuery<MatchListResponse>((t, signal) => api.matches(t, signal), []);
+
+  /*
+   * Corrections live behind a hold, not a visible button.
+   *
+   * The common thing to do with a row is tap it and score. Editing the title,
+   * abandoning a rained-off game and deleting one started by mistake are all
+   * things you do once — and until now none of them was possible from the app
+   * at all, which is why a mistaken match was permanent.
+   */
+  const [settingsFor, setSettingsFor] = useState<MatchRow | null>(null);
 
   if (query.isLoading) return <LoadingScreen />;
 
@@ -160,6 +192,7 @@ export default function Matches() {
                     key={m.id}
                     match={m}
                     onPress={() => router.push(`/matches/${m.id}/score`)}
+                    onLongPress={() => setSettingsFor(m)}
                   />
                 ))}
               </View>
@@ -183,7 +216,11 @@ export default function Matches() {
           ) : null
         }
         renderItem={({ item }) => (
-          <FinishedMatch match={item} onPress={() => router.push(`/matches/${item.id}/score`)} />
+          <FinishedMatch
+            match={item}
+            onPress={() => router.push(`/matches/${item.id}/score`)}
+            onLongPress={() => setSettingsFor(item)}
+          />
         )}
       />
 
@@ -200,6 +237,17 @@ export default function Matches() {
           <Button label="More" variant="secondary" onPress={() => router.push('/more')} />
         </View>
       </View>
+
+      {settingsFor ? (
+        <MatchSettings
+          match={settingsFor}
+          onDone={() => {
+            setSettingsFor(null);
+            void query.refresh();
+          }}
+          onClose={() => setSettingsFor(null)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
