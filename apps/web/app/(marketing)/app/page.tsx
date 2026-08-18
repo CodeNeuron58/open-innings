@@ -110,18 +110,31 @@ export default function AppPage() {
                 Read the source
               </Link>
             </div>
+            {/*
+              Three facts, and all three have to be checkable.
+
+              "14 MB Download" was not: the universal preview APK is 104 MB and
+              a Play delivery is roughly 30–40 per device, so the figure could
+              be replaced with a real one only after the first release — and a
+              number nobody has measured is worse than no number.
+
+              "Account to score — None" was the old guest-mode promise. The app
+              settled the other way on 2026-08-17: a guest reads, and creating
+              anything needs an account. What is genuinely free to everyone is
+              watching, and what is genuinely unusual is the ad rule.
+            */}
             <div className="oi-figures oi-figures-lg">
               <div>
                 <div className="num oi-figure oi-figure-sm">Android 8+</div>
                 <div className="oi-kick oi-figure-label">Requires</div>
               </div>
               <div>
-                <div className="num oi-figure oi-figure-sm">14 MB</div>
-                <div className="oi-kick oi-figure-label">Download</div>
+                <div className="num oi-figure oi-figure-sm">None</div>
+                <div className="oi-kick oi-figure-label">Ads while scoring</div>
               </div>
               <div>
-                <div className="num oi-figure oi-figure-sm">None</div>
-                <div className="oi-kick oi-figure-label">Account to score</div>
+                <div className="num oi-figure oi-figure-sm">AGPL-3.0</div>
+                <div className="oi-kick oi-figure-label">Licence</div>
               </div>
             </div>
           </div>

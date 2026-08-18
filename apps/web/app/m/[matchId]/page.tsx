@@ -25,6 +25,20 @@ type Props = { params: Promise<{ matchId: string }> };
 
 type BallRow = Awaited<ReturnType<typeof listBallEvents>>[number];
 
+/**
+ * What an innings is called.
+ *
+ * Innings 3 and 4 are a Super Over — one over a side, two wickets — and
+ * "Innings 3" describes neither the length nor why it is being played. The
+ * engine has always known the difference; this page was printing the number.
+ */
+function inningsLabel(inningsNumber: number): string {
+  if (inningsNumber === 1) return '1st innings';
+  if (inningsNumber === 2) return '2nd innings';
+  if (inningsNumber === 3) return 'Super Over';
+  return 'Super Over — chase';
+}
+
 /** DB rows → engine event inputs (branded ids, null → undefined). */
 function toEvents(rows: BallRow[]) {
   return rows.map((row) => ({
@@ -91,7 +105,19 @@ export default async function PublicScorecardPage({ params }: Props) {
     getInnings(matchId).catch(() => []),
   ]);
   const priorInnings = allInnings.filter((i) => i.inningsNumber < inning.inningsNumber);
-  const matchDone = match.status === 'completed';
+
+  /*
+   * A match ends two ways, and this page only knew about one.
+   *
+   * `abandoned` is a real outcome — rain, a dispute, a match that should not
+   * have been started — and it was falling through to the innings-break badge,
+   * so a finished match read as though it were about to resume. Worse, the
+   * result line is gated on this, so "Match abandoned — Rain" was written to
+   * the database, rendered on the share card, and never shown on the page the
+   * card links to.
+   */
+  const matchAbandoned = match.status === 'abandoned';
+  const matchDone = match.status === 'completed' || matchAbandoned;
 
   const priorBalls = await Promise.all(
     priorInnings.map((i) => listBallEvents(i.id).catch(() => [])),
@@ -160,8 +186,8 @@ export default async function PublicScorecardPage({ params }: Props) {
                 {match.title ?? `${teamA?.name ?? 'Team A'} vs ${teamB?.name ?? 'Team B'}`}
               </p>
               <p className="text-scoreboard-muted mt-0.5 flex items-center gap-1 text-xs">
-                {teamA?.name ?? 'Team A'} vs {teamB?.name ?? 'Team B'} · {match.oversPerInnings}{' '}
-                overs
+                {teamA?.name ?? 'Team A'} vs {teamB?.name ?? 'Team B'} ·{' '}
+                {inn.inningsNumber >= 3 ? 'Super Over' : `${match.oversPerInnings} overs`}
                 {match.venue && (
                   <>
                     {' · '}
@@ -170,7 +196,11 @@ export default async function PublicScorecardPage({ params }: Props) {
                 )}
               </p>
             </div>
-            {matchDone ? (
+            {matchAbandoned ? (
+              <Badge variant="secondary" className="bg-scoreboard-panel text-scoreboard-muted">
+                Abandoned
+              </Badge>
+            ) : matchDone ? (
               <Badge variant="secondary" className="bg-scoreboard-panel text-scoreboard-accent">
                 Result
               </Badge>
@@ -188,8 +218,13 @@ export default async function PublicScorecardPage({ params }: Props) {
           </div>
 
           {matchDone && match.summary && (
-            <div className="border-scoreboard-border bg-scoreboard-panel/60 text-scoreboard-accent border-b px-5 py-2.5 text-sm font-semibold">
-              🏆 {match.summary}
+            <div
+              className={`border-scoreboard-border bg-scoreboard-panel/60 border-b px-5 py-2.5 text-sm font-semibold ${
+                matchAbandoned ? 'text-scoreboard-muted' : 'text-scoreboard-accent'
+              }`}
+            >
+              {/* No trophy on a washout. Nobody won it. */}
+              {matchAbandoned ? '☂' : '🏆'} {match.summary}
             </div>
           )}
 
@@ -266,8 +301,7 @@ export default async function PublicScorecardPage({ params }: Props) {
             >
               <summary className="hover:bg-accent/40 flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-3 text-sm font-medium transition-colors">
                 <span>
-                  {i.inningsNumber === 1 ? '1st innings' : `Innings ${i.inningsNumber}`}:{' '}
-                  {priorTeam?.name ?? 'Team'}{' '}
+                  {inningsLabel(i.inningsNumber)}: {priorTeam?.name ?? 'Team'}{' '}
                   <span className="font-semibold">
                     {i.runs}/{i.wickets}
                   </span>{' '}

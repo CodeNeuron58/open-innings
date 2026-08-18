@@ -125,9 +125,16 @@ export default function HomePage() {
                   next" was a promise this licence cannot keep. Self-hosting
                   replaces it because it is true and is the actual answer to
                   "what if I don't want your servers". */}
+              {/* "No account needed to score" was the old promise and the app
+                  dropped it on 2026-08-17: a guest reads any shared scorecard,
+                  career or club page, and creating anything — a match, a
+                  player, a ball — needs an account, because a scorebook has to
+                  belong to somebody who can correct it. Watching is the half
+                  that is still free to everyone, and it is the half that
+                  matters for a link sent to a group. */}
               <span className="oi-tag-note">
                 Android today &nbsp;·&nbsp; self-host anywhere &nbsp;·&nbsp; no account needed to
-                score
+                watch
               </span>
             </div>
           </div>

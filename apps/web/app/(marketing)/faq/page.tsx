@@ -22,7 +22,7 @@ const GROUPS = [
     items: [
       {
         q: 'Is it actually free?',
-        a: 'Yes. Every format, every screen, unlimited matches, and the live follower link are in the free app. It is paid for by a banner ad on the scorecard and share screens. If you would rather not see it, ₹99 a month removes it.',
+        a: 'Yes. Every format, every screen, unlimited matches, and the live match link are in the free app. It is paid for by a banner ad on the scorecard and share screens. If you would rather not see it, ₹99 a month removes it.',
       },
       {
         q: 'Are there ads while I am scoring?',
@@ -43,11 +43,11 @@ const GROUPS = [
     items: [
       {
         q: 'Do I need a signal to score?',
-        a: 'Open Innings syncs live, so a connection is what makes the follower link work. If the signal drops mid-over the app keeps scoring locally and pushes the balls up when it returns — you will not lose a ball, but followers will see a gap until it catches up.',
+        a: 'Yes, for now — and that is the honest answer rather than the one we would like to give. Every ball goes to the server as you tap it, which is what keeps the live link on the same over as you, and it means a dropped signal stops scoring until it comes back. Offline scoring — a queue on the phone that syncs when the signal returns — is the next thing being built. Until it ships, plan for a ground with bars.',
       },
       {
         q: 'Can two people score the same match?',
-        a: 'One device owns the ball log at a time, which is deliberate — two scorers entering the same over is how you get a wrong total. You can hand the match over to another device between overs.',
+        a: 'One device owns the ball log at a time, which is deliberate — two scorers entering the same over is how you get a wrong total. You can pick the match up on another device signed in to the same account. Handing it to a different person is not built yet; a match belongs to whoever created it.',
       },
       {
         q: 'How fast is it really?',
@@ -64,7 +64,7 @@ const GROUPS = [
     items: [
       {
         q: 'Which formats can I score?',
-        a: 'T20, ODI, any custom number of overs, Test and multi-day, the Hundred, box or indoor cricket, and gully rules with one-tip-one-hand and last-man-bats. You pick the format once at the toss; the console itself never changes.',
+        a: 'Limited-overs cricket of any innings length — T20, ODI, T10, and the 13 overs you actually agreed at the toss. That is one format parameterised by length rather than a list, which is why a club game scores exactly like a T20 and the console never changes. Test and multi-day, the Hundred and box cricket are not supported: each is a different scoring model rather than a different length, so they are on the roadmap rather than in the app.',
       },
       {
         q: 'Can people follow without installing anything?',

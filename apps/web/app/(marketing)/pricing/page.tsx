@@ -45,7 +45,7 @@ const COMPARISON = [
   { f: 'Ball-by-ball scoring, any innings length', free: Y, pro: Y, self: Y },
   { f: 'Unlimited matches, squads and seasons', free: Y, pro: Y, self: Y },
   { f: 'Full scorecard and over-by-over commentary', free: Y, pro: Y, self: Y },
-  { f: 'Live follower link (no app needed to watch)', free: Y, pro: Y, self: Y },
+  { f: 'Live match link (no app needed to watch)', free: Y, pro: Y, self: Y },
   { f: 'Share card and scorebook export', free: Y, pro: Y, self: Y },
   { f: 'Ads while scoring', free: N, pro: N, self: N },
   { f: 'Ads on the card and share screens', free: Y, pro: N, self: N },
@@ -69,7 +69,7 @@ export default function PricingPage() {
           </h1>
           <p className="oi-lede oi-lede-wide">
             There is no pro tier of cricket. Every format, every screen, every export and the live
-            follower link are in the free app. The subscription buys quiet — nothing else changes.
+            match link are in the free app. The subscription buys quiet — nothing else changes.
           </p>
         </div>
       </section>
@@ -158,7 +158,7 @@ export default function PricingPage() {
             </table>
             <p className="oi-sheet-foot">
               Prices in Indian rupees, billed monthly. No annual lock-in, no per-match fees, no
-              charge for people following your link.
+              charge for people opening your link.
             </p>
           </Blueprint>
         </div>

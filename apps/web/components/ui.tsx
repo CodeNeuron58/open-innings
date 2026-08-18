@@ -332,12 +332,3 @@ export function Monogram({ name, className }: { name: string; className?: string
     </span>
   );
 }
-
-/** Match / innings status chip. */
-export function StatusBadge({ status }: { status: string }) {
-  if (status === 'live' || status === 'in_progress') return <LiveBadge />;
-  if (status === 'completed') return <Badge variant="secondary">Result</Badge>;
-  if (status === 'scheduled' || status === 'not_started')
-    return <Badge variant="outline">Upcoming</Badge>;
-  return <Badge variant="outline">{status}</Badge>;
-}

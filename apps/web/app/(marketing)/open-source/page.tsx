@@ -21,7 +21,7 @@ const REPO_URL = 'https://github.com/CodeNeuron58/open-innings';
 const CONTRIBUTING_URL = `${REPO_URL}/blob/master/CONTRIBUTING.md`;
 
 const SHEET = [
-  { no: '01', prop: 'Source', val: 'Public', rem: 'App, sync server and the follower web view' },
+  { no: '01', prop: 'Source', val: 'Public', rem: 'App, API and the public scorecard' },
   {
     no: '02',
     prop: 'Issues and discussion',
@@ -69,7 +69,7 @@ const WAYS = [
 const SELF_HOST = [
   {
     title: 'Run the sync server',
-    body: "One small service holds the ball logs and serves the follower links. Point the app at your own host and your league's data never leaves it.",
+    body: "One small service holds the ball logs and serves the public scorecards. Point the app at your own host and your league's data never leaves it.",
   },
   {
     title: 'No ad server, no ads',
