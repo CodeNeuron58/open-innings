@@ -148,6 +148,31 @@ export const api = {
   logout: (token: string) => apiFetch<unknown>('/api/auth/logout', { method: 'POST', token }),
 
   /**
+   * Send (or resend) the confirmation link for the signed-in account.
+   *
+   * `mailConfigured` comes back so the caller can tell "we sent it" from
+   * "this build has no mail provider" — the second reads as a bug to whoever
+   * is waiting on an inbox, and saying "check your email" when nothing left
+   * the building is the worst available answer.
+   */
+  sendVerification: (token: string) =>
+    apiFetch<{ sent: boolean; mailConfigured: boolean }>('/api/auth/verify', {
+      method: 'POST',
+      token,
+    }),
+
+  /**
+   * Ask for a password-reset link.
+   *
+   * Unauthenticated, necessarily — somebody who could sign in would not be
+   * asking. The response never says whether the address has an account, so
+   * there is nothing here to branch on and the server's own sentence is what
+   * should be shown.
+   */
+  requestPasswordReset: (email: string) =>
+    apiFetch<{ message: string }>('/api/auth/reset', { method: 'POST', body: { email } }),
+
+  /**
    * Say which player on the field this account is.
    *
    * Only a player you created and nobody else has claimed. An account and a

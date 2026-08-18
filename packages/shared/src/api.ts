@@ -38,6 +38,20 @@ export type AuthResponse = {
     id: string;
     email: string;
     displayName: string | null;
+    /**
+     * When this address was proven, or null.
+     *
+     * A timestamp rather than a boolean, matching the column. It is on the
+     * user object rather than alongside it because every client that renders
+     * "confirm your email" needs it exactly where it already has the user,
+     * and a parallel field is a field somebody forgets to read.
+     *
+     * Nothing is gated on it. Verification is a soft prompt: a scorer at a
+     * ground who cannot reach their inbox must still be able to score, and
+     * one bounced message must not cost a tester. What it unlocks is password
+     * reset actually reaching them.
+     */
+    emailVerifiedAt: string | null;
   };
 };
 
@@ -52,6 +66,15 @@ export type SessionResponse = {
    * opponent is a player with no account. Null until somebody says otherwise.
    */
   playerId: string | null;
+  /**
+   * Whether this deployment can send mail at all.
+   *
+   * False in a build with no `RESEND_API_KEY` — a fresh clone, a local
+   * database, a preview environment. Clients read it to avoid offering
+   * "resend confirmation" as a button that cannot work, which is worse than
+   * not offering it.
+   */
+  mailConfigured?: boolean;
 };
 
 /**

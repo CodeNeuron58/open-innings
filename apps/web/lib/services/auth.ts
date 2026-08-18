@@ -25,6 +25,18 @@ export type RequestMeta = {
   ipAddress?: string;
 };
 
+/**
+ * A fixed salt used only to burn the same time as a real password check.
+ *
+ * `verifyPassword` hashes the candidate and compares, so hashing it against
+ * any salt and discarding the result costs exactly what a real verification
+ * costs. There is no decoy hash to keep, nothing to compare against, and no
+ * lazily-initialised state whose first call would be the slow one.
+ *
+ * Constant on purpose: this never protects anything, so it needs no entropy.
+ */
+const TIMING_SALT = '00112233445566778899aabbccddeeff';
+
 /** Create an account and sign it in. Throws on a duplicate email. */
 export async function registerUser(
   input: SignupInput,
@@ -53,13 +65,29 @@ export async function registerUser(
       passwordHash,
       passwordSalt: salt,
     })
-    .returning({ id: users.id, email: users.email, displayName: users.displayName });
+    .returning({
+      id: users.id,
+      email: users.email,
+      displayName: users.displayName,
+      emailVerifiedAt: users.emailVerifiedAt,
+    });
 
   const user = inserted[0];
   if (!user) throw new Error('Could not create user');
 
   const { token, expiresAt } = await createSession(user.id, meta);
-  return { token, expiresAt, user };
+  return {
+    token,
+    expiresAt,
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      // Always null on a fresh account — nothing has been proven yet. Stated
+      // rather than omitted so the client renders the prompt immediately.
+      emailVerifiedAt: null,
+    },
+  };
 }
 
 /**
@@ -76,9 +104,22 @@ export async function authenticateUser(
   const rows = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
   const user = rows[0];
 
-  // TODO: hash a dummy password when the user is missing, so a failed lookup
-  // and a wrong password take comparable time. Currently a timing oracle.
-  if (!user) throw invalid('Invalid email or password');
+  /*
+   * Hash against a decoy when there is no such account.
+   *
+   * The uniform message above was defeated by the clock: a missing user
+   * returned immediately while a real one waited for Argon2, and Argon2 is
+   * deliberately slow. The gap is tens of milliseconds — trivially
+   * measurable over a few requests — so the form answered "does this address
+   * have an account here" to anyone who timed it, which is precisely what the
+   * shared message exists to refuse.
+   *
+   * The result is discarded. The work is the point.
+   */
+  if (!user) {
+    await hashPassword(input.password, TIMING_SALT);
+    throw invalid('Invalid email or password');
+  }
 
   const ok = await verifyPassword(input.password, user.passwordSalt, user.passwordHash);
   if (!ok) throw invalid('Invalid email or password');
@@ -89,6 +130,14 @@ export async function authenticateUser(
   return {
     token,
     expiresAt,
-    user: { id: user.id, email: user.email, displayName: user.displayName },
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      // Serialised here, not by the route: `AuthResponse` is the wire
+      // contract and it says string, so a Date leaking through would only be
+      // caught by whichever client happened to parse it first.
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+    },
   };
 }

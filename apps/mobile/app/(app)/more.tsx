@@ -12,6 +12,7 @@
  * toggles that remember nothing. A switch that flips back on next launch is a
  * bug report; a greyed row that says "not built yet" is information.
  */
+import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -124,7 +125,37 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 export default function More() {
   const router = useRouter();
-  const { user, isGuest, playerId, signOut } = useSession();
+  const { user, token, isGuest, playerId, signOut } = useSession();
+
+  /*
+   * Confirming an address is a prompt, never a gate.
+   *
+   * Nothing in the app is locked behind it. What it unlocks is a password
+   * reset being able to *reach* somebody — and before this existed, a
+   * forgotten password meant that account and every match it had created were
+   * gone for good, because ownership is `created_by` and there is no transfer
+   * path.
+   *
+   * Gating the app on it instead would mean one bounced message costs a
+   * tester out of twelve, at a ground, with no way to unstick them.
+   */
+  const [verifyState, setVerifyState] = useState<'idle' | 'sending' | 'sent' | 'unavailable'>(
+    'idle',
+  );
+
+  async function resendVerification() {
+    if (!token) return;
+    setVerifyState('sending');
+    try {
+      const result = await api.sendVerification(token);
+      // "Sent" and "this build cannot send" are different things, and telling
+      // somebody to check an inbox nothing was sent to is the worse of the
+      // two mistakes.
+      setVerifyState(result.mailConfigured ? 'sent' : 'unavailable');
+    } catch {
+      setVerifyState('idle');
+    }
+  }
   const { isSupporter } = useSupporter();
   const { keepAwakeWhileScoring, set } = useSettings();
 
@@ -207,6 +238,38 @@ export default function More() {
             <View className="mt-3">
               <Button label="Create an account" onPress={() => router.push('/signup')} />
             </View>
+          </View>
+        ) : null}
+
+        {/*
+          Only for a signed-in account whose address is unproven. A guest has
+          no address, and somebody already confirmed does not need reminding
+          of something they have done.
+        */}
+        {user && !isGuest && !user.emailVerifiedAt ? (
+          <View className="border-steel-300 bg-steel-100 mb-5 border p-3.5">
+            <Text className="text-steel-900 font-heading text-[13px] uppercase tracking-[1.2px]">
+              Confirm your email
+            </Text>
+            <Text className="text-foreground/75 mt-1.5 text-[13px] leading-[19px]">
+              {verifyState === 'sent'
+                ? `Sent to ${user.email}. The link lasts 24 hours — check spam if it is not there.`
+                : verifyState === 'unavailable'
+                  ? 'This build has no mail provider configured, so nothing was sent. That is a setup gap, not a fault with your account.'
+                  : `We have not confirmed ${user.email}. Nothing is locked — it is what lets us get you back in if you ever lose your password.`}
+            </Text>
+            {verifyState === 'sent' ? null : (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void resendVerification()}
+                disabled={verifyState === 'sending'}
+                className="border-steel-400 mt-3 self-start border px-3 py-2 active:opacity-70"
+              >
+                <Text className="text-steel-900 font-heading text-[10px] uppercase tracking-[1.3px]">
+                  {verifyState === 'sending' ? 'Sending' : 'Send the link'}
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : null}
 

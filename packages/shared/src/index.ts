@@ -31,7 +31,11 @@ export {
 
 export {
   emailSchema,
+  passwordSchema,
   signupSchema,
+  requestResetSchema,
+  confirmResetSchema,
+  confirmEmailSchema,
   loginSchema,
   createPlayerSchema,
   createTeamSchema,
@@ -51,6 +55,9 @@ export {
   changeBowlerSchema,
   nextBatterSchema,
   type SignupInput,
+  type RequestResetInput,
+  type ConfirmResetInput,
+  type ConfirmEmailInput,
   type LoginInput,
   type CreatePlayerInput,
   type CreateTeamInput,

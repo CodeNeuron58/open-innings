@@ -157,11 +157,98 @@ export const users = pgTable(
     // GDPR: when a user requests deletion, anonymise rather than hard-delete
     // so historical match records remain valid.
     anonymisedAt: timestamp('anonymised_at', { withTimezone: true }),
+
+    /*
+     * What has actually been proven about this account.
+     *
+     * Timestamps rather than booleans: "when was this confirmed" answers "is
+     * it confirmed" for free, and a boolean throws the answer away — which
+     * matters the first time anyone asks whether an address was verified
+     * before or after a match was scored.
+     *
+     * Nothing was verified at all until 2026-08-19. An account could be opened
+     * as `a@a.a` and there was nowhere to send a password reset, so a
+     * forgotten password meant that account and every match it created were
+     * unreachable forever.
+     */
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+
+    /*
+     * Laid down for phone auth, unused until DLT registration with TRAI
+     * clears — a telecom approval queue measured in weeks. The columns are
+     * free now; the SMS sender arrives later and finds the token store, the
+     * expiry and the attempt limiting already built.
+     *
+     * Unique among non-null values, via a partial index in the migration:
+     * many accounts may have no number, no two may share one.
+     */
+    phone: text('phone'),
+    phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
   },
   (t) => ({
     emailIdx: index('users_email_idx').on(t.email),
   }),
 );
+
+/**
+ * What a single-use secret is for.
+ *
+ * `phone_verify` exists and nothing issues it — see `users.phone`. Keeping it
+ * in the enum from the start means adding phone auth later is a sender, not a
+ * migration to the table every live reset link depends on.
+ */
+export const verificationPurpose = pgEnum('verification_purpose', [
+  'email_verify',
+  'password_reset',
+  'phone_verify',
+]);
+
+/**
+ * Confirming an address, and getting back into an account.
+ *
+ * Both are the same machine — a single-use secret, an expiry, a limit on
+ * guessing, and a record that it was spent — so they are one table separated
+ * by `purpose` rather than two that would drift.
+ *
+ * `tokenHash` and not the token, for the same reason `sessions` stores a hash:
+ * a reset token is a bearer credential, and whoever holds it can take the
+ * account. A database dump proves tokens were issued; it cannot reproduce one.
+ */
+export const verificationTokens = pgTable(
+  'verification_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    purpose: verificationPurpose('purpose').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    /*
+     * The address it was sent to, as it stood when it was issued.
+     *
+     * Not read back from `users` at consume time: a reset link sent to an old
+     * address must not become valid for a new one, and "confirm this change of
+     * email" is the obvious next feature that would break if this were derived.
+     */
+    sentTo: text('sent_to').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Set the moment it is spent, so a forwarded or link-scanned URL cannot replay. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    attempts: smallint('attempts').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    hashKey: uniqueIndex('verification_tokens_hash_key').on(t.tokenHash),
+    userPurposeIdx: index('verification_tokens_user_purpose_idx').on(
+      t.userId,
+      t.purpose,
+      t.expiresAt,
+    ),
+    expiryIdx: index('verification_tokens_expiry_idx').on(t.expiresAt),
+  }),
+);
+
+export type VerificationToken = typeof verificationTokens.$inferSelect;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. Players (cricket players — may or may not have a user account)

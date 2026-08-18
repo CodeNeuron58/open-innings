@@ -1,11 +1,29 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loginSchema } from '@open-innings/shared';
 import { useSession } from '../../lib/session';
 import { ApiError, NetworkError } from '../../lib/api';
+import { API_BASE } from '../../lib/config';
 import { Button, ErrorBanner, Field } from '../../components/ui';
+
+/**
+ * Where the reset form lives.
+ *
+ * The same host the API is on — they are one deployment, and hardcoding a
+ * second URL here is how the app ends up pointing at production from a
+ * preview build.
+ */
+const WEB_BASE = (API_BASE ?? 'https://openinnings.com').replace(/\/$/, '');
 
 export default function Login() {
   const { signIn } = useSession();
@@ -87,6 +105,27 @@ export default function Login() {
           </View>
 
           <Button label="Sign in" onPress={submit} loading={busy} />
+
+          {/*
+            Forgotten passwords used to be terminal.
+            Ownership is `created_by`, there is no transfer path, and nothing
+            could send a link — so one forgotten password meant that account
+            and every match it had ever created were unreachable for good. Over
+            fourteen days of closed testing, somebody forgets.
+
+            It opens the web page rather than a native screen on purpose. The
+            whole flow is one form and a link from an inbox, the inbox is
+            usually already open in a browser, and a native version would be a
+            second copy of a security-sensitive form to keep in step with the
+            first.
+          */}
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(`${WEB_BASE}/reset`)}
+            className="items-center py-1 active:opacity-60"
+          >
+            <Text className="text-muted-foreground text-sm underline">Forgot your password?</Text>
+          </Pressable>
 
           <View className="flex-row justify-center gap-1">
             <Text className="text-muted-foreground text-sm">No account yet?</Text>

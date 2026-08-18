@@ -51,9 +51,19 @@ const optionalText = (max: number) =>
 // Auth
 // ---------------------------------------------------------------------------
 
+/**
+ * The password rule, in one place.
+ *
+ * Extracted from `signupSchema` when password reset arrived. A reset that
+ * accepted a weaker password than signup would not be an exception to the
+ * rule, it would be the way around it — and two copies of a minimum length is
+ * exactly the kind of thing that drifts by one character and is never noticed.
+ */
+export const passwordSchema = z.string().min(8, 'Password must be at least 8 characters');
+
 export const signupSchema = z.object({
   email: emailSchema,
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordSchema,
   displayName: z.string().trim().min(1).max(80).optional(),
 });
 export type SignupInput = z.infer<typeof signupSchema>;
@@ -494,3 +504,38 @@ export const mergePlayersSchema = z.object({
   }),
 });
 export type MergePlayersInput = z.infer<typeof mergePlayersSchema>;
+
+// ---------------------------------------------------------------------------
+// Confirming an address, and recovering an account
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask for a password-reset link.
+ *
+ * The email is validated for shape only. Whether it has an account is never
+ * disclosed — the response is identical either way — so there is nothing else
+ * to check here.
+ */
+export const requestResetSchema = z.object({
+  email: emailSchema,
+});
+export type RequestResetInput = z.infer<typeof requestResetSchema>;
+
+/**
+ * Spend a reset link and set a new password.
+ *
+ * The same password rule as signup, and enforced in the same place, because a
+ * reset that accepted a weaker password than signup would be the way around
+ * the rule rather than an exception to it.
+ */
+export const confirmResetSchema = z.object({
+  token: z.string().trim().min(1),
+  password: passwordSchema,
+});
+export type ConfirmResetInput = z.infer<typeof confirmResetSchema>;
+
+/** Spend a confirmation link. */
+export const confirmEmailSchema = z.object({
+  token: z.string().trim().min(1),
+});
+export type ConfirmEmailInput = z.infer<typeof confirmEmailSchema>;

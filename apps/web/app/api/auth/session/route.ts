@@ -6,6 +6,7 @@
  * "nobody is signed in" is a successful answer to the question asked.
  */
 import { NextResponse } from 'next/server';
+import { canSendMail } from '@/lib/services/account';
 import { HTTP, type SessionResponse } from '@open-innings/shared';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
@@ -29,7 +30,17 @@ export const GET = handle(async () => {
     : [];
 
   const body: SessionResponse = {
-    user: user ? { id: user.id, email: user.email, displayName: user.displayName } : null,
+    user: user
+      ? {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+        }
+      : null,
+    // So a client never offers "resend confirmation" as a button that cannot
+    // work — which is worse than not offering it.
+    mailConfigured: canSendMail(),
     playerId: claimed[0]?.id ?? null,
   };
 

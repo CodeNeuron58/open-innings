@@ -17,7 +17,7 @@
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:api
  */
 import { createHash } from 'node:crypto';
-import { and, eq, like } from 'drizzle-orm';
+import { and, desc, eq, like } from 'drizzle-orm';
 import { db } from '../lib/db/client';
 import {
   users,
@@ -27,6 +27,7 @@ import {
   innings as inningsTable,
   sessions,
   notifySignups,
+  verificationTokens,
 } from '../lib/db/schema';
 
 /** Mirrors the hashing in lib/auth/session.ts — the DB never stores raw tokens. */
@@ -112,6 +113,124 @@ async function main() {
 
     const dupe = await call('POST', '/api/auth/signup', { email, password }, false);
     ok(dupe.status === 409, 'duplicate email → 409', dupe);
+
+    // ── 1b. Confirming an address, and recovering an account ────────────────
+    //
+    // Nothing was ever verified until 2026-08-19: an account could be opened
+    // as `a@a.a`, and a forgotten password meant that account and every match
+    // it had created were unreachable forever, because ownership is
+    // `created_by` and there is no transfer path.
+    //
+    // The checks below are mostly about what must *not* be revealed. A reset
+    // form is the one place an attacker can type any address and read the
+    // answer, so the answer must not contain one.
+    console.log('email verification');
+
+    ok(signup.json.user?.emailVerifiedAt === null, 'a new account is unverified', signup.json.user);
+
+    const sessionVerify = await call('GET', '/api/auth/session');
+    ok(
+      sessionVerify.json.user?.emailVerifiedAt === null,
+      'and the session agrees',
+      sessionVerify.json.user,
+    );
+    ok(
+      typeof sessionVerify.json.mailConfigured === 'boolean',
+      'the session says whether this deployment can send mail at all',
+      sessionVerify.json,
+    );
+
+    const resend = await call('POST', '/api/auth/verify');
+    ok(resend.status === 200, 'requesting a confirmation link → 200', resend);
+    ok(
+      typeof resend.json.mailConfigured === 'boolean',
+      'and reports whether it could actually be sent',
+      resend.json,
+    );
+
+    const anonResend = await call('POST', '/api/auth/verify', undefined, false);
+    ok(anonResend.status === 401, 'resending without a session → 401', anonResend);
+
+    const badVerifyToken = await call('PUT', '/api/auth/verify', { token: 'not-a-real-token' });
+    ok(badVerifyToken.status === 400, 'confirming with a bogus token → 400', badVerifyToken);
+
+    // The real token is only ever in the message, so the flow is exercised
+    // through the database rather than by reading a log.
+    const [issued] = await db
+      .select()
+      .from(verificationTokens)
+      .where(eq(verificationTokens.purpose, 'email_verify'))
+      .orderBy(desc(verificationTokens.createdAt))
+      .limit(1);
+    ok(Boolean(issued), 'a token row was written', issued);
+    ok(
+      Boolean(issued) && issued!.tokenHash.length === 64 && !('token' in (issued as object)),
+      'stored as a SHA-256 hash, never the token itself',
+      issued && { tokenHash: issued.tokenHash.slice(0, 12) + '…' },
+    );
+    ok(
+      Boolean(issued) && issued!.expiresAt.getTime() > Date.now(),
+      'and it expires in the future',
+      issued?.expiresAt,
+    );
+
+    console.log('password reset');
+
+    const resetKnown = await call('POST', '/api/auth/reset', { email }, false);
+    const resetUnknown = await call(
+      'POST',
+      '/api/auth/reset',
+      { email: `definitely-nobody-${Date.now()}@local` },
+      false,
+    );
+    ok(resetKnown.status === 200, 'reset request for a real address → 200', resetKnown);
+    ok(resetUnknown.status === 200, 'reset request for an unknown address → 200', resetUnknown);
+    ok(
+      JSON.stringify(resetKnown.json) === JSON.stringify(resetUnknown.json),
+      'and the two responses are byte-identical — the form is not an account oracle',
+      { known: resetKnown.json, unknown: resetUnknown.json },
+    );
+
+    /*
+     * Scoped to this run's account, not the whole table.
+     *
+     * The first version of this counted every `password_reset` row in the
+     * database and asserted one — which passed on a clean database and failed
+     * on a developer's, where an earlier manual test had left a spent token
+     * behind. A test that depends on the database being empty is testing the
+     * database.
+     */
+    const signedUpUserId = signup.json.user?.id as string;
+    const resetRows = await db
+      .select()
+      .from(verificationTokens)
+      .where(
+        and(
+          eq(verificationTokens.userId, signedUpUserId),
+          eq(verificationTokens.purpose, 'password_reset'),
+        ),
+      );
+    ok(
+      resetRows.length === 1,
+      'only the real address produced a token — the difference is in the inbox, not the response',
+      resetRows.length,
+    );
+
+    const weakReset = await call(
+      'PUT',
+      '/api/auth/reset',
+      { token: 'anything', password: 'short' },
+      false,
+    );
+    ok(weakReset.status === 400, 'a reset below the signup password rule → 400', weakReset);
+
+    const bogusReset = await call(
+      'PUT',
+      '/api/auth/reset',
+      { token: 'no-such-token', password: 'a-long-enough-password' },
+      false,
+    );
+    ok(bogusReset.status === 400, 'a reset with a bogus token → 400', bogusReset);
 
     // ── 2. Bearer auth ──────────────────────────────────────────────────────
     console.log('bearer auth');
