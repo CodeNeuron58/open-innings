@@ -57,7 +57,7 @@ const exemptExtras = enumList(BOWLER_EXEMPT_EXTRAS);
  * so the strike rate on a career page matches the one on the scorecard the
  * same balls produced.
  */
-const notFaced = enumList(BATSMAN_FACING_EXCLUDED_TYPES);
+export const notFaced = enumList(BATSMAN_FACING_EXCLUDED_TYPES);
 
 /** One innings of batting. */
 export type BattingInnings = {
@@ -260,6 +260,51 @@ export async function fieldingTotalsFor(playerId: string): Promise<FieldingTotal
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * How many matches each of these players appeared in, in any role at all.
+ *
+ * Batting and bowling rows were the only evidence used before, and between
+ * them they miss people. A specialist fielder who took two catches and neither
+ * batted nor bowled had played **zero matches** according to their own career
+ * page — on a page listing the catches. And `careerBriefsFor` took the larger
+ * of its two counts, so somebody who batted in one match and only bowled in
+ * another was credited with one.
+ *
+ * Every role on the delivery counts, the non-striker included: standing at the
+ * other end without facing a ball is still having played.
+ *
+ * `unnest` expands each delivery into its five roles in a single pass over the
+ * table, which is what keeps this one scan rather than one per player — the
+ * pickers call it with a whole squad at once. Null roles disappear on the
+ * `in` filter without needing to be excluded.
+ */
+export async function appearancesFor(playerIds: string[]): Promise<Map<string, number>> {
+  if (playerIds.length === 0) return new Map();
+
+  const ids = sql.join(
+    playerIds.map((id) => sql`${id}::uuid`),
+    sql`, `,
+  );
+
+  const rows = await db.execute<{ player_id: string; matches: number }>(sql`
+    select roles.player_id, count(distinct roles.match_id)::int as matches
+    from (
+      select
+        unnest(array[
+          be.batsman_id, be.non_striker_id, be.bowler_id,
+          be.fielder_id, be.wicket_player_id
+        ]) as player_id,
+        i.match_id
+      from ball_events be
+      join innings i on i.id = be.innings_id
+    ) roles
+    where roles.player_id in (${ids})
+    group by roles.player_id
+  `);
+
+  return new Map(rows.map((r) => [r.player_id, Number(r.matches)]));
+}
+
+/**
  * Enough of a career to decide whether this is the right person.
  *
  * Not a shrunken `PlayerCareer` — a different question. The career page is
@@ -298,17 +343,15 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
   );
   const credited = enumList(BOWLER_CREDITED_WICKETS);
 
-  const [battingRows, bowlingRows] = await Promise.all([
-    db.execute<{ player_id: string; runs: number; balls: number; matches: number }>(sql`
+  const [battingRows, bowlingRows, appearances] = await Promise.all([
+    db.execute<{ player_id: string; runs: number; balls: number }>(sql`
       select
         be.batsman_id as player_id,
         coalesce(sum(be.runs_off_bat), 0)::int as runs,
         -- Every delivery except a wide, same rule as battingInningsFor and
         -- the engine, from the same imported list.
-        count(*) filter (where be.event_type not in (${notFaced}))::int as balls,
-        count(distinct i.match_id)::int as matches
+        count(*) filter (where be.event_type not in (${notFaced}))::int as balls
       from ball_events be
-      join innings i on i.id = be.innings_id
       where be.batsman_id in (${ids})
       group by be.batsman_id
     `),
@@ -317,7 +360,6 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
       balls: number;
       runs: number;
       wickets: number;
-      matches: number;
     }>(sql`
       select
         be.bowler_id as player_id,
@@ -328,13 +370,12 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
         coalesce(sum(be.total_runs) filter (
           where be.event_type not in (${exemptExtras})
         ), 0)::int as runs,
-        count(*) filter (where be.wicket_type in (${credited}))::int as wickets,
-        count(distinct i.match_id)::int as matches
+        count(*) filter (where be.wicket_type in (${credited}))::int as wickets
       from ball_events be
-      join innings i on i.id = be.innings_id
       where be.bowler_id in (${ids})
       group by be.bowler_id
     `),
+    appearancesFor(playerIds),
   ]);
 
   const byPlayer = new Map<string, CareerBrief>();
@@ -348,16 +389,15 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
     bowlingBalls: 0,
   });
 
-  // Matches are counted per role, so an all-rounder appears in both result
-  // sets for the same game. The union has to be taken over match ids, which
-  // neither query returns — so the larger of the two is used. It is exact
-  // whenever a player bowled in every match they batted in or vice versa,
-  // which covers a specialist entirely, and never overcounts.
+  // Matches come from `appearancesFor` rather than from either of these.
+  // Both queries are scoped to one role, so neither can see a game the player
+  // only featured in through the other — and taking the larger of the two, as
+  // this used to, credited an all-rounder who batted in match A and only
+  // bowled in match B with a single appearance.
   for (const r of battingRows) {
     const brief = byPlayer.get(r.player_id) ?? blank(r.player_id);
     brief.runs = Number(r.runs);
     brief.battingBalls = Number(r.balls);
-    brief.matches = Math.max(brief.matches, Number(r.matches));
     byPlayer.set(r.player_id, brief);
   }
   for (const r of bowlingRows) {
@@ -365,8 +405,12 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
     brief.wickets = Number(r.wickets);
     brief.bowlingRuns = Number(r.runs);
     brief.bowlingBalls = Number(r.balls);
-    brief.matches = Math.max(brief.matches, Number(r.matches));
     byPlayer.set(r.player_id, brief);
+  }
+  for (const [playerId, matches] of appearances) {
+    const brief = byPlayer.get(playerId) ?? blank(playerId);
+    brief.matches = matches;
+    byPlayer.set(playerId, brief);
   }
 
   // Everyone asked about, including players who have never faced a ball —

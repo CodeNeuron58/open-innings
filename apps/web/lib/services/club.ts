@@ -8,6 +8,7 @@ import 'server-only';
 import { sql } from 'drizzle-orm';
 import { BOWLER_CREDITED_WICKETS } from '@open-innings/scoring';
 import { db } from '@/lib/db/client';
+import { notFaced } from '@/lib/db/stats';
 import { getTeam, getTeamMembers } from '@/lib/db/queries';
 import { notFound } from './errors';
 
@@ -140,6 +141,14 @@ export async function clubPageFor(teamId: string): Promise<ClubPage> {
      * delivery — a strike rate of 600 that describes nothing. Fifty balls is
      * low enough that a club season qualifies several people and high enough
      * that one over cannot top the table.
+     *
+     * Balls faced is every delivery except a wide, and the set comes from the
+     * engine — the same import `battingInningsFor` and `careerBriefsFor` use.
+     * This divided by `is_legal_delivery` instead, which is a different
+     * question: a no-ball is not a legal delivery but the batter certainly
+     * faced it. So the denominator here was smaller than the one on the career
+     * page, and the same player showed one strike rate on /p/<id> and a higher
+     * one on /c/<id> with nothing to explain the difference.
      */
     const [topStrikeRate] = await db.execute<{
       player_id: string;
@@ -149,13 +158,13 @@ export async function clubPageFor(teamId: string): Promise<ClubPage> {
       select be.batsman_id as player_id, p.full_name,
              round(
                (coalesce(sum(be.runs_off_bat), 0)::numeric
-                / nullif(count(*) filter (where be.is_legal_delivery), 0)) * 100
+                / nullif(count(*) filter (where be.event_type not in (${notFaced})), 0)) * 100
              )::int as strike_rate
       from ball_events be
       join players p on p.id = be.batsman_id
       where be.batsman_id in (${ids})
       group by be.batsman_id, p.full_name
-      having count(*) filter (where be.is_legal_delivery) >= ${MIN_BALLS_FOR_STRIKE_RATE}
+      having count(*) filter (where be.event_type not in (${notFaced})) >= ${MIN_BALLS_FOR_STRIKE_RATE}
       order by strike_rate desc
       limit 1
     `);

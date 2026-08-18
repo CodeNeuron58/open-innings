@@ -7,6 +7,7 @@
 import 'server-only';
 import type { BattingStyle, BowlingStyle, PlayerRole } from '@open-innings/shared';
 import {
+  appearancesFor,
   battingInningsFor,
   bowlingInningsFor,
   fieldingTotalsFor,
@@ -164,19 +165,26 @@ export function foldBowling(rows: BowlingInnings[]): BowlingCareer {
   const runs = rows.reduce((n, r) => n + r.runs, 0);
   const wickets = rows.reduce((n, r) => n + r.wickets, 0);
 
-  // Best figures are most wickets, then fewest runs — 5-20 beats 5-31, and
-  // both beat 4-10.
-  let bestWickets = 0;
-  let bestRuns = 0;
+  /*
+   * Best figures are most wickets, then fewest runs — 5-20 beats 5-31, and
+   * both beat 4-10.
+   *
+   * Ranked by comparing whole innings rather than by improving two loose
+   * counters, which is what fixes the wicketless case. The previous version
+   * seeded bestWickets and bestRuns at zero and required `wickets > 0` before
+   * runs could break a tie, so a bowler who had never taken one reported best
+   * figures of **0-0** — an over of nothing conceded, on a career page, for
+   * somebody who had been hit around all season. A scorebook would say 0-8:
+   * their least expensive spell.
+   */
+  let best: BowlingInnings | null = null;
   for (const r of rows) {
-    if (
-      r.wickets > bestWickets ||
-      (r.wickets === bestWickets && r.wickets > 0 && r.runs < bestRuns)
-    ) {
-      bestWickets = r.wickets;
-      bestRuns = r.runs;
+    if (!best || r.wickets > best.wickets || (r.wickets === best.wickets && r.runs < best.runs)) {
+      best = r;
     }
   }
+  const bestWickets = best?.wickets ?? 0;
+  const bestRuns = best?.runs ?? 0;
 
   return {
     innings: rows.length,
@@ -310,10 +318,11 @@ export async function careerFor(playerId: string): Promise<PlayerCareer> {
   if (!player) throw notFound('Player not found');
 
   // Independent aggregates — no reason to wait for them in series.
-  const [battingRows, bowlingRows, fielding] = await Promise.all([
+  const [battingRows, bowlingRows, fielding, appearances] = await Promise.all([
     battingInningsFor(playerId),
     bowlingInningsFor(playerId),
     fieldingTotalsFor(playerId),
+    appearancesFor([playerId]),
   ]);
 
   const batting = foldBatting(battingRows);
@@ -335,14 +344,19 @@ export async function careerFor(playerId: string): Promise<PlayerCareer> {
     seasonBowlingRows.length === bowlingRows.length;
 
   /*
-   * Matches, not innings.
+   * Matches, not innings — and counted from every role, not two of them.
    *
    * A player who bats and bowls in the same game appears in both row sets, so
-   * adding the two innings counts would say someone played twice as many
-   * matches as they did — and "33 matches" is the headline figure on a career
-   * page, sitting right next to the runs.
+   * adding the two innings counts would say somebody played twice as many
+   * matches as they did. "33 matches" is the headline figure on a career page,
+   * sitting right next to the runs.
+   *
+   * Taking it from those two sets alone had the opposite failure: a specialist
+   * fielder who took two catches and neither batted nor bowled had **played
+   * zero matches**, on a page listing the catches they took. Appearances now
+   * come from the ball log in any role.
    */
-  const matches = new Set([...battingRows, ...bowlingRows].map((r) => r.matchId)).size;
+  const matches = appearances.get(playerId) ?? 0;
 
   return {
     player: {

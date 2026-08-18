@@ -87,15 +87,36 @@ describe('foldBowling', () => {
     expect(c.bestRuns).toBe(20);
   });
 
-  it('does not treat a wicketless spell as a best figure', () => {
+  it('never lets a wicketless spell outrank one with a wicket', () => {
     /*
-     * The trap here: 0-12 arriving first would set bestRuns to 12 if the
-     * tie-break ran on runs alone, and then 0-8 would "beat" it. Neither is a
-     * bowling performance, and the `wickets > 0` clause is what stops it.
+     * The trap here: 0-8 is cheaper than 1-40, so a tie-break running on runs
+     * alone would prefer it. Wickets are the primary sort and settle it before
+     * runs are consulted at all.
      */
     const c = foldBowling([bowl(0, 12), bowl(0, 8), bowl(1, 40)]);
     expect(c.bestWickets).toBe(1);
     expect(c.bestRuns).toBe(40);
+  });
+
+  it('gives a bowler who has never taken a wicket their cheapest spell', () => {
+    /*
+     * This read "0-0" — figures describing an over of nothing conceded, on the
+     * career page of somebody who had been hit around all season. It came from
+     * seeding the best-so-far at zero runs and never replacing it, because the
+     * old tie-break refused to consider a wicketless innings at all.
+     *
+     * A scorebook says 0-8: they bowled, and that was their best of it.
+     */
+    const c = foldBowling([bowl(0, 30), bowl(0, 8), bowl(0, 45)]);
+    expect(c.bestWickets).toBe(0);
+    expect(c.bestRuns).toBe(8);
+  });
+
+  it('has no best figures at all for somebody who has never bowled', () => {
+    const c = foldBowling([]);
+    expect(c.innings).toBe(0);
+    expect(c.bestWickets).toBe(0);
+    expect(c.bestRuns).toBe(0);
   });
 
   it('has no average or strike rate while wicketless, but still an economy', () => {
