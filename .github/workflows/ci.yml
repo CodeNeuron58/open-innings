@@ -18,10 +18,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here on purpose. The action reads `packageManager` from
+      # package.json, and specifying both is an error it refuses to start on:
+      #
+      #   Error: Multiple versions of pnpm specified
+      #
+      # package.json is the better of the two anyway — it pins 9.12.0 exactly
+      # and is what every local install already obeys, whereas `version: 9`
+      # floated across the whole major.
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -76,10 +82,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `version:` here on purpose. The action reads `packageManager` from
+      # package.json, and specifying both is an error it refuses to start on:
+      #
+      #   Error: Multiple versions of pnpm specified
+      #
+      # package.json is the better of the two anyway — it pins 9.12.0 exactly
+      # and is what every local install already obeys, whereas `version: 9`
+      # floated across the whole major.
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Node
         uses: actions/setup-node@v4
