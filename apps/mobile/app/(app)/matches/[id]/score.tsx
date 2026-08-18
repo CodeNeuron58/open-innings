@@ -35,6 +35,7 @@ import type {
   ScorerResponse,
   WicketTypeValue,
 } from '@open-innings/shared';
+import { EXTRA_LABELS, splitExtra } from '../../../../lib/deliveries';
 import { api } from '../../../../lib/api';
 import { useSession } from '../../../../lib/session';
 import { useSettings } from '../../../../lib/settings';
@@ -188,6 +189,24 @@ export default function Scorer() {
   const state = live ?? (data.state as MatchState);
   const inn = state.currentInnings;
 
+  /*
+   * The delivery being corrected, looked up rather than asserted.
+   *
+   * This was `find(...)!`, and the `!` was wrong in the way assertions
+   * usually are: `state.balls` is the **current innings'** log, so the ball
+   * disappears at an innings break, on an undo that lands from another
+   * device, and on any refresh returning a shorter log. The sheet
+   * dereferences its `ball` on the first line, so the assertion bought a
+   * white screen mid-match in exchange for silencing the one check that
+   * would have caught it.
+   *
+   * Gone means the sheet closes. The stale id is harmless — `correctBall`
+   * looks the delivery up again before sending anything.
+   */
+  const correctingBall = correcting
+    ? (state.balls.find((b) => String(b.id) === correcting) ?? null)
+    : null;
+
   const nameOf = (playerId: PlayerId | string): string =>
     data.players.find((p) => p.id === String(playerId))?.fullName ?? String(playerId).slice(0, 6);
 
@@ -326,18 +345,10 @@ export default function Scorer() {
   }
 
   function scoreExtra(kind: ExtraKind, totalRuns: number) {
-    // A wide is never touched by the bat, so all of it is extras. A no-ball
-    // carries a fixed 1-run penalty and anything beyond that was struck, so it
-    // belongs to the batter. Byes and leg-byes are entirely extras.
-    let runsOffBat: number;
-    let extraRuns: number;
-    if (kind === 'no_ball') {
-      extraRuns = 1;
-      runsOffBat = totalRuns - 1;
-    } else {
-      runsOffBat = 0;
-      extraRuns = totalRuns;
-    }
+    // The split — a no-ball's penalty is the extra and the rest was struck —
+    // lives in lib/deliveries.ts, because the correction sheet needs exactly
+    // the same rule and the copy it started with was wrong.
+    const { runsOffBat, extraRuns } = splitExtra(kind, totalRuns);
 
     setPendingExtra(null);
     void send({
@@ -705,10 +716,10 @@ export default function Scorer() {
       ) : null}
 
       {/* Sheets */}
-      {correcting ? (
+      {correctingBall ? (
         <CorrectBallSheet
-          ball={state.balls.find((b) => String(b.id) === correcting)!}
-          position={positionOf(state, correcting)}
+          ball={correctingBall}
+          position={positionOf(state, correcting!)}
           busy={correctionBusy}
           error={correctionError}
           changes={correctionChanges}
@@ -826,13 +837,6 @@ export default function Scorer() {
 
 /** Column widths for the batting table, matching the design's grid. */
 const COL = ['w-[34px]', 'w-[30px]', 'w-[26px]', 'w-[30px]', 'w-[42px]'] as const;
-
-const EXTRA_LABELS: Record<ExtraKind, string> = {
-  wide: 'Wide',
-  no_ball: 'No ball',
-  bye: 'Bye',
-  leg_bye: 'Leg bye',
-};
 
 /**
  * The run keys. 0–6 and W on a single hairline grid — four columns, so the

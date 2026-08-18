@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import type { WicketTypeValue } from '@open-innings/shared';
+import { EXTRA_LABELS, EXTRA_TOTALS, type ExtraKind } from '../../lib/deliveries';
 import { Button } from '../ui';
 
 // ─── Shell ───────────────────────────────────────────────────────────────────
@@ -111,29 +112,17 @@ function Label({ children }: { children: React.ReactNode }) {
 
 // ─── Extras ──────────────────────────────────────────────────────────────────
 
-export type ExtraKind = 'wide' | 'no_ball' | 'bye' | 'leg_bye';
-
-/**
- * Total runs offered per extra.
+/*
+ * The extras vocabulary lives in `lib/deliveries.ts` now, not here.
  *
- * Wides and no-balls always carry their one-run penalty, so totals start at 1;
- * a no-ball can also have a six struck off it (1 + 6 = 7). Byes and leg-byes
- * have no penalty, so their minimum is a genuine run — a "0 bye" isn't a bye,
- * it's a dot ball.
+ * The totals and the run-split were duplicated into the correction sheet when
+ * it was written, and the copy was wrong: it put a no-ball's whole total into
+ * `extraRuns`, so a no-ball struck for four recorded five extras and nothing
+ * to the batter. Nothing could have caught that — it typechecks, the schema
+ * accepts it, and the engine cannot tell a struck four from a conceded one.
+ * Re-exported so callers importing `ExtraKind` from this module still work.
  */
-const EXTRA_RUNS: Record<ExtraKind, number[]> = {
-  wide: [1, 2, 3, 4, 5, 6],
-  no_ball: [1, 2, 3, 4, 5, 6, 7],
-  bye: [1, 2, 3, 4, 5, 6],
-  leg_bye: [1, 2, 3, 4, 5, 6],
-};
-
-const EXTRA_LABELS: Record<ExtraKind, string> = {
-  wide: 'Wide',
-  no_ball: 'No ball',
-  bye: 'Bye',
-  leg_bye: 'Leg bye',
-};
+export type { ExtraKind } from '../../lib/deliveries';
 
 export function ExtraRunsSheet({
   kind,
@@ -151,7 +140,7 @@ export function ExtraRunsSheet({
       onDismiss={onCancel}
     >
       <View className="border-border flex-row flex-wrap border-l border-t">
-        {EXTRA_RUNS[kind].map((runs) => (
+        {EXTRA_TOTALS[kind].map((runs) => (
           <Pressable
             key={runs}
             accessibilityRole="button"

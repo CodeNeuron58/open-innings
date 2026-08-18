@@ -31,9 +31,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';
 import type { BallCorrectionChange, PatchBallInput } from '@open-innings/shared';
+import { EXTRA_TOTALS, deliveryFor, type ExtraKind } from '../../lib/deliveries';
 import { Button } from '../ui';
-
-type Kind = { label: string; build: () => Omit<PatchBallInput, 'bowlerId'> };
 
 /**
  * What one delivery can be corrected to.
@@ -43,18 +42,26 @@ type Kind = { label: string; build: () => Omit<PatchBallInput, 'bowlerId'> };
  * sheet's whole job — and half a wicket recorded from here would be worse
  * than the mistake being fixed. Removing a wicket is expressible (correct it
  * to whatever actually happened) and that is the direction people need.
+ *
+ * The payloads come from `deliveryFor`, the same function the scorer's own
+ * keypad uses. They were hand-written here first, and the no-ball case was
+ * already wrong — see `lib/deliveries.ts`.
  */
-const KINDS: Kind[] = [
-  { label: '•', build: () => ({ eventType: 'dot', runsOffBat: 0, extraRuns: 0 }) },
-  { label: '1', build: () => ({ eventType: '1', runsOffBat: 1, extraRuns: 0 }) },
-  { label: '2', build: () => ({ eventType: '2', runsOffBat: 2, extraRuns: 0 }) },
-  { label: '3', build: () => ({ eventType: '3', runsOffBat: 3, extraRuns: 0 }) },
-  { label: '4', build: () => ({ eventType: '4', runsOffBat: 4, extraRuns: 0 }) },
-  { label: '6', build: () => ({ eventType: '6', runsOffBat: 6, extraRuns: 0 }) },
-  { label: 'wd', build: () => ({ eventType: 'wide', runsOffBat: 0, extraRuns: 1 }) },
-  { label: 'nb', build: () => ({ eventType: 'no_ball', runsOffBat: 0, extraRuns: 1 }) },
-  { label: 'b', build: () => ({ eventType: 'bye', runsOffBat: 0, extraRuns: 1 }) },
-  { label: 'lb', build: () => ({ eventType: 'leg_bye', runsOffBat: 0, extraRuns: 1 }) },
+type Choice =
+  | { kind: 'runs'; runs: number; label: string }
+  | { kind: 'extra'; extra: ExtraKind; label: string };
+
+const CHOICES: Choice[] = [
+  { kind: 'runs', runs: 0, label: '•' },
+  { kind: 'runs', runs: 1, label: '1' },
+  { kind: 'runs', runs: 2, label: '2' },
+  { kind: 'runs', runs: 3, label: '3' },
+  { kind: 'runs', runs: 4, label: '4' },
+  { kind: 'runs', runs: 6, label: '6' },
+  { kind: 'extra', extra: 'wide', label: 'wd' },
+  { kind: 'extra', extra: 'no_ball', label: 'nb' },
+  { kind: 'extra', extra: 'bye', label: 'b' },
+  { kind: 'extra', extra: 'leg_bye', label: 'lb' },
 ];
 
 /** How the delivery currently reads, so the scorer can see what they are replacing. */
@@ -96,21 +103,18 @@ export function CorrectBallSheet({
   onDismiss: () => void;
 }) {
   const [picked, setPicked] = useState<number | null>(null);
-  const [extraRuns, setExtraRuns] = useState(1);
+  const [total, setTotal] = useState(1);
 
-  const kind = picked === null ? null : KINDS[picked]!;
-  const isExtra = kind ? ['wd', 'nb', 'b', 'lb'].includes(kind.label) : false;
+  const choice = picked === null ? null : CHOICES[picked]!;
+  const isExtra = choice?.kind === 'extra';
 
   function confirm() {
-    if (!kind) return;
-    const base = kind.build();
-    // A no-ball is the one extra that can also be struck, so its extra runs
-    // stay the penalty and the rest goes off the bat.
-    if (isExtra) {
-      onCorrect({ ...base, extraRuns });
-      return;
-    }
-    onCorrect(base);
+    if (!choice) return;
+    onCorrect(
+      choice.kind === 'runs'
+        ? deliveryFor({ kind: 'runs', runs: choice.runs })
+        : deliveryFor({ kind: 'extra', extra: choice.extra, total }),
+    );
   }
 
   return (
@@ -179,14 +183,14 @@ export function CorrectBallSheet({
                     It was actually
                   </Text>
                   <View className="mt-2 flex-row flex-wrap gap-1.5">
-                    {KINDS.map((k, i) => (
+                    {CHOICES.map((k, i) => (
                       <Pressable
                         key={k.label}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: picked === i }}
                         onPress={() => {
                           setPicked(i);
-                          setExtraRuns(1);
+                          setTotal(1);
                         }}
                         className={`h-11 w-[52px] items-center justify-center border ${
                           picked === i ? 'bg-scoreboard border-scoreboard' : 'border-input'
@@ -204,25 +208,25 @@ export function CorrectBallSheet({
                   </View>
                 </View>
 
-                {isExtra ? (
+                {isExtra && choice.kind === 'extra' ? (
                   <View>
                     <Text className="font-heading text-[9.5px] uppercase tracking-[1.5px] text-neutral-600">
-                      Runs
+                      Total runs
                     </Text>
                     <View className="mt-2 flex-row flex-wrap gap-1.5">
-                      {[1, 2, 3, 4, 5, 6].map((n) => (
+                      {EXTRA_TOTALS[choice.extra].map((n) => (
                         <Pressable
                           key={n}
                           accessibilityRole="radio"
-                          accessibilityState={{ selected: extraRuns === n }}
-                          onPress={() => setExtraRuns(n)}
+                          accessibilityState={{ selected: total === n }}
+                          onPress={() => setTotal(n)}
                           className={`h-11 w-[52px] items-center justify-center border ${
-                            extraRuns === n ? 'bg-scoreboard border-scoreboard' : 'border-input'
+                            total === n ? 'bg-scoreboard border-scoreboard' : 'border-input'
                           } active:opacity-70`}
                         >
                           <Text
                             className={`font-heading text-[14px] ${
-                              extraRuns === n ? 'text-scoreboard-text' : 'text-foreground'
+                              total === n ? 'text-scoreboard-text' : 'text-foreground'
                             }`}
                           >
                             {n}
