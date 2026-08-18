@@ -31,6 +31,7 @@
     "db:generate": "pnpm --filter web db:generate",
     "db:migrate": "pnpm --filter web db:migrate",
     "db:backup": "pnpm --filter web db:backup",
+    "db:verify": "pnpm --filter web db:verify",
     "db:seed": "pnpm --filter web db:seed",
     "db:reset": "pnpm --filter web db:reset",
     "db:studio": "pnpm --filter web db:studio",
