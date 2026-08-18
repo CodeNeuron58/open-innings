@@ -38,7 +38,7 @@ export async function createTeamFor(input: CreateTeamInput, playerIds: string[] 
   // not a way around it.
   for (const playerId of playerIds) {
     if (!playerId) continue;
-    await requireOwnedPlayer(playerId, team.ownerId);
+    await requirePlayerExists(playerId);
     await addPlayerToTeam(team.id, playerId);
   }
 
@@ -77,16 +77,36 @@ export async function updateOwnedTeam(teamId: string, input: UpdateTeamInput) {
  * Reported as not-found rather than forbidden, like every other ownership
  * failure here — see errors.ts.
  */
-async function requireOwnedPlayer(playerId: string, userId: string) {
+/**
+ * A player has to exist to join a squad. It does **not** have to be yours.
+ *
+ * This used to require `createdBy === userId`, and that single condition was
+ * the other half of why a career could not follow a person between clubs. A
+ * cricketer who plays for two clubs is one person; if the second club cannot
+ * add the row the first club created, they create a second one, and the
+ * career splits permanently.
+ *
+ * The trade is deliberate and worth stating plainly: anyone can now put
+ * anybody in their squad and score them, which contributes to that player's
+ * public career. That is the same trust model every club scoring app runs on
+ * — the record is only as good as the people keeping it — and it is the model
+ * the product's central claim requires. Claiming a player (`players.user_id`,
+ * via `PUT /api/me/player`) is what gives a real person visibility of what is
+ * being attributed to them.
+ *
+ * Squad *membership* is still owner-only, and so is everything that writes to
+ * the player row. Adding somebody to your side is not editing them.
+ */
+async function requirePlayerExists(playerId: string) {
   const player = await getPlayer(playerId);
-  if (!player || player.createdBy !== userId) throw notFound('Player not found');
+  if (!player) throw notFound('Player not found');
   return player;
 }
 
 export async function addMemberToOwnedTeam(teamId: string, playerId: string) {
-  const { userId } = await requireOwnedTeam(teamId);
-  await requireOwnedPlayer(playerId, userId);
-  await addPlayerToTeam(teamId, playerId);
+  const { team } = await requireOwnedTeam(teamId);
+  await requirePlayerExists(playerId);
+  await addPlayerToTeam(team.id, playerId);
 }
 
 /**

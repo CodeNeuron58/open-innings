@@ -472,6 +472,92 @@ export type PlayerBrief = {
 /** `GET /api/players/briefs?ids=a,b,c` — career context for a list. */
 export type PlayerBriefsResponse = { briefs: PlayerBrief[] };
 
+// ---------------------------------------------------------------------------
+// Correcting a delivery — PATCH /api/matches/[id]/ball/[ballId]
+// ---------------------------------------------------------------------------
+
+/**
+ * One consequence of a correction, in the scorer's language.
+ *
+ * A correction is never local. Changing ball 3 from two runs to one swaps the
+ * strike, so balls 4 onward were faced by the other batter — and the scorer
+ * has to be shown that before they trust the new card. The server knows
+ * exactly what moved, because it replayed the innings to find out.
+ */
+export type BallCorrectionChange = {
+  /** Position in the innings, 1-based — the same number shown on the card. */
+  ballNumber: number;
+  /** `1.3` — over and ball within it, after the correction. */
+  over: string;
+  what: 'strike' | 'over_position' | 'runs' | 'wicket' | 'bowler' | 'removed_batter';
+  detail: string;
+};
+
+/**
+ * A correction the engine refused, and the delivery it broke.
+ *
+ * The point of the diagnostic is that "you cannot do that" is useless
+ * mid-match. Which ball became impossible, and why, is actionable: the scorer
+ * either corrects that one instead, or undoes back to it.
+ */
+export type BallCorrectionRejection = {
+  error: string;
+  code: string;
+  /** The ball the replay could not get past. Absent if it was the edit itself. */
+  ballNumber?: number;
+  over?: string;
+};
+
+export type BallCorrectionResponse = {
+  state: unknown;
+  /** Everything downstream of the edit that moved. Empty when nothing did. */
+  changes: BallCorrectionChange[];
+  /** Deliveries rewritten as a consequence, the edited one included. */
+  rewritten: number;
+};
+
+// ---------------------------------------------------------------------------
+// Player identity across accounts
+// ---------------------------------------------------------------------------
+
+/**
+ * A player as a global search returns them.
+ *
+ * Deliberately the public shape plus context, and nothing else. Whoever
+ * created the row is not disclosed — the useful question is not "whose row is
+ * this" but "is this the same cricketer", and matches and runs answer that
+ * where an owner's identity would only leak one.
+ */
+export type PlayerSearchResult = PlayerSummary & {
+  /** You created this row, so you can add it to a squad and merge it away. */
+  isMine: boolean;
+  /** Somebody has claimed this player as themselves — it is a person, not a stub. */
+  isClaimed: boolean;
+  /** Career context, so two people with one name can be told apart. */
+  matches: number;
+  runs: number;
+  wickets: number;
+  /** Squads this player has appeared for, newest first. Up to three. */
+  clubs: string[];
+};
+
+export type PlayerSearchResponse = {
+  players: PlayerSearchResult[];
+  scope: 'mine' | 'all';
+  /** True when the list was cut at `limit` and a narrower query would help. */
+  truncated: boolean;
+};
+
+/** `POST /api/players/[id]/merge` — what moved, so the client can say so. */
+export type MergePlayersResponse = {
+  player: PlayerSummary;
+  moved: {
+    ballEvents: number;
+    squads: number;
+    inningsOpenings: number;
+  };
+};
+
 /** Standard HTTP statuses this API uses, named so handlers read clearly. */
 export const HTTP = {
   ok: 200,

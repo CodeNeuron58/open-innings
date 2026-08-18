@@ -21,6 +21,11 @@ import {
   type CreateMatchResponse,
   type PlayerListResponse,
   type PlayerResponse,
+  type PlayerSearchResponse,
+  type MergePlayersResponse,
+  type PatchBallInput,
+  type BallCorrectionResponse,
+  type BallCorrectionChange,
   type CreatePlayerInput,
   type TeamListResponse,
   type TeamResponse,
@@ -169,6 +174,45 @@ export const api = {
   players: (token: string, signal?: AbortSignal) =>
     apiFetch<PlayerListResponse>('/api/players', { token, signal }),
 
+  /**
+   * Find a player anywhere on Open Innings, not only in your own list.
+   *
+   * The call the add-a-player screen was always described as making. It could
+   * not: the server scoped every player search to whoever created the row, so
+   * two clubs scoring the same cricketer built two half-careers that nothing
+   * could join — while the screen promised the opposite.
+   *
+   * `scope: 'all'` is what makes a career portable. It is not the default,
+   * because "my players" is still the right list when you are picking a squad
+   * you already know.
+   */
+  searchPlayers: (
+    token: string,
+    q: string,
+    opts: { scope?: 'mine' | 'all'; limit?: number; signal?: AbortSignal } = {},
+  ) => {
+    const params = new URLSearchParams({ q });
+    if (opts.scope) params.set('scope', opts.scope);
+    if (opts.limit) params.set('limit', String(opts.limit));
+    return apiFetch<PlayerSearchResponse>(`/api/players?${params.toString()}`, {
+      token,
+      signal: opts.signal,
+    });
+  },
+
+  /**
+   * Fold a duplicate into the player who keeps their career.
+   *
+   * `confirm` is not ceremony — a merge rewrites the ball log, which is the
+   * only record there is, and there is no undo for it.
+   */
+  mergePlayer: (token: string, keepId: string, duplicateId: string) =>
+    apiFetch<MergePlayersResponse>(`/api/players/${keepId}/merge`, {
+      method: 'POST',
+      body: { duplicateId, confirm: true },
+      token,
+    }),
+
   /*
    * ── Public endpoints ──────────────────────────────────────────────────────
    *
@@ -239,6 +283,36 @@ export const api = {
       token,
     });
     return result.state as MatchState;
+  },
+
+  /**
+   * Correct a delivery that is **not** the last one.
+   *
+   * Undo only ever reached the tail, so fixing the third ball of an over
+   * meant undoing four and re-entering them from memory, mid-match, with
+   * people waiting. This replaces one delivery and the server replays the
+   * rest of the innings around it.
+   *
+   * `changes` is the part that matters on screen: a correction is not local —
+   * one run instead of two rotates the strike, so later deliveries were faced
+   * by the other batter — and a card that silently rearranges itself is
+   * indistinguishable from a bug. Show them before saying it worked.
+   */
+  correctBall: async (
+    token: string,
+    matchId: string,
+    ballId: string,
+    ball: PatchBallInput,
+  ): Promise<{ state: MatchState; changes: BallCorrectionChange[]; rewritten: number }> => {
+    const result = await apiFetch<BallCorrectionResponse>(
+      `/api/matches/${matchId}/ball/${ballId}`,
+      { method: 'PATCH', body: ball, token },
+    );
+    return {
+      state: result.state as MatchState,
+      changes: result.changes,
+      rewritten: result.rewritten,
+    };
   },
 
   /** Undo the last delivery. The engine drops the event and replays. */

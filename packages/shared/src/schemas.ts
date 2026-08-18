@@ -340,7 +340,19 @@ const RUNS_FOR_TYPE: Partial<Record<(typeof BALL_EVENT_TYPES)[number], number>> 
 /** Types that carry a penalty or come off something other than the bat. */
 const EXTRA_TYPES = new Set(['wide', 'no_ball', 'bye', 'leg_bye']);
 
-export const consistentBallEventSchema = ballEventSchema.superRefine((v, ctx) => {
+type BallShape = {
+  eventType: (typeof BALL_EVENT_TYPES)[number];
+  runsOffBat: number;
+  extraRuns: number;
+};
+
+/**
+ * Shared by POST (record) and PATCH (correct), because a correction has to be
+ * as internally consistent as the delivery it replaces. Extracted from
+ * `consistentBallEventSchema` when PATCH arrived — two copies of this would
+ * drift, and the half that drifted would be the one writing to the ball log.
+ */
+const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
   const expected = RUNS_FOR_TYPE[v.eventType];
 
   // A scoring shot names its own runs, and carries no extras.
@@ -383,7 +395,46 @@ export const consistentBallEventSchema = ballEventSchema.superRefine((v, ctx) =>
   }
 
   // 'wicket' is left alone: a run-out can happen after any number of runs.
-});
+};
+
+export const consistentBallEventSchema = ballEventSchema.superRefine(refineBallConsistency);
+
+/**
+ * A correction to a delivery already in the log — `PATCH .../ball/[ballId]`.
+ *
+ * It is a **replacement, not a partial update**: an absent `wicketType` means
+ * the delivery no longer carries a wicket. Partial semantics would make
+ * "remove the wicket I recorded by mistake" unexpressible, and that is one of
+ * the two corrections scorers actually need.
+ *
+ * The batters are the exception, and they are optional for a reason. Who was
+ * on strike is **derived** from everything before this ball, so a correction
+ * that changes the runs also changes the strike — and asking the client to
+ * send a pair it cannot know yet would make every such correction a guess.
+ * Absent, the server derives them. Present, they are taken as the scorer's
+ * assertion, which is what naming the wrong incoming batter after a wicket
+ * needs.
+ */
+export const patchBallSchema = ballEventSchema
+  .omit({ inningsId: true, batsmanId: true, nonStrikerId: true })
+  .extend({
+    batsmanId: idSchema.optional(),
+    nonStrikerId: idSchema.optional(),
+  })
+  .superRefine(refineBallConsistency)
+  .superRefine((v, ctx) => {
+    // Naming one end without the other says nothing: the engine needs a pair,
+    // and half a pair silently derives the other end into a position the
+    // scorer did not choose.
+    if ((v.batsmanId === undefined) !== (v.nonStrikerId === undefined)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nonStrikerId'],
+        message: 'Name both batters or neither — half a pair is not a correction',
+      });
+    }
+  });
+export type PatchBallInput = z.infer<typeof patchBallSchema>;
 
 /** The bowler taking the next over, sent when the scorer closes an over. */
 export const changeBowlerSchema = z.object({
@@ -397,3 +448,49 @@ export const nextBatterSchema = z.object({
   slot: z.enum(['striker', 'non_striker']),
 });
 export type NextBatterInput = z.infer<typeof nextBatterSchema>;
+
+// ---------------------------------------------------------------------------
+// Player identity across accounts
+// ---------------------------------------------------------------------------
+
+/**
+ * Searching every player in Open Innings, not only your own.
+ *
+ * The whole claim of the product is that a career follows a person between
+ * clubs. It could not: `listPlayers` scoped to `createdBy`, so two clubs
+ * scoring the same cricketer built two half-careers that nothing could join.
+ *
+ * A global search exposes nothing new — every career page at `/p/<id>` is
+ * already public and unauthenticated, and is the thing people share. What it
+ * adds is the ability to *find* the page before creating a second one.
+ *
+ * Two guards, both here rather than in the route so the mobile client sees the
+ * same rules: a minimum length, so this is a lookup and not an enumeration,
+ * and a bounded page size.
+ */
+export const playerSearchSchema = z.object({
+  q: z.string().trim().min(2, 'Type at least two letters to search'),
+  scope: z.enum(['mine', 'all']).default('mine'),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type PlayerSearchInput = z.infer<typeof playerSearchSchema>;
+
+/**
+ * Fold a duplicate player row into the one that should survive.
+ *
+ * `duplicateId` is the row that disappears; the id in the path is the one that
+ * keeps its career. Every reference in `ball_events`, `team_members` and the
+ * innings' opening trio moves across, so the merged career is the sum of both
+ * — which is only true if it happens in one transaction.
+ *
+ * `confirm` is not ceremony. A merge rewrites the ball log, and the ball log
+ * is the only record there is; there is no undo for it, so the client has to
+ * say plainly that it means to.
+ */
+export const mergePlayersSchema = z.object({
+  duplicateId: idSchema,
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'A merge rewrites the ball log and cannot be undone' }),
+  }),
+});
+export type MergePlayersInput = z.infer<typeof mergePlayersSchema>;

@@ -29,13 +29,19 @@ import {
   type MatchState,
   type PlayerId,
 } from '@open-innings/scoring';
-import type { ScorerResponse, WicketTypeValue } from '@open-innings/shared';
+import type {
+  BallCorrectionChange,
+  PatchBallInput,
+  ScorerResponse,
+  WicketTypeValue,
+} from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { useSession } from '../../../../lib/session';
 import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { Button, ErrorBanner, LoadingScreen } from '../../../../components/ui';
 import { BallChip } from '../../../../components/scorer/BallChip';
+import { CorrectBallSheet } from '../../../../components/scorer/CorrectBall';
 import { EndOfOver } from '../../../../components/scorer/EndOfOver';
 import { InningsBreak } from '../../../../components/scorer/InningsBreak';
 import {
@@ -48,10 +54,10 @@ import {
 export default function Scorer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // Not read here yet: every call on this screen goes through useApiQuery /
-  // useApiMutation, which resolve the token themselves. Held for a direct
-  // api.* call that needs it without a hook around it.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- for direct api.* calls
+  // Read directly by `correctBall`, which is the one call on this screen that
+  // does not go through useApiMutation. It needs its own error state: a
+  // refusal there is an answer about a specific delivery, not a failed save,
+  // and it belongs in the sheet rather than the banner at the top.
   const { token } = useSession();
   const { keepAwakeWhileScoring } = useSettings();
 
@@ -111,6 +117,19 @@ export default function Scorer() {
   const [live, setLive] = useState<MatchState | null>(null);
 
   const [showWicket, setShowWicket] = useState(false);
+  /*
+   * Correcting a delivery that is not the last one.
+   *
+   * Three pieces of state rather than one, because the sheet has two
+   * halves: the delivery being corrected, the error if the laws refused
+   * it, and — once it succeeds — what the correction moved. That last one
+   * is what the scorer actually needs to see, so it keeps the sheet open
+   * instead of dismissing on success.
+   */
+  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [correctionBusy, setCorrectionBusy] = useState(false);
+  const [correctionChanges, setCorrectionChanges] = useState<BallCorrectionChange[] | null>(null);
   const [pendingExtra, setPendingExtra] = useState<ExtraKind | null>(null);
 
   // Replacements chosen in the mandatory sheets. These ride along with the
@@ -248,6 +267,48 @@ export default function Scorer() {
   async function undo() {
     const next = await mutation.run((t) => api.undoBall(t, id));
     if (next) applyState(next);
+  }
+
+  /**
+   * Replace one delivery and let the server replay the rest of the innings.
+   *
+   * Deliberately not through `mutation.run`: a refusal here is not a failed
+   * save, it is an answer — "this correction makes ball 7 impossible" — and it
+   * belongs inside the sheet next to the delivery it names, not in the banner
+   * at the top of the screen where the scorer has already looked away.
+   */
+  async function correctBall(patch: Omit<PatchBallInput, 'bowlerId'>) {
+    const ballId = correcting;
+    if (!ballId || !token) return;
+
+    const target = state.balls.find((b) => String(b.id) === ballId);
+    if (!target) return;
+
+    setCorrectionError(null);
+    setCorrectionBusy(true);
+    try {
+      const result = await api.correctBall(token, id, ballId, {
+        ...patch,
+        // The bowler is not being corrected here, so it is carried across
+        // rather than re-asserted — sending a different one would silently
+        // reassign the over.
+        bowlerId: String(target.bowlerId),
+      } as PatchBallInput);
+      applyState(result.state);
+      setCorrectionChanges(result.changes);
+    } catch (err) {
+      setCorrectionError(
+        err instanceof Error ? err.message : 'That correction could not be applied.',
+      );
+    } finally {
+      setCorrectionBusy(false);
+    }
+  }
+
+  function closeCorrection() {
+    setCorrecting(null);
+    setCorrectionError(null);
+    setCorrectionChanges(null);
   }
 
   function scoreRuns(runsOffBat: RunKey) {
@@ -516,7 +577,15 @@ export default function Scorer() {
           </View>
           <View className="flex-row flex-wrap gap-1.5">
             {overBalls.map((b, i) => (
-              <BallChip key={`${b.ballNumber}-${i}`} ball={b} />
+              <BallChip
+                key={`${b.ballNumber}-${i}`}
+                ball={b}
+                // Only while the innings is live. Correcting a delivery in a
+                // closed innings would have to reopen a finished match and
+                // invalidate a result already shared, which is a different
+                // feature and is refused by the server too.
+                onPress={completed ? undefined : () => setCorrecting(String(b.id))}
+              />
             ))}
             {/* The balls not yet bowled — drawn, not filled. */}
             {Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
@@ -636,6 +705,18 @@ export default function Scorer() {
       ) : null}
 
       {/* Sheets */}
+      {correcting ? (
+        <CorrectBallSheet
+          ball={state.balls.find((b) => String(b.id) === correcting)!}
+          position={positionOf(state, correcting)}
+          busy={correctionBusy}
+          error={correctionError}
+          changes={correctionChanges}
+          onCorrect={(patch) => void correctBall(patch)}
+          onDismiss={closeCorrection}
+        />
+      ) : null}
+
       {showWicket ? (
         <WicketSheet
           strikerId={String(effStriker)}
@@ -802,6 +883,21 @@ const KEYS: { label: string; runs?: RunKey; tone: string; text: string }[] = [
   { label: '6', runs: 6, tone: 'bg-six', text: 'text-six-foreground' },
   { label: 'W', tone: 'bg-wicket', text: 'text-wicket-foreground' },
 ];
+
+/**
+ * `1.4` — where a delivery sits, the way a scorer would call it.
+ *
+ * Counted from the ball log rather than stored, because the position of every
+ * delivery after a correction is exactly the thing that can move.
+ */
+function positionOf(state: MatchState, ballId: string): string {
+  const ball = state.balls.find((b) => String(b.id) === ballId);
+  if (!ball) return '';
+  const legal = state.balls.filter(
+    (b) => b.overNumber === ball.overNumber && b.isLegalDelivery && b.ballNumber <= ball.ballNumber,
+  ).length;
+  return `${ball.overNumber + 1}.${Math.max(1, legal)}`;
+}
 
 /** Runs per over, or a strike rate — one helper, both are runs ÷ balls. */
 function rate(runs: number, balls: number): string {

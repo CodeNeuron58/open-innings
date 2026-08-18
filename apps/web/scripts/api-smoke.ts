@@ -295,21 +295,47 @@ async function main() {
     ok(intruderTeam.status === 201, 'the second account can create its own team', intruderTeam);
     const intruderTeamId = intruderTeam.json.team?.id as string;
 
-    const steal = await asIntruder('POST', `/api/teams/${intruderTeamId}/members`, {
+    /*
+     * A player another account created **can** be added to a squad, and that
+     * is a deliberate reversal.
+     *
+     * It used to 404, and that single rule was half of why a career could not
+     * follow a person between clubs: a cricketer who turns out for two clubs
+     * is one person, and if the second club cannot add the row the first club
+     * created, they create a second one and the career splits permanently.
+     *
+     * The trade is real and worth checking rather than assuming: adding
+     * somebody to your side must not be a way of *editing* them, and it must
+     * not be a way into the squad itself. Both are asserted below.
+     */
+    const shared = await asIntruder('POST', `/api/teams/${intruderTeamId}/members`, {
       playerId: createdPlayerIds[0],
     });
-    ok(steal.status === 404, "another account's player cannot be added to a squad", steal.status);
+    ok(shared.status === 200, "another account's player can join your squad", shared.status);
 
-    // And the same door at create time, which seeds a squad in one call.
-    const stealAtCreate = await asIntruder('POST', '/api/teams', {
+    // …and the same at create time, which seeds a squad in one call.
+    const sharedAtCreate = await asIntruder('POST', '/api/teams', {
       name: 'Intruder XI B',
       playerIds: [createdPlayerIds[1]],
     });
     ok(
-      stealAtCreate.status === 404,
-      "another account's player cannot be seeded into a new team",
-      stealAtCreate.status,
+      sharedAtCreate.status === 201,
+      "another account's player can be seeded into a new team",
+      sharedAtCreate.status,
     );
+
+    // A player who does not exist is still a 404 — the check was widened, not
+    // removed, and a typo must not create a squad slot pointing at nothing.
+    const noSuchPlayer = await asIntruder('POST', `/api/teams/${intruderTeamId}/members`, {
+      playerId: '00000000-0000-4000-8000-000000000000',
+    });
+    ok(noSuchPlayer.status === 404, 'a player who does not exist → 404', noSuchPlayer.status);
+
+    // The squad is still owner-only. Sharing a player is not sharing a team.
+    const intoMySquad = await asIntruder('POST', `/api/teams/${teamAId}/members`, {
+      playerId: createdPlayerIds[0],
+    });
+    ok(intoMySquad.status === 404, "another account's squad is still closed", intoMySquad.status);
 
     const renamed = await call('PATCH', `/api/teams/${teamAId}`, { name: 'Smoke XI Renamed' });
     ok(renamed.json.team.name === 'Smoke XI Renamed', 'PATCH renames the team', renamed.json.team);
@@ -1197,6 +1223,209 @@ async function main() {
 
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
+
+    // ── 9e. Correcting a delivery that is not the last ──────────────────────
+    //
+    // The one correction that could not be expressed at all: `DELETE .../ball`
+    // pops the tail, so fixing the third ball of an over meant undoing four
+    // and re-entering them from memory, mid-match.
+    //
+    // What is under test here is the *cascade*. A correction is not local —
+    // one run instead of two rotates the strike, so every delivery after it
+    // was faced by the other batter — and only a replay against the real
+    // engine and the real ball log can prove that came out right.
+    console.log('correcting a delivery');
+
+    const fixMatch = await call('POST', '/api/matches', {
+      oversPerInnings: 5,
+      format: 't20',
+      teamAId,
+      teamBId,
+      ...openers,
+    });
+    ok(fixMatch.status === 201, 'match for corrections created', fixMatch);
+    const fixId = fixMatch.json.match?.id as string;
+
+    const fixStriker = createdPlayerIds[0]!;
+    const fixNonStriker = createdPlayerIds[1]!;
+    const fixBowler = createdPlayerIds[2]!;
+    const deliver = (over: Record<string, unknown> = {}) =>
+      call('POST', `/api/matches/${fixId}/ball`, {
+        eventType: 'dot',
+        runsOffBat: 0,
+        extraRuns: 0,
+        batsmanId: fixStriker,
+        nonStrikerId: fixNonStriker,
+        bowlerId: fixBowler,
+        ...over,
+      });
+
+    // Four dots. Every one of them is the striker's.
+    for (let i = 0; i < 4; i += 1) {
+      const b = await deliver();
+      ok(b.status === 200, `dot ${i + 1} recorded`, b);
+    }
+
+    const beforeFix = await call('GET', `/api/matches/${fixId}/scorer`);
+    ok(beforeFix.status === 200, 'scorer state loads', beforeFix);
+    const ballIds = ((beforeFix.json.state?.balls ?? []) as Json[]).map((b) => b.id as string);
+    ok(ballIds.length === 4, 'four deliveries in the log', ballIds);
+
+    // Everything that must be refused, before anything that succeeds.
+    const anonFix = await fetch(`${BASE}/api/matches/${fixId}/ball/${ballIds[1]}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventType: 'dot', runsOffBat: 0, extraRuns: 0, bowlerId: fixBowler }),
+    });
+    ok(anonFix.status === 401, 'correcting without a session → 401', anonFix.status);
+
+    const badPair = await call('PATCH', `/api/matches/${fixId}/ball/${ballIds[1]}`, {
+      eventType: 'dot',
+      runsOffBat: 0,
+      extraRuns: 0,
+      bowlerId: fixBowler,
+      batsmanId: fixStriker,
+    });
+    ok(badPair.status === 400, 'naming one batter without the other → 400', badPair);
+
+    const inconsistent = await call('PATCH', `/api/matches/${fixId}/ball/${ballIds[1]}`, {
+      eventType: '4',
+      runsOffBat: 1,
+      extraRuns: 0,
+      bowlerId: fixBowler,
+    });
+    ok(inconsistent.status === 400, 'a four that is one off the bat → 400', inconsistent);
+
+    const strayBall = await call(
+      'PATCH',
+      `/api/matches/${fixId}/ball/00000000-0000-4000-8000-000000000000`,
+      { eventType: 'dot', runsOffBat: 0, extraRuns: 0, bowlerId: fixBowler },
+    );
+    ok(strayBall.status === 409, 'a delivery from another innings → 409', strayBall);
+
+    // The correction: the second delivery was a single, not a dot.
+    const corrected = await call('PATCH', `/api/matches/${fixId}/ball/${ballIds[1]}`, {
+      eventType: '1',
+      runsOffBat: 1,
+      extraRuns: 0,
+      bowlerId: fixBowler,
+    });
+    ok(corrected.status === 200, 'correcting the second delivery → 200', corrected);
+    ok(corrected.json.state?.currentInnings?.runs === 1, 'the score moves', corrected.json);
+    ok(
+      corrected.json.rewritten === 3,
+      'the edit and the two after it are rewritten',
+      corrected.json,
+    );
+
+    const strikeChanges = ((corrected.json.changes ?? []) as Json[]).filter(
+      (c) => c.what === 'strike',
+    );
+    ok(
+      strikeChanges.length === 2,
+      'the strike moved on both later deliveries',
+      corrected.json.changes,
+    );
+    ok(
+      typeof strikeChanges[0]?.detail === 'string' && strikeChanges[0].detail.includes('not '),
+      'and the change names both players',
+      strikeChanges[0],
+    );
+
+    // The ball log itself, not just the response. This is the half that would
+    // rot silently if the transaction wrote only part of the rewrite.
+    const afterFix = await call('GET', `/api/matches/${fixId}/scorer`);
+    const storedBalls = (afterFix.json.state?.balls ?? []) as Json[];
+    ok(storedBalls.length === 4, 'no delivery was added or lost', storedBalls.length);
+    ok(storedBalls[1]?.eventType === '1', 'the corrected delivery persisted', storedBalls[1]);
+    ok(
+      storedBalls[2]?.batsmanId === fixNonStriker && storedBalls[3]?.batsmanId === fixNonStriker,
+      'the stored log agrees with the replay about who was on strike',
+      storedBalls.map((b) => b.batsmanId),
+    );
+    ok(
+      afterFix.json.state?.currentInnings?.runs === 1,
+      'the cached score agrees with the ball log',
+      afterFix.json.state?.currentInnings,
+    );
+
+    // ── 9f. Player identity across accounts ─────────────────────────────────
+    //
+    // `listPlayers` scoped to `createdBy`, so two clubs scoring the same
+    // cricketer built two half-careers that nothing could join — while the
+    // add-a-player screen promised the opposite.
+    console.log('player identity');
+
+    const noQuery = await call('GET', '/api/players');
+    ok(noQuery.status === 200, 'GET players without a query still lists yours', noQuery);
+    ok(Array.isArray(noQuery.json.players), 'the old response shape is unchanged', noQuery.json);
+    ok(noQuery.json.scope === undefined, 'and carries no search fields', noQuery.json);
+
+    const tooShort = await call('GET', '/api/players?q=a');
+    ok(tooShort.status === 400, 'a one-letter search → 400', tooShort);
+
+    const mineOnly = await call('GET', '/api/players?q=Smoke');
+    ok(mineOnly.status === 200, 'searching your own players → 200', mineOnly);
+    ok(mineOnly.json.scope === 'mine', 'scope defaults to mine', mineOnly.json);
+
+    const global = await call('GET', '/api/players?q=Smoke&scope=all');
+    ok(global.status === 200, 'global search → 200', global);
+    ok(global.json.scope === 'all', 'scope is reported back', global.json);
+    const found = (global.json.players ?? []) as Json[];
+    ok(found.length > 0, 'global search finds players', found.length);
+    ok(
+      found.every((p) => typeof p.matches === 'number' && Array.isArray(p.clubs)),
+      'results carry the career context that tells two namesakes apart',
+      found[0],
+    );
+    ok(
+      found.every((p) => p.createdBy === undefined && p.userId === undefined),
+      'and disclose no owner',
+      found[0],
+    );
+
+    // A duplicate, of exactly the kind two clubs create.
+    const dupPlayer = await call('POST', '/api/players', {
+      fullName: 'Smoke Duplicate',
+      role: 'batsman',
+    });
+    ok(dupPlayer.status === 201, 'duplicate player created', dupPlayer);
+    const dupId = dupPlayer.json.player?.id as string;
+    createdPlayerIds.push(dupId);
+
+    const unconfirmed = await call('POST', `/api/players/${fixStriker}/merge`, {
+      duplicateId: dupId,
+    });
+    ok(unconfirmed.status === 400, 'a merge without confirmation → 400', unconfirmed);
+
+    const intoItself = await call('POST', `/api/players/${dupId}/merge`, {
+      duplicateId: dupId,
+      confirm: true,
+    });
+    ok(intoItself.status === 409, 'merging a player into itself → 409', intoItself);
+
+    // Both openers appear in the same innings, so they cannot be one person:
+    // merging them would put somebody at both ends.
+    const sameInnings = await call('POST', `/api/players/${fixStriker}/merge`, {
+      duplicateId: fixNonStriker,
+      confirm: true,
+    });
+    ok(sameInnings.status === 409, 'merging two players from one innings → 409', sameInnings);
+
+    const merged = await call('POST', `/api/players/${fixStriker}/merge`, {
+      duplicateId: dupId,
+      confirm: true,
+    });
+    ok(merged.status === 200, 'merging a genuine duplicate → 200', merged);
+    ok(merged.json.player?.id === fixStriker, 'the surviving player is returned', merged.json);
+    ok(
+      typeof merged.json.moved?.ballEvents === 'number',
+      'the merge reports what moved',
+      merged.json,
+    );
+
+    const goneAfterMerge = await call('GET', `/api/players/${dupId}/stats`);
+    ok(goneAfterMerge.status === 404, 'the duplicate is gone', goneAfterMerge);
 
     // ── 10b. Notify list ────────────────────────────────────────────────────
     console.log('notify');

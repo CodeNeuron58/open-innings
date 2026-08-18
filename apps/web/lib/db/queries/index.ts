@@ -6,7 +6,7 @@
  */
 
 import 'server-only';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ilike, or, sql } from 'drizzle-orm';
 import { db } from '../client';
 import {
   players,
@@ -35,6 +35,182 @@ export async function listPlayers(): Promise<Player[]> {
     .from(players)
     .where(eq(players.createdBy, userId))
     .orderBy(asc(players.fullName));
+}
+
+/**
+ * Find a player by name, optionally across every account.
+ *
+ * `listPlayers` scoped to `createdBy`, and that scoping is why a career could
+ * not follow a person between clubs: two clubs scoring the same cricketer
+ * created two rows and two half-careers with nothing able to join them. The
+ * add-a-player screen was built on the premise that searching finds an
+ * *existing* player, and the premise was false.
+ *
+ * Widening it discloses nothing new. Every career page at `/p/<id>` is
+ * already public and unauthenticated — it is the thing people share, and the
+ * reason to score at all. What this adds is the ability to find the page
+ * before creating a second one.
+ *
+ * Two guards, and they are the reason this is a lookup rather than a
+ * directory: a minimum query length enforced in the shared schema, and a
+ * bounded limit. It fetches one more than asked so the caller can say "narrow
+ * this" rather than silently truncating.
+ */
+export async function searchPlayersByName(
+  q: string,
+  scope: 'mine' | 'all',
+  limit: number,
+): Promise<{ rows: Player[]; truncated: boolean }> {
+  const userId = await getUserId();
+  // "Mine" with no session is empty rather than everything — the failure mode
+  // of getting that backwards is disclosing every player in the system.
+  if (scope === 'mine' && !userId) return { rows: [], truncated: false };
+
+  // A name containing % or _ is a LIKE pattern otherwise, so a search for
+  // "A_B" would match names it has no business matching.
+  const term = `%${q.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+  const matchesName = or(ilike(players.fullName, term), ilike(players.shortName, term));
+
+  const rows = await db
+    .select()
+    .from(players)
+    .where(scope === 'mine' ? and(eq(players.createdBy, userId!), matchesName) : matchesName)
+    .orderBy(asc(players.fullName))
+    .limit(limit + 1);
+
+  return { rows: rows.slice(0, limit), truncated: rows.length > limit };
+}
+
+/**
+ * The squads each player has appeared for, newest first.
+ *
+ * Two cricketers share a name more often than a schema designer expects, and
+ * runs alone do not tell them apart. The club does — "Arun Kumar, Rovers" is
+ * the disambiguation a scorer actually uses.
+ */
+export async function clubsForPlayers(ids: string[]): Promise<Record<string, string[]>> {
+  if (ids.length === 0) return {};
+
+  const rows = await db
+    .select({ playerId: teamMembers.playerId, name: teams.name })
+    .from(teamMembers)
+    .innerJoin(teams, eq(teams.id, teamMembers.teamId))
+    .where(inArray(teamMembers.playerId, ids))
+    .orderBy(desc(teamMembers.joinedAt));
+
+  const out: Record<string, string[]> = {};
+  for (const row of rows) {
+    const list = (out[row.playerId] ??= []);
+    if (list.length < 3 && !list.includes(row.name)) list.push(row.name);
+  }
+  return out;
+}
+
+/**
+ * Fold one player row into another, everywhere at once.
+ *
+ * The repair for a duplicate that already exists. Every reference moves —
+ * `ball_events` names a player in five separate columns, `team_members` in
+ * one, and the innings' opening trio in three — and then the duplicate row
+ * goes. In one transaction, because a half-done merge splits a career in a
+ * way that is much harder to find than two obvious duplicates.
+ *
+ * **Refused when both players appear in the same innings.** Merging them
+ * would put one person at both ends, or have them bowling to themselves. The
+ * ball log would then describe a match that cannot happen, and every replay
+ * of it — scorecard, career page, share card — would object forever.
+ *
+ * Returns null when the merge is not permitted, so the caller decides what to
+ * tell whom; counts otherwise, so the client can say what moved.
+ */
+export async function mergePlayerInto(
+  keepId: string,
+  duplicateId: string,
+  userId: string,
+): Promise<{ ballEvents: number; squads: number; inningsOpenings: number } | null> {
+  if (keepId === duplicateId) return null;
+
+  return db.transaction(async (tx) => {
+    const [keep] = await tx.select().from(players).where(eq(players.id, keepId)).limit(1);
+    const [dupe] = await tx.select().from(players).where(eq(players.id, duplicateId)).limit(1);
+    if (!keep || !dupe) return null;
+
+    /*
+     * You may only dissolve a row you created.
+     *
+     * The asymmetry is deliberate. Merging *into* someone else's player is
+     * how a career gets joined up across clubs, and is the point. Merging
+     * someone else's row *away* would let anyone erase another club's player
+     * and redirect their history, which is the same power with none of the
+     * legitimacy.
+     */
+    if (dupe.createdBy !== userId) return null;
+
+    // A claimed row is a person who said "this is me". Folding that away
+    // would silently detach them from their own career.
+    if (dupe.userId && dupe.userId !== keep.userId) return null;
+
+    const clash = await tx.execute<{ innings_id: string }>(sql`
+      select a.innings_id
+      from ball_events a
+      join ball_events b on b.innings_id = a.innings_id
+      where a.batsman_id in (${keepId}::uuid, ${duplicateId}::uuid)
+        and b.batsman_id in (${keepId}::uuid, ${duplicateId}::uuid)
+        and a.batsman_id <> b.batsman_id
+      limit 1
+    `);
+    if (clash.length > 0) return null;
+
+    let ballEventCount = 0;
+    for (const column of [
+      'batsman_id',
+      'non_striker_id',
+      'bowler_id',
+      'wicket_player_id',
+      'fielder_id',
+    ]) {
+      const moved = await tx.execute<{ id: string }>(
+        sql`update ball_events set ${sql.raw(column)} = ${keepId}::uuid
+            where ${sql.raw(column)} = ${duplicateId}::uuid
+            returning id`,
+      );
+      ballEventCount += moved.length;
+    }
+
+    /*
+     * A squad the duplicate was in that the survivor is already in would
+     * break the primary key, so those memberships are dropped rather than
+     * moved. `onConflictDoNothing` cannot express it — this is an update, and
+     * the row that would conflict has to go.
+     */
+    await tx.execute(sql`
+      delete from team_members dupe
+      where dupe.player_id = ${duplicateId}::uuid
+        and exists (
+          select 1 from team_members keep
+          where keep.team_id = dupe.team_id and keep.player_id = ${keepId}::uuid
+        )
+    `);
+    const squads = await tx.execute<{ team_id: string }>(sql`
+      update team_members set player_id = ${keepId}::uuid
+      where player_id = ${duplicateId}::uuid
+      returning team_id
+    `);
+
+    let openings = 0;
+    for (const column of ['opening_striker_id', 'opening_non_striker_id', 'opening_bowler_id']) {
+      const moved = await tx.execute<{ id: string }>(
+        sql`update innings set ${sql.raw(column)} = ${keepId}::uuid
+            where ${sql.raw(column)} = ${duplicateId}::uuid
+            returning id`,
+      );
+      openings += moved.length;
+    }
+
+    await tx.delete(players).where(eq(players.id, duplicateId));
+
+    return { ballEvents: ballEventCount, squads: squads.length, inningsOpenings: openings };
+  });
 }
 
 export async function getPlayer(id: string): Promise<Player | null> {
@@ -577,6 +753,124 @@ export async function removeLastBall(
     // Somebody else undid it first. Report it rather than writing a score
     // computed against a ball that is no longer there.
     if (deleted.length === 0) return false;
+
+    await tx
+      .update(inningsTable)
+      .set({ ...cache, completedAt: cache.status === 'completed' ? new Date() : null })
+      .where(eq(inningsTable.id, inningsId));
+
+    if (opts.reopenMatchId) {
+      await tx
+        .update(matches)
+        .set({
+          status: 'live',
+          completedAt: null,
+          updatedAt: new Date(),
+          result: null,
+          winningTeamId: null,
+          summary: null,
+        })
+        .where(eq(matches.id, opts.reopenMatchId));
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Rewrite a run of deliveries and move the innings with them, in one
+ * transaction.
+ *
+ * The write half of a correction. `correctBall` has already replayed the
+ * innings and produced every delivery from the edit onward as it now stands;
+ * this puts them down together with the score they imply.
+ *
+ * **Why a transaction and not a loop of updates.** A correction touches the
+ * edited delivery, every delivery after it, and the innings cache. A failure
+ * part-way through leaves an innings whose ball log and score describe
+ * different matches — and unlike a half-recorded ball, nothing later
+ * recomputes it, because the next delivery appends rather than repairs.
+ *
+ * **Why `expectedTotal`.** Two scorers, or one scorer on two devices, can
+ * correct and record at the same time. The rewritten deliveries were computed
+ * against a ball log of a known length; if the log has grown or shrunk since,
+ * that computation describes an innings that no longer exists and must not be
+ * written. Checked inside the transaction, so there is no window.
+ *
+ * `ball_number` is deliberately never updated. It is the sequence position,
+ * and a correction replaces a delivery rather than inserting one — which is
+ * also why the unique index on (innings_id, ball_number) is not in the way.
+ */
+export async function replaceBallSequence(
+  inningsId: string,
+  balls: ReadonlyArray<{
+    id: string;
+    overNumber: number;
+    eventType: BallEvent['eventType'];
+    runsOffBat: number;
+    extraRuns: number;
+    totalRuns: number;
+    isLegalDelivery: boolean;
+    isFreeHit: boolean;
+    batsmanId: string;
+    nonStrikerId: string;
+    bowlerId: string;
+    wicketType: BallEvent['wicketType'] | null;
+    wicketPlayerId: string | null;
+    fielderId: string | null;
+    bowlerReplacedMidOver: boolean;
+    commentary: string | null;
+  }>,
+  cache: {
+    runs: number;
+    wickets: number;
+    ballsBowled: number;
+    extras: number;
+    status: 'not_started' | 'in_progress' | 'completed';
+  },
+  opts: { expectedTotal: number; reopenMatchId?: string } = { expectedTotal: -1 },
+): Promise<boolean> {
+  const userId = await getUserId();
+  if (!userId) {
+    throw new Error('Unauthorized: correcting a delivery requires a signed-in user');
+  }
+
+  return db.transaction(async (tx) => {
+    if (opts.expectedTotal >= 0) {
+      const current = await tx
+        .select({ id: ballEvents.id })
+        .from(ballEvents)
+        .where(eq(ballEvents.inningsId, inningsId));
+      if (current.length !== opts.expectedTotal) return false;
+    }
+
+    for (const ball of balls) {
+      const updated = await tx
+        .update(ballEvents)
+        .set({
+          overNumber: ball.overNumber,
+          eventType: ball.eventType,
+          runsOffBat: ball.runsOffBat,
+          extraRuns: ball.extraRuns,
+          totalRuns: ball.totalRuns,
+          isLegalDelivery: ball.isLegalDelivery,
+          isFreeHit: ball.isFreeHit,
+          batsmanId: ball.batsmanId,
+          nonStrikerId: ball.nonStrikerId,
+          bowlerId: ball.bowlerId,
+          wicketType: ball.wicketType,
+          wicketPlayerId: ball.wicketPlayerId,
+          fielderId: ball.fielderId,
+          bowlerReplacedMidOver: ball.bowlerReplacedMidOver,
+          commentary: ball.commentary,
+        })
+        .where(and(eq(ballEvents.id, ball.id), eq(ballEvents.inningsId, inningsId)))
+        .returning({ id: ballEvents.id });
+
+      // A delivery we were rewriting is gone. Whatever raced us won; roll the
+      // whole correction back rather than leaving a partial one.
+      if (updated.length === 0) return false;
+    }
 
     await tx
       .update(inningsTable)

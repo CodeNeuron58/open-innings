@@ -14,12 +14,15 @@
  *
  * DELETE /api/matches/[id]/ball — undo the last ball.
  *   Same flow, but deletes the last ball_events row and recomputes.
+ *
+ * Correcting a delivery that is **not** the last one is a different endpoint:
+ * `PATCH /api/matches/[id]/ball/[ballId]`. It cannot be expressed here,
+ * because changing a delivery in the middle rewrites every delivery after it.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   applyBall,
-  initialState,
   replayEvents,
   ScoringError,
   asInningsId,
@@ -39,6 +42,7 @@ import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { consistentBallEventSchema } from '@open-innings/shared';
 import { enforceRateLimit } from '@/lib/api/request-meta';
 import { readJson, toErrorResponse } from '@/lib/api/respond';
+import { buildSeed } from '@/lib/services/innings-seed';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -296,48 +300,6 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-type LoadedMatch = Awaited<ReturnType<typeof loadMatchInProgress>>;
-type LoadedInnings = NonNullable<LoadedMatch>['currentInnings'];
-
-function buildSeed(
-  match: {
-    id: string;
-    oversPerInnings: number;
-    teamAId: string;
-    teamBId: string;
-    maxOversPerBowler: number | null;
-  },
-  currentInnings: LoadedInnings,
-): MatchState {
-  // Use the opening trio as the seed. After the first ball is recorded, the
-  // engine's state will overwrite these. Until then, this is what the UI
-  // shows for a fresh innings.
-  const strikerId = currentInnings.openingStrikerId ?? '';
-  const nonStrikerId = currentInnings.openingNonStrikerId ?? '';
-  const bowlerId = currentInnings.openingBowlerId ?? '';
-
-  return initialState({
-    matchId: match.id,
-    oversPerInnings: match.oversPerInnings,
-    teamAId: match.teamAId,
-    teamBId: match.teamBId,
-    battingTeamId: currentInnings.battingTeamId,
-    bowlingTeamId: currentInnings.bowlingTeamId,
-    inningsId: currentInnings.id,
-    inningsNumber: currentInnings.inningsNumber as 1 | 2 | 3 | 4,
-    strikerId,
-    nonStrikerId,
-    bowlerId,
-    target: currentInnings.target ?? undefined,
-    maxWickets: currentInnings.maxWickets,
-    // Null in the row means the match set no limit; the engine reads
-    // undefined as unenforced. Replay must see the same condition the
-    // delivery was validated under, or a lawfully-scored innings stops
-    // replaying.
-    maxOversPerBowler: match.maxOversPerBowler ?? undefined,
-  });
-}
 
 function ballsToInputs(
   balls: Array<{

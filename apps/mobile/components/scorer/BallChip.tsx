@@ -12,7 +12,7 @@
  *
  * Square, not pill-shaped: the design draws the over strip as a row of cells.
  */
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';
 
 type Tone = 'four' | 'six' | 'wicket' | 'extra' | 'dot';
@@ -65,15 +65,40 @@ const DARK_TONE_STYLES: Record<Tone, { bg: string; text: string; border: string 
   dot: { bg: 'bg-transparent', text: 'text-scoreboard-text', border: 'border-scoreboard-border' },
 };
 
-export function BallChip({ ball, onDark = false }: { ball: BallEvent; onDark?: boolean }) {
+export function BallChip({
+  ball,
+  onDark = false,
+  onPress,
+}: {
+  ball: BallEvent;
+  onDark?: boolean;
+  /** Present only where the delivery can be corrected. See below. */
+  onPress?: () => void;
+}) {
   const { label, tone } = describe(ball);
   const style = (onDark ? DARK_TONE_STYLES : TONE_STYLES)[tone];
+  const body = <Text className={`${style.text} font-heading text-[13px]`}>{label}</Text>;
+  const box = `${style.bg} ${style.border} h-9 min-w-9 items-center justify-center border px-2`;
+
+  /*
+   * Tappable only where a correction is possible.
+   *
+   * The same chip appears on the score plate and on read-only surfaces, and a
+   * chip that looks pressable and does nothing is worse than one that does
+   * not — so the affordance follows the handler rather than the component.
+   */
+  if (!onPress) {
+    return <View className={box}>{body}</View>;
+  }
 
   return (
-    <View
-      className={`${style.bg} ${style.border} h-9 min-w-9 items-center justify-center border px-2`}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Correct this delivery — currently ${label}`}
+      onPress={onPress}
+      className={`${box} active:opacity-60`}
     >
-      <Text className={`${style.text} font-heading text-[13px]`}>{label}</Text>
-    </View>
+      {body}
+    </Pressable>
   );
 }
