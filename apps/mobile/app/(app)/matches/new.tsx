@@ -91,6 +91,10 @@ const FORMATS = [
 
 type FormatId = (typeof FORMATS)[number]['id'];
 
+/** The two answers to "how many overs may one bowler bowl". */
+const STANDARD_QUOTA = 'Standard limit';
+const NO_QUOTA = 'No limit';
+
 /** Chip row used by format and by the toss. */
 function Chips<T extends string>({
   options,
@@ -162,6 +166,7 @@ export default function NewMatch() {
 
   // Step 1
   const [format, setFormat] = useState<FormatId>('T20');
+  const [limitBowlers, setLimitBowlers] = useState(true);
   const [overs, setOvers] = useState(20);
   const [homeId, setHomeId] = useState<string | null>(null);
   const [awayId, setAwayId] = useState<string | null>(null);
@@ -258,6 +263,10 @@ export default function NewMatch() {
       openingStrikerId: strikerId,
       openingNonStrikerId: nonStrikerId,
       openingBowlerId: bowlerId,
+      // Omitted means "the usual rule, if the side can cover it"; null means
+      // no limit. The distinction is the server's to interpret — see
+      // sizeBowlerQuota — so the client only says which of the two it wants.
+      maxOversPerBowler: limitBowlers ? undefined : null,
     });
 
     if (!parsed.success) {
@@ -337,6 +346,39 @@ export default function NewMatch() {
                 <Text className="text-foreground/55 font-heading text-[17px]">6</Text>
               </View>
             </View>
+          </View>
+
+          {/*
+            The per-bowler limit.
+
+            A playing condition rather than a Law, and the engine enforces it —
+            so this is not decoration. Left alone, the server applies the usual
+            fifth of the innings when the fielding side has enough bowlers to
+            cover it. Turned off, nobody is capped, which is what gully and box
+            cricket need and what a club with a different condition needs too.
+
+            Worth being able to reach *before* the match rather than after: a
+            scorer who finds out at the fifteenth over that their best bowler is
+            blocked cannot change it from the console.
+          */}
+          <View className="mt-5">
+            <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+              Overs per bowler
+            </Text>
+            <View className="mt-1.5">
+              <Chips
+                options={[STANDARD_QUOTA, NO_QUOTA]}
+                value={limitBowlers ? STANDARD_QUOTA : NO_QUOTA}
+                onChange={(v) => setLimitBowlers(v === STANDARD_QUOTA)}
+              />
+            </View>
+            <Text className="text-foreground/55 mt-1.5 text-[11.5px] leading-[16px]">
+              {limitBowlers
+                ? `A fifth of the innings — ${Math.max(1, Math.ceil(overs / 5))} over${
+                    Math.max(1, Math.ceil(overs / 5)) === 1 ? '' : 's'
+                  } each. Not applied if the side is too small to cover the innings.`
+                : 'Anyone can bowl any number of overs.'}
+            </Text>
           </View>
 
           <View className="mt-7">

@@ -28,16 +28,19 @@ export type BowlerOption = {
 /**
  * How many overs one bowler may bowl.
  *
- * A fifth of the innings, rounded up — the near-universal limited-overs
- * playing condition (4 in a T20, 10 in a 50-over game).
+ * **The match decides this, not this screen.** It is a playing condition
+ * rather than a Law — competitions differ and gully cricket ignores it — so it
+ * is stored per match and the engine enforces it. `maxOversPerBowler` arrives
+ * on the innings state; null means the match set no limit.
  *
- * ⚠️ The engine does **not** enforce this; it is a playing condition, not a
- * Law, and `applyBall` will happily accept a fifth over from the same bowler.
- * So this figure is guidance the screen renders, and the block below is a
- * courtesy rather than a rule — see the note on `spent`.
+ * This used to compute a fifth of the innings locally and its comment said the
+ * engine "will happily accept a fifth over from the same bowler". That was
+ * true when it was written and is not any more, which is the worse of the two
+ * failures: a screen greying out a bowler for a rule nothing enforced, beside
+ * a server that would now refuse one this screen had allowed.
  */
-function quotaFor(oversPerInnings: number): number {
-  return Math.max(1, Math.ceil(oversPerInnings / 5));
+function quotaFrom(maxOversPerBowler: number | undefined): number | null {
+  return maxOversPerBowler ?? null;
 }
 
 function economy(stats?: BowlerStats): string {
@@ -54,6 +57,7 @@ function figures(stats?: BowlerStats): string {
 export function EndOfOver({
   oversCompleted,
   oversPerInnings,
+  maxOversPerBowler,
   runs,
   wickets,
   target,
@@ -73,6 +77,8 @@ export function EndOfOver({
   /** Overs bowled so far — the one just finished is this number. */
   oversCompleted: number;
   oversPerInnings: number;
+  /** The match's per-bowler limit. Undefined when it set none. */
+  maxOversPerBowler?: number;
   runs: number;
   wickets: number;
   target?: number;
@@ -93,22 +99,34 @@ export function EndOfOver({
   const [picked, setPicked] = useState<string | null>(null);
 
   const nextOver = oversCompleted + 1;
-  const quota = quotaFor(oversPerInnings);
+  const quota = quotaFrom(maxOversPerBowler);
   const runsThisOver = overBalls.reduce((sum, b) => sum + b.totalRuns, 0);
   const wicketsThisOver = overBalls.filter((b) => b.wicketType).length;
 
+  /** Overs this bowler has left, or null when the match set no limit. */
   const oversLeftFor = (o: BowlerOption) =>
-    Math.max(0, quota - Math.ceil((o.stats?.balls ?? 0) / 6));
+    quota === null ? null : Math.max(0, quota - Math.ceil((o.stats?.balls ?? 0) / 6));
 
   // Law 16.2 — no bowler bowls two overs in succession. The engine enforces
   // this, so the screen must too: offering the name would produce a rejected
   // delivery and a scorer wondering what they did wrong.
   const eligible = candidates.filter((o) => o.id !== lastBowlerId);
 
-  // The quota block is a courtesy, not a rule, so it must never be able to
-  // leave a scorer with nobody to pick. In a game with four bowlers it stays
-  // out of the way.
-  const someoneHasOversLeft = eligible.some((o) => oversLeftFor(o) > 0);
+  /*
+   * A bowler out of overs is blocked, full stop.
+   *
+   * This used to be conditional on somebody else still having overs left, on
+   * the reasoning that the quota was a courtesy the screen invented and must
+   * never trap anyone. It is not a courtesy any more — the engine refuses the
+   * delivery — so softening it here would only move the refusal from a greyed
+   * row to a red banner after the tap.
+   *
+   * The deadlock that guard existed to prevent is now prevented where it
+   * should be: the server only applies a default quota when the bowling side
+   * can actually cover the innings under it.
+   */
+  const spentFor = (o: BowlerOption) => oversLeftFor(o) === 0;
+  const nobodyLeft = eligible.length > 0 && eligible.every(spentFor);
 
   const chaseLine =
     target !== undefined
@@ -173,9 +191,20 @@ export function EndOfOver({
             onPress={() => {}}
           />
 
+          {nobodyLeft ? (
+            <View className="border-destructive/40 bg-destructive/5 mt-2 border p-3">
+              <Text className="text-foreground text-[13px] leading-[19px]">
+                Every available bowler has bowled their {quota} over
+                {quota === 1 ? '' : 's'}. Undo the last ball, or end the innings from the next
+                batter sheet.
+              </Text>
+            </View>
+          ) : null}
+
           {eligible.map((o) => {
             const left = oversLeftFor(o);
-            const spent = left === 0 && someoneHasOversLeft;
+            const spent = spentFor(o);
+            const econ = (o.stats?.balls ?? 0) > 0 ? ` · econ ${economy(o.stats)}` : '';
             return (
               <BowlerRow
                 key={o.id}
@@ -184,9 +213,11 @@ export function EndOfOver({
                 note={
                   spent
                     ? 'Quota bowled'
-                    : `${left} over${left === 1 ? '' : 's'} left${
-                        (o.stats?.balls ?? 0) > 0 ? ` · econ ${economy(o.stats)}` : ''
-                      }`
+                    : left === null
+                      ? // No limit on this match, so overs left is not a number
+                        // that exists. Say what is known instead of inventing one.
+                        `${o.stats?.balls ? formatOvers(o.stats.balls) : '0.0'} bowled${econ}`
+                      : `${left} over${left === 1 ? '' : 's'} left${econ}`
                 }
                 disabled={spent || busy}
                 selected={picked === o.id}

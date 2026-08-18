@@ -149,7 +149,16 @@ export function useApiQuery<T>(fetcher: Fetcher<T>, deps: unknown[] = []): Query
  * The mutation counterpart: tracks in-flight state and surfaces a message.
  * Returns the result so callers can navigate with it.
  */
-export function useApiMutation() {
+/**
+ * Codes the server sends when the request lost a race rather than being wrong.
+ *
+ * Both mean the same thing to a scorer: the server already knows about this,
+ * and what is on screen is stale. Retrying cannot succeed and an error banner
+ * describes the wrong problem — the answer is to reload and carry on.
+ */
+const CONFLICT_CODES = new Set(['DUPLICATE_BALL', 'ALREADY_UNDONE']);
+
+export function useApiMutation(opts: { onConflict?: (code: string) => void } = {}) {
   const { token, signOut } = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +177,20 @@ export function useApiMutation() {
           await signOut();
           return null;
         }
+        /*
+         * The request lost a race. A double tap on a ball, or an undo that a
+         * second tap already performed — the server refuses the duplicate,
+         * correctly, and the screen is simply behind. Handing this to the
+         * caller lets it refresh instead of showing an error for something
+         * that is not the scorer's mistake, and stops a retry loop that could
+         * never succeed.
+         */
+        if (err instanceof ApiError && err.status === 409 && err.code) {
+          if (opts.onConflict && CONFLICT_CODES.has(err.code)) {
+            opts.onConflict(err.code);
+            return null;
+          }
+        }
         // A field-scoped failure belongs under its input, not in a banner.
         if (err instanceof ApiError && err.field) {
           setFieldError({ field: err.field, message: err.message });
@@ -181,6 +204,11 @@ export function useApiMutation() {
         setBusy(false);
       }
     },
+    // `opts.onConflict` is read inside and is a fresh closure each render;
+    // depending on it would rebuild `run` every time and defeat the memo. The
+    // callers pass a stable handler, and a stale one would only mean a refresh
+    // fired against the previous render's data — which is what it does anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
     [token, signOut],
   );
 

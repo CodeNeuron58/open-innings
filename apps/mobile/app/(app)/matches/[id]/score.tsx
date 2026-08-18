@@ -84,7 +84,28 @@ export default function Scorer() {
   }, [keepAwakeWhileScoring]);
 
   const query = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
-  const mutation = useApiMutation();
+
+  /*
+   * A conflict is not an error the scorer can do anything about.
+   *
+   * At a ground on patchy signal the app resends a POST it believes timed out,
+   * and the server — correctly — refuses the duplicate delivery. Before the
+   * ball endpoint answered 409 that arrived as a 500 and the client kept
+   * retrying something that could never succeed. Now it reloads, which is the
+   * only useful response: the ball is already recorded.
+   */
+  const [conflictNote, setConflictNote] = useState<string | null>(null);
+  const mutation = useApiMutation({
+    onConflict: (code) => {
+      setConflictNote(
+        code === 'ALREADY_UNDONE'
+          ? 'That ball was already undone. Reloaded.'
+          : 'That ball was already recorded. Reloaded.',
+      );
+      setLive(null);
+      void query.refresh();
+    },
+  });
 
   // The server's state supersedes the loaded one after every ball.
   const [live, setLive] = useState<MatchState | null>(null);
@@ -153,7 +174,7 @@ export default function Scorer() {
         // Both go through mutation.run so a failure lands in `mutation.error`
         // and is rendered, rather than becoming an unhandled rejection.
         onStart={async (openers) => {
-          const started = await mutation.run((t) => api.startSecondInnings(t, id, openers));
+          const started = await mutation.run((t) => api.startNextInnings(t, id, openers));
           if (started !== null) await query.refresh();
         }}
         onUndo={async () => {
@@ -462,6 +483,15 @@ export default function Scorer() {
           </View>
         ) : null}
 
+        {/* Not an error — the server was ahead of the screen, and now is not. */}
+        {conflictNote ? (
+          <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
+            <View className="border-steel-300 bg-steel-100 border p-2.5">
+              <Text className="text-steel-900 text-[12.5px]">{conflictNote}</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
         {/*
           The innings is over but the match is not, and the server has not
           opened the next one yet — so `awaitingSecondInnings` is still false
@@ -569,6 +599,8 @@ export default function Scorer() {
           // catch to a batter.
           fielders={data.bowlingSquad}
           nextBatters={batterCandidates}
+          // Law 21.18 narrows the sheet rather than letting the tap be refused.
+          isFreeHit={inn.isFreeHitNext}
           onConfirm={(type, outId, fielderId, nextId) =>
             void scoreWicket(type, outId, fielderId, nextId)
           }
@@ -609,6 +641,9 @@ export default function Scorer() {
         <EndOfOver
           oversCompleted={Math.floor(inn.ballsBowled / 6)}
           oversPerInnings={inningsOvers}
+          // The match's own limit, enforced by the engine. Undefined means it
+          // set none, and the screen must not invent one.
+          maxOversPerBowler={inn.maxOversPerBowler}
           runs={inn.runs}
           wickets={inn.wickets}
           target={inn.target}

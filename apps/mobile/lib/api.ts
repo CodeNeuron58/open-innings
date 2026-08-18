@@ -15,6 +15,7 @@ import {
   type AuthResponse,
   type SessionResponse,
   type MatchListResponse,
+  type MatchSummary,
   type MatchDetailResponse,
   type CreateMatchInput,
   type CreateMatchResponse,
@@ -30,7 +31,9 @@ import {
   type BallResponse,
   type MatchResultResponse,
   type MatchCardResponse,
-  type StartSecondInningsInput,
+  type StartNextInningsInput,
+  type UpdateMatchInput,
+  type UpdateTeamMemberInput,
   type PlayerCareerResponse,
   type PlayerBriefsResponse,
   type ClubPageResponse,
@@ -209,6 +212,20 @@ export const api = {
       token,
     }),
 
+  /**
+   * Captaincy, keeping and the jersey number.
+   *
+   * Both flags are exclusive within a squad — the server releases whoever held
+   * one — and every field is optional, so setting a jersey number does not
+   * quietly strip a captaincy.
+   */
+  updateTeamMember: (token: string, teamId: string, body: UpdateTeamMemberInput) =>
+    apiFetch<TeamMembersResponse>(`/api/teams/${teamId}/members`, {
+      method: 'PATCH',
+      body,
+      token,
+    }),
+
   // ── Scoring ────────────────────────────────────────────────────────────────
 
   scorer: (token: string, matchId: string, signal?: AbortSignal) =>
@@ -233,11 +250,36 @@ export const api = {
     return result.state as MatchState;
   },
 
-  startSecondInnings: (token: string, matchId: string, body: StartSecondInningsInput) =>
+  /**
+   * Open the next innings — the chase, or a Super Over once the scores are
+   * level. Which one it is is the server's to decide from what has been
+   * played, so this call is the same either way.
+   */
+  startNextInnings: (token: string, matchId: string, body: StartNextInningsInput) =>
     apiFetch<unknown>(`/api/matches/${matchId}/innings`, { method: 'POST', body, token }),
 
   endInnings: (token: string, matchId: string) =>
     apiFetch<unknown>(`/api/matches/${matchId}/innings/end`, { method: 'POST', token }),
+
+  /** Correct the title, venue, format or innings length. */
+  updateMatch: (token: string, matchId: string, body: UpdateMatchInput) =>
+    apiFetch<{ match: MatchSummary }>(`/api/matches/${matchId}`, { method: 'PATCH', body, token }),
+
+  /**
+   * Rain, a dispute, or a match started by mistake.
+   *
+   * Recorded as a no result rather than faked as a tie, and it is the only way
+   * a live match becomes deletable — deletion refuses while one is in play.
+   */
+  abandonMatch: (token: string, matchId: string, reason?: string) =>
+    apiFetch<{ match: MatchSummary }>(`/api/matches/${matchId}/abandon`, {
+      method: 'POST',
+      body: { reason },
+      token,
+    }),
+
+  deleteMatch: (token: string, matchId: string) =>
+    apiFetch<{ deleted: boolean }>(`/api/matches/${matchId}`, { method: 'DELETE', token }),
 
   /**
    * Both innings folded into a result. The scorer endpoint replays only the

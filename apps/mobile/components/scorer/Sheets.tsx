@@ -185,8 +185,26 @@ const WICKET_TYPES: { value: WicketTypeValue; label: string }[] = [
   { value: 'stumped', label: 'Stumped' },
   { value: 'hit_wicket', label: 'Hit wkt' },
   { value: 'caught_behind', label: 'Ct behind' },
+  { value: 'obstructing_field', label: 'Obstruct' },
+  { value: 'hit_the_ball_twice', label: 'Hit twice' },
   { value: 'retired_hurt', label: 'Ret. hurt' },
   { value: 'retired_out', label: 'Ret. out' },
+];
+
+/**
+ * Law 21.18 — on a free hit the striker can only go the ways a no-ball allows.
+ *
+ * Offering the rest would be offering a delivery the engine refuses: the tap
+ * lands, the request fails, and the scorer is left reading an error about a
+ * law instead of being shown it. Retirements are not outcomes of the delivery
+ * at all, so they stay available.
+ */
+const FREE_HIT_ALLOWED: WicketTypeValue[] = [
+  'run_out',
+  'obstructing_field',
+  'hit_the_ball_twice',
+  'retired_hurt',
+  'retired_out',
 ];
 
 /** Dismissals where a fielder is credited. */
@@ -202,6 +220,7 @@ export function WicketSheet({
   nonStrikerName,
   fielders,
   nextBatters,
+  isFreeHit = false,
   onConfirm,
   onCancel,
 }: {
@@ -209,6 +228,8 @@ export function WicketSheet({
   strikerName: string;
   nonStrikerId: string;
   nonStrikerName: string;
+  /** Law 21.18 narrows what this delivery can have produced. */
+  isFreeHit?: boolean;
   /** The bowling side — only they can be credited with a catch or a run-out. */
   fielders: { id: string; fullName: string }[];
   /** Who can come in. Empty when the innings is about to end. */
@@ -221,7 +242,11 @@ export function WicketSheet({
   ) => void;
   onCancel: () => void;
 }) {
-  const [type, setType] = useState<WicketTypeValue>('bowled');
+  const allowed = isFreeHit
+    ? WICKET_TYPES.filter((w) => FREE_HIT_ALLOWED.includes(w.value))
+    : WICKET_TYPES;
+
+  const [type, setType] = useState<WicketTypeValue>(isFreeHit ? 'run_out' : 'bowled');
   const [outBatterId, setOutBatterId] = useState(strikerId);
   const [fielderId, setFielderId] = useState<string | null>(null);
   const [nextBatterId, setNextBatterId] = useState<string | null>(null);
@@ -249,12 +274,19 @@ export function WicketSheet({
   }
 
   return (
-    <SheetShell title="Wicket" onDismiss={onCancel}>
+    <SheetShell
+      title="Wicket"
+      subtitle={
+        isFreeHit
+          ? 'Free hit — only a run out, obstruction or hitting the ball twice (Law 21.18)'
+          : undefined
+      }
+      onDismiss={onCancel}
+    >
       <View className="gap-2">
         <Label>How out</Label>
-        {/* Three to a row on a drawn grid — nine types, three exact rows. */}
         <View className="flex-row flex-wrap gap-1.5">
-          {WICKET_TYPES.map((w) => (
+          {allowed.map((w) => (
             <View key={w.value} className="w-[31.7%]">
               <Chip label={w.label} selected={type === w.value} onPress={() => choose(w.value)} />
             </View>
