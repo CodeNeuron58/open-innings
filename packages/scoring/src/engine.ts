@@ -55,13 +55,18 @@ import {
   ScoringError,
 } from './types';
 import {
+  BALLS_PER_OVER,
   BATSMAN_FACING_EXCLUDED_TYPES,
+  BATTER_LEAVES_FIELD,
   BOWLER_CREDITED_WICKETS,
   BOWLER_EXEMPT_EXTRAS,
   FREE_HIT_VALID_WICKETS,
+  NON_DELIVERY_WICKETS,
+  NO_BALL_VALID_WICKETS,
   NO_CONSECUTIVE_OVERS,
   REQUIRES_FIELDER,
   TEAM_WICKET_COUNTED,
+  WIDE_VALID_WICKETS,
   isLegalDelivery,
 } from './rules';
 import {
@@ -135,6 +140,10 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
     wicketType: input.wicketType,
     wicketPlayerId: input.wicketPlayerId,
     fielderId: input.fielderId,
+    // Carried through rather than dropped: replay re-validates every stored
+    // delivery, so an over that lawfully changed bowler mid-way would stop
+    // replaying the moment this was lost.
+    bowlerReplacedMidOver: input.bowlerReplacedMidOver,
     commentary: input.commentary,
   };
 }
@@ -174,7 +183,7 @@ function validate(state: MatchState, event: BallEvent): void {
   // Wicket types that require a fielder
   if (event.wicketType && REQUIRES_FIELDER.has(event.wicketType) && !event.fielderId) {
     throw new ScoringError(
-      'RUN_OUT_NEEDS_BATSMAN',
+      'WICKET_NEEDS_FIELDER',
       `Wicket type "${event.wicketType}" requires a fielder to be specified`,
     );
   }
@@ -192,49 +201,215 @@ function validate(state: MatchState, event: BallEvent): void {
     throw new ScoringError('WICKETS_EXHAUSTED', `All ${inn.maxWickets} wickets have fallen`);
   }
 
-  // Free hit — only run-out can dismiss
-  if (event.isFreeHit && event.wicketType && !FREE_HIT_VALID_WICKETS.has(event.wicketType)) {
+  validateDismissedPlayer(state, event);
+  validateDismissalLegality(event);
+  validateRoles(event);
+  validateBowler(state, event);
+  validateBatters(state, event);
+}
+
+/**
+ * The player who got out was one of the two who were batting.
+ *
+ * Nothing checked this. `updateBatting` only marks a dismissal when
+ * `wicketPlayerId` matches the striker or the non-striker, but `updateInnings`
+ * counts the wicket regardless — so a mistyped id took a wicket off the
+ * batting side while leaving both batters not out, and pushed a fall-of-wicket
+ * for somebody who never came in. The innings could then end with batters
+ * still at the crease, and every derived figure inherited it silently.
+ */
+function validateDismissedPlayer(state: MatchState, event: BallEvent): void {
+  if (!event.wicketPlayerId) return;
+
+  const inn = state.currentInnings;
+  if (event.wicketPlayerId === event.batsmanId || event.wicketPlayerId === event.nonStrikerId) {
+    return;
+  }
+
+  throw new ScoringError(
+    'WICKET_PLAYER_NOT_AT_CREASE',
+    `${playerIdKey(event.wicketPlayerId)} is not batting — the pair at the crease is ` +
+      `(${playerIdKey(inn.strikerId)}, ${playerIdKey(inn.nonStrikerId)})`,
+  );
+}
+
+/**
+ * Which dismissals this delivery could possibly have produced.
+ *
+ * Three independent rules, applied in sequence so a delivery governed by more
+ * than one — a free hit that was called wide — is held to all of them, and the
+ * intersection falls out without anyone having to write it down.
+ *
+ * Retirements and Timed out are skipped: they are not outcomes of the ball
+ * they are recorded against. See NON_DELIVERY_WICKETS.
+ */
+function validateDismissalLegality(event: BallEvent): void {
+  const wicket = event.wicketType;
+  if (!wicket || NON_DELIVERY_WICKETS.has(wicket)) return;
+
+  // Law 22.6 — a wide is not a hittable ball, so Bowled, Caught and LBW are
+  // impossible off one. Stumped is the common case.
+  if (event.eventType === 'wide' && !WIDE_VALID_WICKETS.has(wicket)) {
     throw new ScoringError(
-      'INVALID_FREE_HIT_WICKET',
-      `On a free hit only run-out can dismiss (got "${event.wicketType}")`,
+      'INVALID_WICKET_FOR_DELIVERY',
+      `A batter cannot be out "${wicket}" off a wide (Law 22.6)`,
     );
   }
 
-  // Bowler can't bowl two consecutive overs (Law 16.2).
-  // This checks the FIRST ball of a new over (or any ball when the same
-  // bowler is bowling again). We compare the bowler on this event with
-  // the last bowler of the previous over (lastBowlerId).
-  if (NO_CONSECUTIVE_OVERS && inn.lastBowlerId !== null && inn.lastBowlerId === event.bowlerId) {
+  // Law 21 — off a no ball only a run out, obstructing the field, or hitting
+  // the ball twice is available.
+  if (event.eventType === 'no_ball' && !NO_BALL_VALID_WICKETS.has(wicket)) {
+    throw new ScoringError(
+      'INVALID_WICKET_FOR_DELIVERY',
+      `A batter cannot be out "${wicket}" off a no ball (Law 21)`,
+    );
+  }
+
+  // Law 21.18 — a free hit carries a no ball's dismissals, whatever the
+  // delivery itself turned out to be.
+  if (event.isFreeHit && !FREE_HIT_VALID_WICKETS.has(wicket)) {
+    throw new ScoringError(
+      'INVALID_FREE_HIT_WICKET',
+      `A batter cannot be out "${wicket}" on a free hit (Law 21.18)`,
+    );
+  }
+}
+
+/**
+ * Nobody is in two places at once.
+ *
+ * The engine holds no squads, so it cannot check that a fielder belongs to the
+ * fielding side — that belongs where the squads are loaded. What it can check
+ * needs no squad at all: the two batters at the crease are not also bowling,
+ * and are not fielding their own dismissal. Both were accepted before this,
+ * and both put one player on the scorecard twice for a single delivery.
+ */
+function validateRoles(event: BallEvent): void {
+  if (event.bowlerId === event.batsmanId || event.bowlerId === event.nonStrikerId) {
+    throw new ScoringError(
+      'PLAYER_IN_TWO_ROLES',
+      `${playerIdKey(event.bowlerId)} is batting and cannot also be bowling`,
+    );
+  }
+
+  if (
+    event.fielderId &&
+    (event.fielderId === event.batsmanId || event.fielderId === event.nonStrikerId)
+  ) {
+    throw new ScoringError(
+      'PLAYER_IN_TWO_ROLES',
+      `${playerIdKey(event.fielderId)} is batting and cannot also be fielding`,
+    );
+  }
+}
+
+/** Law 16.2, Law 17.4, and the competition's over quota if it set one. */
+function validateBowler(state: MatchState, event: BallEvent): void {
+  const inn = state.currentInnings;
+
+  // Law 16.2 — a bowler may not bowl two consecutive overs. `lastBowlerId`
+  // holds the bowler of the PREVIOUS over and is only written when an over
+  // closes, so this compares against the right person on every ball of the
+  // current one. (`!= null` covers undefined too. It read `!== null` on an
+  // optional field, so that half of the guard could never fire.)
+  if (NO_CONSECUTIVE_OVERS && inn.lastBowlerId != null && inn.lastBowlerId === event.bowlerId) {
     throw new ScoringError(
       'BOWLER_BOWLED_CONSECUTIVE_OVERS',
       'A bowler may not bowl two consecutive overs (Law 16.2)',
     );
   }
 
-  // batsmanId / nonStrikerId must be the current batsmen
-  // RELAXATION: if the previous ball was a wicket, the batsman pair may
-  // have been replaced. We trust the scorer UI to send the new batsman
-  // IDs (the new striker replaces the dismissed striker; non-striker
-  // either stays or is replaced if THEY were dismissed).
-  const lastBall = state.balls[state.balls.length - 1];
-  const lastBallWasWicket = !!lastBall?.wicketType && !!lastBall?.wicketPlayerId;
-  const previousStriker = inn.strikerId;
+  // Law 17.4 — the bowler is named for the over and may not be swapped
+  // part-way through it, except for injury or suspension. "Part-way" means a
+  // delivery has already been bowled in this over, which is not the same test
+  // as `ballsBowled % 6 !== 0`: a wide as the first delivery starts the over
+  // without advancing that counter.
+  const currentOver = overNumberFor(inn.ballsBowled);
+  const overInProgress = state.balls.some((b) => b.overNumber === currentOver);
+  if (overInProgress && event.bowlerId !== inn.currentBowlerId && !event.bowlerReplacedMidOver) {
+    throw new ScoringError(
+      'BOWLER_CHANGED_MID_OVER',
+      'The bowler may not change part-way through an over (Law 17.4). ' +
+        'Set bowlerReplacedMidOver if they cannot continue.',
+    );
+  }
 
-  // If a wicket occurred on the previous ball and the dismissed player is
-  // being replaced — in either slot: a dismissed striker is replaced via
-  // batsmanId, a run-out non-striker via nonStrikerId — accept the new pair.
-  const replacingAfterWicket =
-    lastBallWasWicket &&
-    (event.batsmanId !== previousStriker || event.nonStrikerId !== inn.nonStrikerId);
-
-  if (!replacingAfterWicket) {
-    if (event.batsmanId !== inn.strikerId || event.nonStrikerId !== inn.nonStrikerId) {
+  // The competition's quota, where the match named one. Counted in legal
+  // balls, so a bowler part-way through their last over may finish it and a
+  // wide does not spend the allowance.
+  if (inn.maxOversPerBowler !== undefined) {
+    const bowled = state.bowling[playerIdKey(event.bowlerId)]?.balls ?? 0;
+    if (bowled >= inn.maxOversPerBowler * BALLS_PER_OVER) {
       throw new ScoringError(
-        'BATSMAN_NOT_ON_FIELD',
-        `Batsmen on event (${playerIdKey(event.batsmanId)}, ${playerIdKey(event.nonStrikerId)}) ` +
-          `don't match the current pair (${playerIdKey(inn.strikerId)}, ${playerIdKey(inn.nonStrikerId)})`,
+        'BOWLER_QUOTA_EXCEEDED',
+        `${playerIdKey(event.bowlerId)} has already bowled their ${inn.maxOversPerBowler} overs`,
       );
     }
+  }
+}
+
+/**
+ * The pair on the event is the pair at the crease — or a lawful replacement
+ * for one of them.
+ *
+ * The engine leaves a dismissed batter in their slot until the next delivery
+ * names who came in, so a changed pair is how a replacement is communicated.
+ * That relaxation used to accept *any* pair after any wicket, which let both
+ * batters be swapped at once, let one batter stand at both ends, and let
+ * somebody already dismissed walk back in and carry on scoring.
+ *
+ * So the relaxation is kept and bounded: exactly one slot may change, it must
+ * be the slot the departing batter was standing in, and whoever walks in must
+ * not already be out. A retired hurt batter is not out, which is exactly why
+ * they may return — and only at the fall of a wicket, which this shape
+ * enforces for free.
+ */
+function validateBatters(state: MatchState, event: BallEvent): void {
+  const inn = state.currentInnings;
+
+  if (event.batsmanId === event.nonStrikerId) {
+    throw new ScoringError(
+      'BATSMAN_NOT_ON_FIELD',
+      `${playerIdKey(event.batsmanId)} cannot be at both ends`,
+    );
+  }
+
+  const strikerChanged = event.batsmanId !== inn.strikerId;
+  const nonStrikerChanged = event.nonStrikerId !== inn.nonStrikerId;
+  if (!strikerChanged && !nonStrikerChanged) return;
+
+  const mismatch = () =>
+    new ScoringError(
+      'BATSMAN_NOT_ON_FIELD',
+      `Batsmen on event (${playerIdKey(event.batsmanId)}, ${playerIdKey(event.nonStrikerId)}) ` +
+        `don't match the current pair (${playerIdKey(inn.strikerId)}, ${playerIdKey(inn.nonStrikerId)})`,
+    );
+
+  // Only the previous delivery can have created a vacancy.
+  const lastBall = state.balls[state.balls.length - 1];
+  const departed =
+    lastBall?.wicketType && lastBall.wicketPlayerId && BATTER_LEAVES_FIELD.has(lastBall.wicketType)
+      ? lastBall.wicketPlayerId
+      : undefined;
+  if (departed === undefined) throw mismatch();
+
+  // One vacancy, one replacement.
+  if (strikerChanged && nonStrikerChanged) throw mismatch();
+
+  // …and it has to be the vacancy that actually exists. Which slot holds the
+  // departing batter depends on whether the strike rotated on the ball that
+  // dismissed them, so it is read from state rather than assumed.
+  const vacatedSlotHeldDeparted = strikerChanged
+    ? inn.strikerId === departed
+    : inn.nonStrikerId === departed;
+  if (!vacatedSlotHeldDeparted) throw mismatch();
+
+  const incoming = strikerChanged ? event.batsmanId : event.nonStrikerId;
+  if (state.batting[playerIdKey(incoming)]?.isOut) {
+    throw new ScoringError(
+      'BATSMAN_ALREADY_DISMISSED',
+      `${playerIdKey(incoming)} is already out and cannot bat again`,
+    );
   }
 }
 
@@ -437,12 +612,17 @@ function updatePartnershipAndFall(
   if (event.isLegalDelivery) updated.balls += 1;
   partnerships[idx] = updated;
 
-  // Handle wicket → end partnership
+  // Handle wicket → record the fall, and end the partnership.
+  //
+  // Two different questions, and they used to share one answer. A fall of
+  // wicket is recorded when the *team* loses a wicket; a partnership ends when
+  // a *batter walks off*, which a retired hurt batter does without the team
+  // losing anything. Gating both on TEAM_WICKET_COUNTED left a retirement
+  // inside the partnership it interrupted, so the stand was credited to a pair
+  // who never batted together.
   if (event.wicketType && event.wicketPlayerId) {
-    const wicketsSoFar =
-      state.currentInnings.wickets + (TEAM_WICKET_COUNTED.has(event.wicketType) ? 1 : 0);
-
     if (TEAM_WICKET_COUNTED.has(event.wicketType)) {
+      const wicketsSoFar = state.currentInnings.wickets + 1;
       const newRuns = state.currentInnings.runs + event.totalRuns;
       fallOfWickets.push({
         wicketNumber: wicketsSoFar,
@@ -452,7 +632,9 @@ function updatePartnershipAndFall(
         overNumber: event.overNumber,
         ballNumber: ballNumberInOver(state.currentInnings.ballsBowled),
       });
+    }
 
+    if (BATTER_LEAVES_FIELD.has(event.wicketType)) {
       partnerships[idx] = { ...updated, isActive: false };
     }
   }

@@ -78,6 +78,17 @@ export type BallEvent = {
   wicketPlayerId?: PlayerId; // who got out (could be either batsman for run-out)
   fielderId?: PlayerId; // who took the catch / threw for run-out
 
+  /**
+   * This delivery changed the bowler part-way through an over, deliberately.
+   *
+   * Law 17.4 forbids it except when a bowler cannot continue — injury, or
+   * being suspended from bowling — so it is refused unless the scorer says
+   * this is one of those. **Persisted**, and that is the point: replay
+   * re-validates every stored delivery, so an override that lived only in the
+   * request would make the innings that used it un-replayable.
+   */
+  bowlerReplacedMidOver?: boolean;
+
   commentary?: string;
 };
 
@@ -163,6 +174,20 @@ export type InningsState = {
    * which is every ordinary innings.
    */
   oversPerInnings?: number;
+
+  /**
+   * How many overs any one bowler may bowl in this innings.
+   *
+   * A **playing condition, not a Law** — which is why it is a number carried
+   * by the innings rather than a constant in `rules.ts`. Competitions differ,
+   * and gully cricket with four players to a side ignores it entirely.
+   *
+   * Undefined means unenforced, and that is the safe default: a quota the
+   * squad cannot cover between them would deadlock an innings with no bowler
+   * left who is allowed to bowl. The caller that knows the squad decides —
+   * see `createMatchWithFirstInnings` in apps/web/lib/services/matches.ts.
+   */
+  maxOversPerBowler?: number;
 };
 
 export type MatchState = {
@@ -214,6 +239,9 @@ export type BallEventInput = {
   wicketPlayerId?: PlayerId;
   fielderId?: PlayerId;
 
+  /** See BallEvent.bowlerReplacedMidOver — Law 17.4's injury escape hatch. */
+  bowlerReplacedMidOver?: boolean;
+
   commentary?: string;
   id?: string;
 };
@@ -224,15 +252,30 @@ export type BallEventInput = {
 
 export type ScoringErrorCode =
   | 'INVALID_FREE_HIT_WICKET'
+  /** Law 21 / Law 22.6 — that dismissal is not available off that delivery. */
+  | 'INVALID_WICKET_FOR_DELIVERY'
   | 'BOWLER_BOWLED_CONSECUTIVE_OVERS'
+  /** A playing condition, not a Law — only checked when the match sets one. */
+  | 'BOWLER_QUOTA_EXCEEDED'
+  /** Law 17.4 — the bowler may not change part-way through an over. */
+  | 'BOWLER_CHANGED_MID_OVER'
   | 'INNINGS_ALREADY_COMPLETED'
   | 'INNINGS_NOT_IN_PROGRESS'
   | 'BATSMAN_NOT_ON_FIELD'
+  /** The dismissed player was not one of the two batters at the crease. */
+  | 'WICKET_PLAYER_NOT_AT_CREASE'
+  /** Somebody already out was sent back in to bat. */
+  | 'BATSMAN_ALREADY_DISMISSED'
+  /** A batter cannot bowl to themselves, or field their own dismissal. */
+  | 'PLAYER_IN_TWO_ROLES'
   | 'NEGATIVE_RUNS'
   | 'INVALID_RUNS_OFF_BAT'
   | 'EXTRA_RUNS_WITHOUT_EXTRA_TYPE'
   | 'WICKET_TYPE_MISSING'
-  | 'RUN_OUT_NEEDS_BATSMAN'
+  /** Renamed from RUN_OUT_NEEDS_BATSMAN, which described neither the check
+   *  it guards (a missing fielder) nor the dismissals it covers (four of
+   *  them, only one of which is a run out). */
+  | 'WICKET_NEEDS_FIELDER'
   | 'BATSMAN_ALREADY_OUT'
   | 'WICKETS_EXHAUSTED';
 

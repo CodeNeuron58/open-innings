@@ -41,6 +41,15 @@ export type InitialStateInput = {
   maxWickets?: number;
   /** Overrides the match length for this innings. Defaults to one for a Super Over. */
   inningsOvers?: number;
+  /**
+   * The competition's per-bowler over limit, if it has one.
+   *
+   * Undefined means unenforced. Passed straight through rather than derived,
+   * because the safe default depends on whether the bowling side has enough
+   * bowlers to cover the innings under it — which is squad knowledge this
+   * package deliberately does not have.
+   */
+  maxOversPerBowler?: number;
 };
 
 /**
@@ -78,6 +87,7 @@ export function initialState(input: InitialStateInput): MatchState {
     target: input.target,
     maxWickets,
     oversPerInnings,
+    maxOversPerBowler: input.maxOversPerBowler,
   };
 
   return {

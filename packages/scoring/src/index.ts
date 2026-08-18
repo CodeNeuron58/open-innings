@@ -80,4 +80,12 @@ export {
   BOWLER_CREDITED_WICKETS,
   TEAM_WICKET_COUNTED,
   REQUIRES_FIELDER,
+  // Which dismissals a given delivery could have produced — Laws 21, 22.6 and
+  // 21.18. Exported alongside the sets above for the same reason: anything
+  // that needs to describe a legal dismissal should ask, not restate.
+  NO_BALL_VALID_WICKETS,
+  WIDE_VALID_WICKETS,
+  FREE_HIT_VALID_WICKETS,
+  NON_DELIVERY_WICKETS,
+  BATTER_LEAVES_FIELD,
 } from './rules';

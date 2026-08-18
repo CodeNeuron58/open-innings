@@ -21,10 +21,98 @@ import type { WicketType } from './types';
 export const NO_BALL_PENALTY = 1;
 
 /**
- * On a free hit (the ball after a no-ball in limited-overs cricket),
- * only a run-out can dismiss the batsman. Per Law 21.18.
+ * The only ways a batter can be dismissed off a no ball.
+ *
+ * Per Law 21: a batter may not be Bowled, Caught, LBW, Stumped or Hit wicket
+ * off a no ball. What remains is a run out, obstructing the field, and hitting
+ * the ball twice.
+ *
+ * `handled_ball` rides with `obstructing_field` and `double_hit` with
+ * `hit_the_ball_twice` throughout this file: the 2017 Code folded the first of
+ * each pair into the second, and both spellings survive in the database enum,
+ * so a set that named only one would refuse a dismissal it means to allow.
  */
-export const FREE_HIT_VALID_WICKETS: ReadonlySet<WicketType> = new Set(['run_out']);
+export const NO_BALL_VALID_WICKETS: ReadonlySet<WicketType> = new Set([
+  'run_out',
+  'obstructing_field',
+  'handled_ball',
+  'hit_the_ball_twice',
+  'double_hit',
+]);
+
+/**
+ * The only ways a batter can be dismissed off a wide.
+ *
+ * Per Law 22.6: neither batter may be dismissed except Hit wicket, Obstructing
+ * the field, Run out or Stumped. A wide is by definition not hittable, which
+ * is why Bowled, Caught and LBW are absent — and why Stumped is here and is
+ * the common case.
+ */
+export const WIDE_VALID_WICKETS: ReadonlySet<WicketType> = new Set([
+  'stumped',
+  'run_out',
+  'hit_wicket',
+  'obstructing_field',
+  'handled_ball',
+]);
+
+/**
+ * On a free hit, only the dismissals available off a no ball apply. Per Law
+ * 21.18.
+ *
+ * The **same set**, not a copy of it. This used to be `{run_out}` alone, which
+ * is a third of the law — obstructing the field and hitting the ball twice are
+ * both available on a free hit. Aliasing rather than restating means the two
+ * cannot drift, because they are not two rules: a free hit is defined as
+ * carrying a no ball's dismissals.
+ *
+ * A free hit that is itself called wide is governed by both this and
+ * `WIDE_VALID_WICKETS`; the engine applies each check independently, so the
+ * intersection — a run out or obstructing the field — falls out on its own.
+ */
+export const FREE_HIT_VALID_WICKETS: ReadonlySet<WicketType> = NO_BALL_VALID_WICKETS;
+
+/**
+ * Dismissals that are not the outcome of the delivery they are recorded
+ * against.
+ *
+ * A retirement happens between deliveries and Timed out happens before one has
+ * been bowled. They are attached to a ball event because that is the only
+ * place this schema can put them, so the delivery-legality rules above must
+ * not be applied to them — otherwise a batter could not retire hurt during an
+ * over that happened to contain a wide.
+ */
+export const NON_DELIVERY_WICKETS: ReadonlySet<WicketType> = new Set([
+  'retired_hurt',
+  'retired_out',
+  'timed_out',
+]);
+
+/**
+ * Dismissals after which the batter leaves the field and must be replaced.
+ *
+ * Wider than `TEAM_WICKET_COUNTED` by exactly one: a retired hurt batter walks
+ * off without the team losing a wicket, and may return later. The two answer
+ * different questions — "has the innings lost a wicket" and "is somebody
+ * walking out to bat" — and sharing one set for both is how a retirement ends
+ * up inside the partnership it interrupted.
+ */
+export const BATTER_LEAVES_FIELD: ReadonlySet<WicketType> = new Set([
+  'bowled',
+  'caught',
+  'caught_behind',
+  'lbw',
+  'run_out',
+  'stumped',
+  'hit_wicket',
+  'handled_ball',
+  'obstructing_field',
+  'timed_out',
+  'retired_hurt',
+  'retired_out',
+  'double_hit',
+  'hit_the_ball_twice',
+]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Law 22 — Wide
@@ -79,15 +167,25 @@ export const BOWLER_EXEMPT_EXTRAS: ReadonlySet<string> = new Set(['bye', 'leg_by
 
 /**
  * Dismissal types that DO credit a wicket to the bowler.
- * Per Law 25.7 + 25.8 + 25.10 + 25.11 + 25.12 + 25.15.
  *
- * Excluded:
- *   - run_out (Law 25.5: bowler doesn't get credit)
- *   - handled_ball (Law 25.3)
- *   - obstructing_field (Law 25.4)
- *   - timed_out (Law 25.6)
- *   - retired_out (Law 25.5 — retirement is the batsman's action)
- *   - retired_hurt (not a real wicket — can return)
+ * There are five, and only five: **bowled, caught, LBW, stumped, hit wicket.**
+ * That list is a scoring convention rather than a numbered Law, and it is
+ * universal — every scorebook, scoring package and statistical record uses it.
+ *
+ * Excluded, because the bowler did not take them:
+ *   - run_out — the fielding side did
+ *   - handled_ball / obstructing_field — the batter's own act
+ *   - hit_the_ball_twice / double_hit — likewise the batter's own act
+ *   - timed_out — nothing was bowled
+ *   - retired_out — retirement is the batter's decision
+ *   - retired_hurt — not a wicket at all; they can return
+ *
+ * `hit_the_ball_twice` and `double_hit` were in this set and should never have
+ * been. Law 34 is the batter striking the ball a second time; charging that to
+ * the bowler's analysis inflated their wickets on the scorecard, in career
+ * figures, and in the club leaderboard — `apps/web/lib/db/stats.ts` and
+ * `lib/services/club.ts` both build their SQL from this set, which is exactly
+ * why it is the only place the list is written down.
  */
 export const BOWLER_CREDITED_WICKETS: ReadonlySet<WicketType> = new Set([
   'bowled',
@@ -96,8 +194,6 @@ export const BOWLER_CREDITED_WICKETS: ReadonlySet<WicketType> = new Set([
   'lbw',
   'stumped',
   'hit_wicket',
-  'double_hit',
-  'hit_the_ball_twice',
 ]);
 
 /**

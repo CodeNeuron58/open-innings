@@ -103,16 +103,36 @@ export function play(
   let nextLastBowler = rot.lastBowler;
 
   if (isWicket) {
-    // Out batsman gets replaced. If the striker is out, the non-striker becomes
-    // the striker and a new batsman comes in as non-striker.
-    if (overrides.wicketPlayerId === rot.striker || overrides.wicketType === 'run_out') {
-      // striker out
+    /*
+     * A replacement takes the departing batter's END, and rotation happens
+     * first.
+     *
+     * This used to read "if the striker is out, the non-striker becomes the
+     * striker and the new batter comes in at the other end" — which is not
+     * cricket. A batter bowled mid-over is replaced *on strike*, because the
+     * new batter walks to the end the wicket fell at; the not-out batter does
+     * not change ends because a wicket fell.
+     *
+     * Getting that backwards is why the engine's own batter-identity check
+     * could never be tightened: the fixture sent a pair with BOTH slots
+     * changed on every dismissal, so the only validation that would accept it
+     * was one that accepted anything.
+     *
+     * The two steps compose, and the order matters. Runs can be completed on
+     * the ball that gets someone out — a run out going for the second — so the
+     * crossing is applied first and the vacancy is filled wherever the
+     * departing batter ended up.
+     */
+    if (swapsStrike) {
       nextStriker = rot.nonStriker;
-      nextNonStriker = `p_new_${rot.nextNewBatsmanIdx}`;
-    } else if (overrides.wicketPlayerId === rot.nonStriker) {
-      // non-striker out — current striker stays, new batsman in
-      nextNonStriker = `p_new_${rot.nextNewBatsmanIdx}`;
+      nextNonStriker = rot.striker;
     }
+    if (isEndOfOver) nextLastBowler = rot.bowler;
+
+    const replacement = `p_new_${rot.nextNewBatsmanIdx}`;
+    if (overrides.wicketPlayerId === nextStriker) nextStriker = replacement;
+    else if (overrides.wicketPlayerId === nextNonStriker) nextNonStriker = replacement;
+
     return {
       rotation: {
         striker: nextStriker,

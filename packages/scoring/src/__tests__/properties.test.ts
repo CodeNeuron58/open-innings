@@ -538,3 +538,148 @@ describe('monotonicity', () => {
     );
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Part 3 — identity and legality
+//
+// The properties above are about arithmetic: what a delivery was worth. These
+// are about whether it could have happened. Every defect they encode was
+// live while all 77 tests passed, because an example test only covers the case
+// somebody thought of, and the shape of these bugs is that nobody did.
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('the batting card accounts for every wicket', () => {
+  it('the number of batters marked out equals the innings wicket count', () => {
+    // A wicket that increments the count without marking anybody out is a
+    // scorecard reading "5 down" with four dismissals on it, and an innings
+    // that can end with batters still at the crease.
+    fc.assert(
+      fc.property(arbSequence, (decisions) => {
+        const { state } = drive(decisions);
+        const out = Object.values(state.batting).filter((b) => b.isOut).length;
+        expect(out).toBe(state.currentInnings.wickets);
+      }),
+      RUNS,
+    );
+  });
+
+  it('every fall of wicket names somebody the card shows as out', () => {
+    fc.assert(
+      fc.property(arbSequence, (decisions) => {
+        const { state } = drive(decisions);
+        for (const fall of state.fallOfWickets) {
+          expect(state.batting[String(fall.batsmanOutId)]?.isOut).toBe(true);
+        }
+      }),
+      RUNS,
+    );
+  });
+});
+
+describe('Laws 21 and 22.6 — dismissal legality is a property of the delivery', () => {
+  /*
+   * The law tables, restated rather than imported.
+   *
+   * Importing the engine's own sets would make this a tautology — it would
+   * pass however wrong they were. These are the Laws as written: off a wide
+   * the striker never played the ball, so Bowled, Caught and LBW are
+   * impossible; off a no ball the delivery was illegal, so everything except a
+   * run out, obstructing the field and hitting the ball twice is impossible.
+   */
+  const IMPOSSIBLE_OFF_A_WIDE: WicketType[] = [
+    'bowled',
+    'caught',
+    'caught_behind',
+    'lbw',
+    'hit_the_ball_twice',
+    'double_hit',
+  ];
+  const IMPOSSIBLE_OFF_A_NO_BALL: WicketType[] = [
+    'bowled',
+    'caught',
+    'caught_behind',
+    'lbw',
+    'stumped',
+    'hit_wicket',
+  ];
+
+  /**
+   * Try one dismissal off one kind of delivery, against whatever state a
+   * random sequence happened to reach.
+   *
+   * The point is the "whatever state": legality depends on the delivery alone,
+   * so no sequence of earlier balls may talk the engine into accepting one of
+   * these — or into refusing a lawful one.
+   */
+  function attempt(decisions: Decision[], kind: 'wide' | 'no_ball', wicket: WicketType) {
+    const { state } = drive(decisions);
+    if (state.currentInnings.status === 'completed') return 'skipped';
+
+    const inn = state.currentInnings;
+    // A pending replacement makes the pair ambiguous; those sequences are
+    // covered by the batter properties instead.
+    const last = state.balls[state.balls.length - 1];
+    if (last?.wicketType) return 'skipped';
+
+    // The same end-alternating rule `drive` uses. Reading `currentBowlerId`
+    // instead looked right and was not: on the first ball of a new over that
+    // is the bowler who just finished, so Law 16.2 refused the delivery and
+    // every dismissal looked unlawful. The property caught it, which is the
+    // argument for writing the "still allowed" case alongside the refusals.
+    const bowler = Math.floor(inn.ballsBowled / 6) % 2 === 0 ? BOWLERS[0] : BOWLERS[1];
+
+    try {
+      applyBall(state, {
+        inningsId: asInningsId('i1'),
+        eventType: kind,
+        runsOffBat: 0,
+        extraRuns: 1,
+        batsmanId: inn.strikerId,
+        nonStrikerId: inn.nonStrikerId,
+        bowlerId: asPlayerId(bowler),
+        wicketType: wicket,
+        wicketPlayerId: inn.strikerId,
+        fielderId: asPlayerId(FIELDER),
+      });
+      return 'accepted';
+    } catch {
+      return 'rejected';
+    }
+  }
+
+  it('no sequence of deliveries makes an impossible wide dismissal possible', () => {
+    fc.assert(
+      fc.property(arbSequence, fc.constantFrom(...IMPOSSIBLE_OFF_A_WIDE), (decisions, wicket) => {
+        const outcome = attempt(decisions, 'wide', wicket);
+        if (outcome !== 'skipped') expect(outcome).toBe('rejected');
+      }),
+      RUNS,
+    );
+  });
+
+  it('no sequence of deliveries makes an impossible no-ball dismissal possible', () => {
+    fc.assert(
+      fc.property(
+        arbSequence,
+        fc.constantFrom(...IMPOSSIBLE_OFF_A_NO_BALL),
+        (decisions, wicket) => {
+          const outcome = attempt(decisions, 'no_ball', wicket);
+          if (outcome !== 'skipped') expect(outcome).toBe('rejected');
+        },
+      ),
+      RUNS,
+    );
+  });
+
+  it('a run out stays available off both, from any state', () => {
+    // The mirror image, and the one that catches an over-strict rule: a fix
+    // that refused everything would pass the two properties above.
+    fc.assert(
+      fc.property(arbSequence, fc.constantFrom('wide' as const, 'no_ball' as const), (d, kind) => {
+        const outcome = attempt(d, kind, 'run_out');
+        if (outcome !== 'skipped') expect(outcome).toBe('accepted');
+      }),
+      RUNS,
+    );
+  });
+});
