@@ -2,7 +2,7 @@
  * P1 smoke test — verifies the server-observable behavior new in this pass
  * that isn't covered by scripts/score-smoke.ts:
  *
- *   1. Auth guard: signed-out request to a protected (app) page redirects to /login
+ *   1. The public surface renders for a client with no session at all
  *   2. Extras with variable runs: the corrected wide/no-ball runsOffBat split
  *   3. deleteMatch: cascades through innings + ball_events, ownership-scoped,
  *      blocked while the match is 'live'
@@ -56,29 +56,23 @@ async function main() {
   });
   const cookie = `oi_session=${token}`;
 
-  // ── 1. Auth guard ─────────────────────────────────────────────────────────
-  console.log('auth guard');
-  for (const path of ['/dashboard', '/matches', '/players', '/teams']) {
+  // ── 1. The public surface opens with no session ───────────────────────────
+  //
+  // This replaces an auth-guard check that asserted signed-out requests to
+  // /dashboard, /matches, /players and /teams redirected to /login, plus a
+  // pass over /matches/new, /teams/new, /players/new, /login and /signup.
+  // None of those pages exist: e5a1704 replaced the web app's UI with the
+  // marketing site and moved scoring to the phone, so every one of them 404s
+  // and the guard they tested is not a thing the web does any more.
+  //
+  // Authorization now lives entirely at the API, where api-smoke exercises it
+  // with a bearer token. What is worth asserting *here* is the opposite
+  // promise, and nothing was checking it: these pages are public, and they
+  // open for somebody with no account who followed a link.
+  console.log('public pages render signed out');
+  for (const path of ['/', '/app', '/formats', '/pricing', '/open-source', '/faq']) {
     const res = await fetch(`${BASE}${path}`, { redirect: 'manual' });
-    const isRedirectToLogin =
-      (res.status === 307 || res.status === 308) &&
-      (res.headers.get('location') ?? '').includes('/login');
-    ok(isRedirectToLogin, `signed-out ${path} → redirect to /login`, {
-      status: res.status,
-      location: res.headers.get('location'),
-    });
-  }
-  const signedIn = await fetch(`${BASE}/dashboard`, { headers: { cookie }, redirect: 'manual' });
-  ok(signedIn.status === 200, 'signed-in /dashboard → 200 (guard is a no-op)', signedIn.status);
-
-  // Every form page imports its server action module. If an action fails to
-  // load — a bad import, a broken re-export — the page 500s at render rather
-  // than on submit, so rendering them all is a cheap smoke test of the action
-  // layer that a pure API test can't give us.
-  console.log('form pages render');
-  for (const path of ['/matches/new', '/teams/new', '/players/new', '/login', '/signup']) {
-    const res = await fetch(`${BASE}${path}`, { headers: { cookie }, redirect: 'manual' });
-    ok(res.status === 200 || res.status === 307, `${path} renders`, res.status);
+    ok(res.status === 200, `signed-out ${path} → 200`, res.status);
   }
 
   // ── 2. Extras with variable runs ────────────────────────────────────────────
@@ -92,6 +86,12 @@ async function main() {
     .orderBy(asc(matches.createdAt))
     .limit(1);
   if (!match) throw new Error('No seeded match — run: pnpm db:seed');
+
+  // The scorecard is the whole growth loop: a link arrives in a group chat and
+  // has to open for someone with no account and no app. Checked without a
+  // cookie, deliberately.
+  const publicCard = await fetch(`${BASE}/m/${match.id}`, { redirect: 'manual' });
+  ok(publicCard.status === 200, `signed-out /m/${match.id} → 200`, publicCard.status);
   const [inn1] = await db
     .select()
     .from(inningsTable)
