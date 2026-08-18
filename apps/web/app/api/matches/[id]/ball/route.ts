@@ -206,13 +206,20 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
   }
 }
 
-export async function DELETE(_request: NextRequest, ctx: RouteParams) {
+export async function DELETE(request: NextRequest, ctx: RouteParams) {
   const { id: matchId } = await ctx.params;
   try {
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
     }
+
+    // Undo was the one unthrottled half of this endpoint. It costs more than
+    // POST does — it deletes, then replays the whole innings from scratch —
+    // so leaving it open while capping the cheaper direction had it backwards.
+    // Same bucket and same key as POST: a scorer's undos and their deliveries
+    // are the same person doing the same job.
+    enforceRateLimit(request, 'ball', { max: 120, windowMs: 60_000, identity: userId });
 
     const loaded = await loadMatchInProgress(matchId);
     if (!loaded) {
@@ -250,8 +257,10 @@ export async function DELETE(_request: NextRequest, ctx: RouteParams) {
 
     return NextResponse.json({ state });
   } catch (err) {
-    console.error('DELETE /api/matches/[id]/ball failed', err);
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
+    // Through the shared mapper, like POST. This used to flatten everything
+    // to a 500, which would have turned the new rate-limit rejection into a
+    // server fault instead of the 429 it is.
+    return toErrorResponse(err);
   }
 }
 

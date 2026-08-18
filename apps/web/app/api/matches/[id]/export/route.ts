@@ -23,16 +23,40 @@ import { invalid } from '@/lib/services/errors';
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**
+ * Characters that make a spreadsheet treat a cell as a formula rather than
+ * text. The tab and carriage return are here because Excel strips leading
+ * whitespace before deciding, so " =1+1" is still a formula.
+ */
+const FORMULA_LEAD = new Set(['=', '+', '-', '@']);
+
+/**
  * One CSV field.
  *
- * Quotes everything rather than deciding per value. A player called
- * O'Brien, a venue with a comma in it, or a commentary note containing a
- * newline all break a naive writer, and the cost of quoting unconditionally
- * is a few bytes.
+ * Quotes everything rather than deciding per value. A player called O'Brien,
+ * a venue with a comma in it, or a commentary note containing a newline all
+ * break a naive writer, and the cost of quoting unconditionally is a few
+ * bytes.
+ *
+ * Quoting is not enough on its own. Excel, LibreOffice and Sheets all
+ * evaluate a *quoted* cell that opens with = + - @ as a formula, so a player
+ * named `=cmd|'/c calc'!A1` or a commentary note starting with `=` runs when
+ * the file is opened — and every one of those fields is typed by a user, on
+ * an endpoint that is public and hands back a file people are told to open in
+ * a spreadsheet.
+ *
+ * The fix is the usual one: prefix a leading formula character with an
+ * apostrophe, which spreadsheets read as "this is text" and strip on display.
+ * It does alter the bytes for anything that is not a spreadsheet, so it is
+ * applied only to values that would otherwise execute. Exporting JSON avoids
+ * the question entirely and is the better choice for a machine.
  */
 function field(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return '""';
-  return `"${String(value).replace(/"/g, '""')}"`;
+  const raw = String(value);
+  // Leading whitespace is stripped before the decision: a spreadsheet
+  // ignores it, so " =1+1" is still a formula.
+  const safe = FORMULA_LEAD.has(raw.trimStart().charAt(0)) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
 }
 
 const COLUMNS = [

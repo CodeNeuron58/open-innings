@@ -244,6 +244,65 @@ async function main() {
       firstMember,
     );
 
+    /*
+     * A player you did not create is not yours to put in a squad.
+     *
+     * Squad changes checked team ownership and nothing else, so any signed-in
+     * account could add any player id to a team it owned — and then read that
+     * player's name and role straight back out of /api/teams/[id]/club, which
+     * is public and needs no session at all. A uuid being hard to guess is
+     * not an access control, it is an obstacle.
+     *
+     * Done with a genuinely separate account rather than a fabricated id,
+     * because the check being tested is "did *you* create this player", and a
+     * made-up uuid would pass for the wrong reason — it does not exist. The
+     * player here is real and belongs to somebody else, which is the case
+     * that was actually open.
+     *
+     * The intruder is named api-smoke-* so the sweep in `finally` collects it.
+     */
+    const intruderEmail = `api-smoke-intruder-${Date.now()}@local`;
+    const intruderSignup = await call(
+      'POST',
+      '/api/auth/signup',
+      { email: intruderEmail, password },
+      false,
+    );
+    ok(intruderSignup.status === 201, 'a second account signs up', intruderSignup.status);
+    const intruderToken = intruderSignup.json.token as string;
+
+    const asIntruder = async (method: string, path: string, body?: unknown) => {
+      const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${intruderToken}`,
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return { status: res.status, json: (await res.json().catch(() => ({}))) as Json };
+    };
+
+    const intruderTeam = await asIntruder('POST', '/api/teams', { name: 'Intruder XI' });
+    ok(intruderTeam.status === 201, 'the second account can create its own team', intruderTeam);
+    const intruderTeamId = intruderTeam.json.team?.id as string;
+
+    const steal = await asIntruder('POST', `/api/teams/${intruderTeamId}/members`, {
+      playerId: createdPlayerIds[0],
+    });
+    ok(steal.status === 404, "another account's player cannot be added to a squad", steal.status);
+
+    // And the same door at create time, which seeds a squad in one call.
+    const stealAtCreate = await asIntruder('POST', '/api/teams', {
+      name: 'Intruder XI B',
+      playerIds: [createdPlayerIds[1]],
+    });
+    ok(
+      stealAtCreate.status === 404,
+      "another account's player cannot be seeded into a new team",
+      stealAtCreate.status,
+    );
+
     const renamed = await call('PATCH', `/api/teams/${teamAId}`, { name: 'Smoke XI Renamed' });
     ok(renamed.json.team.name === 'Smoke XI Renamed', 'PATCH renames the team', renamed.json.team);
 
