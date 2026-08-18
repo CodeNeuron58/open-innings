@@ -204,11 +204,10 @@ export default function Scorer() {
     if (next) applyState(next);
   }
 
-  function scoreRuns(runsOffBat: number) {
+  function scoreRuns(runsOffBat: RunKey) {
     void send({
       inningsId: inn.id,
-      // A dot is 'dot' in the event enum, never '0'.
-      eventType: runsOffBat === 0 ? 'dot' : (String(runsOffBat) as BallEventType),
+      eventType: RUN_EVENT_TYPE[runsOffBat],
       runsOffBat,
       extraRuns: 0,
       totalRuns: runsOffBat,
@@ -525,7 +524,7 @@ export default function Scorer() {
                 <Key
                   key={k.label}
                   {...k}
-                  onPress={() => (k.label === 'W' ? setShowWicket(true) : scoreRuns(k.runs!))}
+                  onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
                   disabled={mutation.busy}
                 />
               ))}
@@ -656,7 +655,39 @@ const EXTRA_LABELS: Record<ExtraKind, string> = {
  * Tones are steps on the accent ramp, not separate hues: the system is mono.
  * The digit on the key is what identifies it.
  */
-const KEYS: { label: string; runs?: number; tone: string; text: string }[] = [
+/**
+ * How many runs one key can record.
+ *
+ * Narrower than `number` on purpose — see RUN_EVENT_TYPE.
+ */
+type RunKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+/**
+ * Runs off the bat, to the event type that records them.
+ *
+ * This replaces `String(runsOffBat) as BallEventType`, which compiled for
+ * every integer and was true for almost none of them. `ball_event_type` had
+ * no '5', so tapping the 5 key built an event Postgres rejected: the insert
+ * failed, the scorer saw "Internal error", and the delivery was lost. Five is
+ * now a real member of the enum, but the cast would still have been a lie
+ * waiting for the next gap.
+ *
+ * `Record<RunKey, BallEventType>` closes it from both ends. A new key with no
+ * mapping will not compile, and a mapping to a string the engine does not
+ * recognise will not either.
+ */
+const RUN_EVENT_TYPE: Record<RunKey, BallEventType> = {
+  0: 'dot', // never '0' — the enum spells a dot out
+  1: '1',
+  2: '2',
+  3: '3',
+  4: '4',
+  5: '5',
+  6: '6',
+};
+
+/** A key either records runs or opens the wicket sheet, never both. */
+const KEYS: { label: string; runs?: RunKey; tone: string; text: string }[] = [
   { label: '0', runs: 0, tone: 'bg-background', text: 'text-foreground' },
   { label: '1', runs: 1, tone: 'bg-background', text: 'text-foreground' },
   { label: '2', runs: 2, tone: 'bg-background', text: 'text-foreground' },

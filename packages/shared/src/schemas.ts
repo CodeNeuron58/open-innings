@@ -169,26 +169,135 @@ export type StartSecondInningsInput = z.infer<typeof startSecondInningsSchema>;
 // ---------------------------------------------------------------------------
 
 /**
- * A single delivery, as the scorer UI reports it.
+ * A single delivery, exactly as the scorer sends it.
  *
- * This validates *shape* only. Legality — whether this bowler may bowl this
- * over, whether that batter is even in — is the scoring engine's job, and it
- * throws `ScoringError` for anything it rejects. Do not duplicate rules here;
- * the engine is the single source of truth for cricket law.
+ * This is the wire shape of `BallEventInput` from @open-innings/scoring, and
+ * it had to be rewritten: the previous version described a request nobody
+ * makes — `{ type, runs, isWicket }` — and was never imported anywhere, so the
+ * ball endpoint had been casting raw JSON with `as BallEventInput` since it
+ * was written. A schema that does not match the traffic is worse than none,
+ * because it reads like a guarantee.
+ *
+ * Shape only. Whether this bowler may bowl this over, and whether that batter
+ * is even in, are the engine's business — it throws `ScoringError` for
+ * anything it rejects. Do not restate cricket law here.
+ *
+ * ## What is deliberately absent
+ *
+ * `isFreeHit`, `isLegalDelivery`, `totalRuns` and `id` are **not** accepted.
+ * Zod strips unknown keys, so a client sending them is ignored rather than
+ * refused, and the engine derives all four itself. That is not tidiness:
+ *
+ *   - `isFreeHit: false` on the ball after a no-ball would let a client
+ *     record a bowled dismissal that Law 21.18 forbids;
+ *   - `isLegalDelivery: false` on a normal delivery would stop the over ever
+ *     advancing;
+ *   - a `totalRuns` disagreeing with its own parts would put any number on
+ *     the board.
+ *
+ * Every one of those was reachable while the endpoint cast instead of parsed.
  */
 export const ballEventSchema = z.object({
-  type: z.enum(BALL_EVENT_TYPES),
-  runs: z.coerce.number().int().min(0).max(12).optional(),
-  isWicket: z.boolean().optional(),
+  /** Ignored by the server, which uses the innings the match is actually on. */
+  inningsId: idSchema.optional(),
+
+  eventType: z.enum(BALL_EVENT_TYPES),
+  /**
+   * Off the bat, 0..6.
+   *
+   * `z.number()` and not `z.coerce.number()`. Coercion runs `Number()`, which
+   * turns `null` into 0, `true` into 1, `[]` into 0 and `[4]` into 4 — so a
+   * malformed body would have recorded a wrong delivery with a 200 instead of
+   * being refused, which is the exact failure this schema was wired up to
+   * stop. Every caller (the app and all three smoke scripts) sends real
+   * numbers, so there is nothing to coerce.
+   */
+  runsOffBat: z.number().int().min(0).max(6),
+  /** Penalties plus byes. Well above anything real, but bounded. */
+  extraRuns: z.number().int().min(0).max(12),
+
+  batsmanId: idSchema,
+  nonStrikerId: idSchema,
+  bowlerId: idSchema,
+
   wicketType: z.enum(WICKET_TYPES).optional(),
-  dismissedPlayerId: idSchema.optional(),
+  wicketPlayerId: idSchema.optional(),
   fielderId: idSchema.optional(),
-  strikerId: idSchema.optional(),
-  nonStrikerId: idSchema.optional(),
-  bowlerId: idSchema.optional(),
+
   commentary: optionalText(280),
 });
 export type BallEventBody = z.infer<typeof ballEventSchema>;
+
+/**
+ * The event type and the runs have to describe the same delivery.
+ *
+ * Shape alone let `{ eventType: 'wide', runsOffBat: 6 }` and
+ * `{ eventType: '6', runsOffBat: 0 }` both through. Neither is a delivery
+ * that can happen, and both persist happily — leaving the ball chip on the
+ * card saying one thing and the score saying another, with no error anywhere
+ * to explain it.
+ *
+ * This is not cricket law, which stays in the engine. It is the narrower
+ * claim that a payload must be internally consistent before anyone reasons
+ * about it.
+ */
+const RUNS_FOR_TYPE: Partial<Record<(typeof BALL_EVENT_TYPES)[number], number>> = {
+  dot: 0,
+  '1': 1,
+  '2': 2,
+  '3': 3,
+  '4': 4,
+  '5': 5,
+  '6': 6,
+};
+
+/** Types that carry a penalty or come off something other than the bat. */
+const EXTRA_TYPES = new Set(['wide', 'no_ball', 'bye', 'leg_bye']);
+
+export const consistentBallEventSchema = ballEventSchema.superRefine((v, ctx) => {
+  const expected = RUNS_FOR_TYPE[v.eventType];
+
+  // A scoring shot names its own runs, and carries no extras.
+  if (expected !== undefined) {
+    if (v.runsOffBat !== expected) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['runsOffBat'],
+        message: `A '${v.eventType}' is ${expected} off the bat, not ${v.runsOffBat}`,
+      });
+    }
+    if (v.extraRuns !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['extraRuns'],
+        message: `A '${v.eventType}' carries no extras`,
+      });
+    }
+    return;
+  }
+
+  if (EXTRA_TYPES.has(v.eventType)) {
+    // Every one of these puts at least one run on the board: a penalty for a
+    // wide or no-ball, and a completed run for a bye or leg-bye.
+    if (v.extraRuns < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['extraRuns'],
+        message: `A '${v.eventType}' scores at least one extra`,
+      });
+    }
+    // Only a no-ball can be struck; the others never touched the bat.
+    if (v.eventType !== 'no_ball' && v.runsOffBat !== 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['runsOffBat'],
+        message: `A '${v.eventType}' is never off the bat`,
+      });
+    }
+  }
+
+  // 'wicket' is left alone: a run-out can happen after any number of runs.
+});
 
 /** The bowler taking the next over, sent when the scorer closes an over. */
 export const changeBowlerSchema = z.object({

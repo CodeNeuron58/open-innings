@@ -92,6 +92,7 @@ export const ballEventType = pgEnum('ball_event_type', [
   '2',
   '3',
   '4',
+  '5',
   '6',
   'wide',
   'no_ball',

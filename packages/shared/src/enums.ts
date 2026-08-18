@@ -79,6 +79,7 @@ export const BALL_EVENT_TYPES = [
   '2',
   '3',
   '4',
+  '5',
   '6',
   'wide',
   'no_ball',

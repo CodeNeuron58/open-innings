@@ -41,6 +41,7 @@ export {
   createMatchSchema,
   startSecondInningsSchema,
   ballEventSchema,
+  consistentBallEventSchema,
   changeBowlerSchema,
   nextBatterSchema,
   type SignupInput,

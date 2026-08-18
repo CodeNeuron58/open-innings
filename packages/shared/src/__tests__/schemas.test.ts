@@ -8,6 +8,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  BALL_EVENT_TYPES,
+  ballEventSchema,
+  consistentBallEventSchema,
   emailSchema,
   createMatchSchema,
   createPlayerSchema,
@@ -162,5 +165,133 @@ describe('resolveBattingSides', () => {
       battingTeamId: 'a',
       bowlingTeamId: 'b',
     });
+  });
+});
+
+describe('ballEventSchema', () => {
+  /** A minimal, valid delivery. Spread over to vary one field at a time. */
+  const delivery = {
+    eventType: 'dot',
+    runsOffBat: 0,
+    extraRuns: 0,
+    batsmanId: 'bat1',
+    nonStrikerId: 'bat2',
+    bowlerId: 'bowl1',
+  };
+
+  it('accepts five off the bat', () => {
+    // The bug this schema was wired up for: `ball_event_type` had no '5'
+    // while the keypad had a 5 key, so the delivery died at the database with
+    // "Internal error" and the ball was lost.
+    const parsed = ballEventSchema.safeParse({
+      ...delivery,
+      eventType: '5',
+      runsOffBat: 5,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts every event type the engine knows', () => {
+    for (const eventType of BALL_EVENT_TYPES) {
+      expect(ballEventSchema.safeParse({ ...delivery, eventType }).success).toBe(true);
+    }
+  });
+
+  it('rejects an event type that is not in the enum', () => {
+    // The precise failure the raw cast allowed through to Postgres.
+    expect(ballEventSchema.safeParse({ ...delivery, eventType: '7' }).success).toBe(false);
+    expect(ballEventSchema.safeParse({ ...delivery, eventType: 'howzat' }).success).toBe(false);
+  });
+
+  it('strips the fields a client must not decide', () => {
+    /*
+     * These are the reason the endpoint parses rather than casts.
+     *
+     * `isFreeHit: false` on the ball after a no-ball would let a client
+     * record a dismissal Law 21.18 forbids; `isLegalDelivery: false` would
+     * stop the over ever advancing; and a `totalRuns` that disagrees with its
+     * own parts would put any number on the board.
+     */
+    const parsed = ballEventSchema.parse({
+      ...delivery,
+      isFreeHit: false,
+      isLegalDelivery: false,
+      totalRuns: 999,
+      id: 'client-chosen-id',
+    });
+
+    expect(parsed).not.toHaveProperty('isFreeHit');
+    expect(parsed).not.toHaveProperty('isLegalDelivery');
+    expect(parsed).not.toHaveProperty('totalRuns');
+    expect(parsed).not.toHaveProperty('id');
+  });
+
+  it('bounds the runs off the bat', () => {
+    expect(ballEventSchema.safeParse({ ...delivery, runsOffBat: 7 }).success).toBe(false);
+    expect(ballEventSchema.safeParse({ ...delivery, runsOffBat: -1 }).success).toBe(false);
+    // Not an integer. A smallint column would silently round it.
+    expect(ballEventSchema.safeParse({ ...delivery, runsOffBat: 2.5 }).success).toBe(false);
+  });
+
+  it('requires the three players on the field', () => {
+    for (const field of ['batsmanId', 'nonStrikerId', 'bowlerId'] as const) {
+      const { [field]: _omitted, ...rest } = delivery;
+      expect(ballEventSchema.safeParse(rest).success).toBe(false);
+    }
+  });
+});
+
+describe('consistentBallEventSchema', () => {
+  const delivery = {
+    eventType: 'dot',
+    runsOffBat: 0,
+    extraRuns: 0,
+    batsmanId: 'bat1',
+    nonStrikerId: 'bat2',
+    bowlerId: 'bowl1',
+  };
+  const parse = (o: Record<string, unknown>) => consistentBallEventSchema.safeParse(o);
+
+  it('refuses a number dressed up as something else', () => {
+    // z.coerce.number() would have turned each of these into a real delivery
+    // with a 200 back. Number(null)=0, Number(true)=1, Number([4])=4.
+    for (const runsOffBat of [null, true, [], [4], '4']) {
+      expect(parse({ ...delivery, eventType: '4', runsOffBat }).success).toBe(false);
+    }
+  });
+
+  it('refuses runs that contradict the event type', () => {
+    // Both of these persisted happily before, leaving the ball chip on the
+    // card and the score on the board describing different deliveries.
+    expect(parse({ ...delivery, eventType: 'wide', runsOffBat: 6, extraRuns: 1 }).success).toBe(
+      false,
+    );
+    expect(parse({ ...delivery, eventType: '6', runsOffBat: 0 }).success).toBe(false);
+    expect(parse({ ...delivery, eventType: '4', runsOffBat: 4, extraRuns: 3 }).success).toBe(false);
+    expect(parse({ ...delivery, eventType: 'bye', runsOffBat: 2, extraRuns: 2 }).success).toBe(
+      false,
+    );
+    // An extra that scored nothing is not an extra.
+    expect(parse({ ...delivery, eventType: 'wide', runsOffBat: 0, extraRuns: 0 }).success).toBe(
+      false,
+    );
+  });
+
+  it('accepts the deliveries the app and the smoke scripts actually send', () => {
+    const real = [
+      { eventType: 'dot', runsOffBat: 0, extraRuns: 0 },
+      { eventType: '5', runsOffBat: 5, extraRuns: 0 },
+      { eventType: '6', runsOffBat: 6, extraRuns: 0 },
+      // p1-smoke: a wide to the fence, and a no-ball struck for four.
+      { eventType: 'wide', runsOffBat: 0, extraRuns: 4 },
+      { eventType: 'no_ball', runsOffBat: 4, extraRuns: 1 },
+      { eventType: 'leg_bye', runsOffBat: 0, extraRuns: 2 },
+      // A run-out is allowed after any number of runs, so it is not constrained.
+      { eventType: 'wicket', runsOffBat: 1, extraRuns: 0, wicketType: 'run_out' },
+    ];
+    for (const ball of real) {
+      const result = parse({ ...delivery, ...ball });
+      expect(result.success, `${ball.eventType} should parse`).toBe(true);
+    }
   });
 });

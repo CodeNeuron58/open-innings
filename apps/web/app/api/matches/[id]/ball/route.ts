@@ -38,8 +38,9 @@ import {
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
+import { consistentBallEventSchema } from '@open-innings/shared';
 import { enforceRateLimit } from '@/lib/api/request-meta';
-import { toErrorResponse } from '@/lib/api/respond';
+import { readJson, toErrorResponse } from '@/lib/api/respond';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -57,7 +58,19 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
     // Generous: a real over is six taps, this allows a sustained two a second.
     enforceRateLimit(request, 'ball', { max: 120, windowMs: 60_000, identity: userId });
 
-    const body = (await request.json()) as BallEventInput;
+    /*
+     * Parsed, not cast.
+     *
+     * This line was `(await request.json()) as BallEventInput` — an assertion
+     * that told the compiler to stop asking and let arbitrary JSON reach the
+     * engine and then Postgres. `ballEventSchema` existed in the shared
+     * package the whole time, describing a shape nobody sent; it now
+     * describes this one and is finally used.
+     *
+     * The cast is how tapping 5 on the keypad became a 500: nothing between
+     * the screen and the database checked the event type against the enum.
+     */
+    const parsed = await readJson(request, consistentBallEventSchema);
 
     const loaded = await loadMatchInProgress(matchId);
     if (!loaded) {
@@ -70,6 +83,26 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         { status: 403 },
       );
     }
+
+    /*
+     * Server-owned fields are not taken from the body, and the schema does not
+     * accept them. `inningsId` comes from the innings this match is actually
+     * on rather than whichever one the client believes; `totalRuns`,
+     * `isLegalDelivery` and `isFreeHit` are the engine's to derive.
+     */
+    const body: BallEventInput = {
+      inningsId: asInningsId(currentInnings.id),
+      eventType: parsed.eventType,
+      runsOffBat: parsed.runsOffBat,
+      extraRuns: parsed.extraRuns,
+      batsmanId: asPlayerId(parsed.batsmanId),
+      nonStrikerId: asPlayerId(parsed.nonStrikerId),
+      bowlerId: asPlayerId(parsed.bowlerId),
+      wicketType: parsed.wicketType,
+      wicketPlayerId: parsed.wicketPlayerId ? asPlayerId(parsed.wicketPlayerId) : undefined,
+      fielderId: parsed.fielderId ? asPlayerId(parsed.fielderId) : undefined,
+      commentary: parsed.commentary,
+    };
 
     // Reconstruct state from existing balls
     const seed = buildSeed(match, currentInnings);

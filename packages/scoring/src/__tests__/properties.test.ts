@@ -52,7 +52,7 @@ const FIELDER = 'field1';
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Decision =
-  | { kind: 'runs'; runs: 0 | 1 | 2 | 3 | 4 | 6 }
+  | { kind: 'runs'; runs: 0 | 1 | 2 | 3 | 4 | 5 | 6 }
   | { kind: 'wide' | 'no_ball' | 'bye' | 'leg_bye'; total: number }
   | { kind: 'wicket'; wicket: WicketType };
 
@@ -62,7 +62,9 @@ const STRIKER_WICKETS: WicketType[] = ['bowled', 'caught', 'lbw'];
 const arbDecision: fc.Arbitrary<Decision> = fc.oneof(
   {
     weight: 6,
-    arbitrary: fc.constantFrom(0, 1, 2, 3, 4, 6).map((runs) => ({ kind: 'runs', runs })),
+    // Five included deliberately: it is the value `ball_event_type` was
+    // missing, so every property below now exercises it too.
+    arbitrary: fc.constantFrom(0, 1, 2, 3, 4, 5, 6).map((runs) => ({ kind: 'runs', runs })),
   },
   {
     weight: 2,
