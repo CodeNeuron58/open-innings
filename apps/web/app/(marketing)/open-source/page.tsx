@@ -17,7 +17,7 @@ export const metadata: Metadata = {
  *   - The GitHub buttons were inert `<button>`s. They link to the real repo.
  */
 
-const REPO_URL = 'https://github.com/open-innings/open-innings';
+const REPO_URL = 'https://github.com/CodeNeuron58/open-innings';
 const CONTRIBUTING_URL = `${REPO_URL}/blob/master/CONTRIBUTING.md`;
 
 const SHEET = [

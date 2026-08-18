@@ -64,7 +64,7 @@ pnpm --version    # should print 9.x or 10.x
 ## 2. Clone the repository
 
 ```bash
-git clone https://github.com/open-innings/open-innings.git
+git clone https://github.com/CodeNeuron58/open-innings.git
 cd open-innings
 ```
 

@@ -155,7 +155,7 @@ export default function FaqPage() {
             <div className="oi-faq-aside-actions">
               <a
                 className="btn btn-secondary oi-faq-aside-btn oi-btn-plain"
-                href="https://github.com/open-innings/open-innings/issues"
+                href="https://github.com/CodeNeuron58/open-innings/issues"
               >
                 Open an issue
               </a>

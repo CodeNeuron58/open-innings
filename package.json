@@ -4,10 +4,10 @@
   "private": true,
   "description": "Free, open-source, forever cricket scoring app. Like Lichess for cricket.",
   "license": "AGPL-3.0",
-  "homepage": "https://github.com/open-innings/open-innings",
+  "homepage": "https://github.com/CodeNeuron58/open-innings",
   "repository": {
     "type": "git",
-    "url": "https://github.com/open-innings/open-innings.git"
+    "url": "https://github.com/CodeNeuron58/open-innings.git"
   },
   "engines": {
     "node": ">=20.0.0",

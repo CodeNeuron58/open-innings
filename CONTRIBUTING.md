@@ -6,9 +6,9 @@ Open Innings is a community project. Every contribution matters — code, design
 
 ## Quick links
 
-- 🐛 [Report a bug](https://github.com/open-innings/open-innings/issues/new?template=bug.yml)
-- 💡 [Request a feature](https://github.com/open-innings/open-innings/issues/new?template=feature.yml)
-- 💬 [Discussions](https://github.com/open-innings/open-innings/discussions)
+- 🐛 [Report a bug](https://github.com/CodeNeuron58/open-innings/issues/new)
+- 💡 [Request a feature](https://github.com/CodeNeuron58/open-innings/issues/new)
+- 💬 [Discussions](https://github.com/CodeNeuron58/open-innings/discussions)
 - 📖 [Architecture](docs/architecture.md)
 - 💸 [Donate](https://opencollective.com/open-innings)
 
@@ -71,10 +71,10 @@ docs/                 # Architecture, rule references, donation model, deploymen
 | If you are...         | Start with...                                                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | New to the codebase   | [docs/architecture.md](docs/architecture.md) → read `lib/db/schema.ts` → read `packages/scoring/src/engine.ts`                        |
-| Want to fix a bug     | Check [`good first issue`](https://github.com/open-innings/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) |
+| Want to fix a bug     | Check [`good first issue`](https://github.com/CodeNeuron58/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) |
 | Want to add a feature | Open an issue first — let's discuss before you code                                                                                   |
 | Cricket expert        | Help us test scoring rules against real matches                                                                                       |
-| Designer              | See [open design issues](https://github.com/open-innings/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3Adesign)                   |
+| Designer              | See [open design issues](https://github.com/CodeNeuron58/open-innings/issues?q=is%3Aopen+is%3Aissue+label%3Adesign)                   |
 | Documentation         | Typos, missing examples, unclear explanations — all welcome                                                                           |
 
 ## Code style
@@ -127,4 +127,4 @@ By contributing, you agree that your contributions will be licensed under [AGPL-
 
 ---
 
-Questions? Open a [discussion](https://github.com/open-innings/open-innings/discussions). We respond to everyone.
+Questions? Open a [discussion](https://github.com/CodeNeuron58/open-innings/discussions). We respond to everyone.
