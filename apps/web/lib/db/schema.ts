@@ -206,7 +206,10 @@ export const teams = pgTable(
     logoUrl: text('logo_url'),
     ownerId: uuid('owner_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'set null' }),
+      // RESTRICT, not SET NULL: this column is NOT NULL, so SET NULL could
+      // never have fired. Users are anonymised via users.anonymised_at rather
+      // than deleted — see the schema header — and RESTRICT says so.
+      .references(() => users.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -250,7 +253,10 @@ export const tournaments = pgTable(
     description: text('description'),
     createdBy: uuid('created_by')
       .notNull()
-      .references(() => users.id, { onDelete: 'set null' }),
+      // RESTRICT, not SET NULL: this column is NOT NULL, so SET NULL could
+      // never have fired. Users are anonymised via users.anonymised_at rather
+      // than deleted — see the schema header — and RESTRICT says so.
+      .references(() => users.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -333,7 +339,10 @@ export const matches = pgTable(
 
     createdBy: uuid('created_by')
       .notNull()
-      .references(() => users.id, { onDelete: 'set null' }),
+      // RESTRICT, not SET NULL: this column is NOT NULL, so SET NULL could
+      // never have fired. Users are anonymised via users.anonymised_at rather
+      // than deleted — see the schema header — and RESTRICT says so.
+      .references(() => users.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -454,11 +463,17 @@ export const ballEvents = pgTable(
     // Audit
     createdBy: uuid('created_by')
       .notNull()
-      .references(() => users.id, { onDelete: 'set null' }),
+      // RESTRICT, not SET NULL: this column is NOT NULL, so SET NULL could
+      // never have fired. Users are anonymised via users.anonymised_at rather
+      // than deleted — see the schema header — and RESTRICT says so.
+      .references(() => users.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    inningsIdx: index('ball_events_innings_idx').on(t.inningsId, t.ballNumber),
+    // Unique: POST /ball derives ballNumber from a count, so two overlapping
+    // requests compute the same one. Without this the second silently became
+    // a duplicate delivery in the replay.
+    inningsIdx: uniqueIndex('ball_events_innings_idx').on(t.inningsId, t.ballNumber),
     batsmanIdx: index('ball_events_batsman_idx').on(t.batsmanId),
     bowlerIdx: index('ball_events_bowler_idx').on(t.bowlerId),
   }),

@@ -295,11 +295,21 @@ describe('applyBall — free hit constraints', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('applyBall — byes and leg-byes', () => {
-  it('bye does NOT credit the batsman and does NOT count as ball faced', () => {
+  it('bye does NOT credit the batsman, but IS a ball faced', () => {
     const state = applyBalls([{ eventType: 'bye', runsOffBat: 0, totalRuns: 1 }]);
     expect(state.currentInnings.runs).toBe(1);
+    // The run is an extra — it came off the keeper, not the bat.
     expect(state.batting[STRIKER]?.runs).toBe(0);
-    expect(state.batting[STRIKER]?.balls).toBe(0);
+    /*
+     * One, and this test used to demand zero.
+     *
+     * The striker stood up to a legal delivery and played at it. Laws 23 and
+     * 24 decide who gets the run, and the answer is nobody — but that is a
+     * separate question from who faced the ball. A batter who plays out an
+     * over of byes has faced six, and their strike rate is 0.00 off six
+     * rather than off nothing at all.
+     */
+    expect(state.batting[STRIKER]?.balls).toBe(1);
     expect(state.currentInnings.ballsBowled).toBe(1);
   });
 

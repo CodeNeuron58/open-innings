@@ -72,6 +72,7 @@ export {
   // bowling figures straight from the ball log, and a second hand-written copy
   // of Law 24 there would disagree with this one the first time either moved.
   BOWLER_EXEMPT_EXTRAS,
+  BATSMAN_FACING_EXCLUDED_TYPES,
   // The dismissal classifications. Exported because career statistics are
   // derived from the ball log outside this package, and re-stating "which
   // dismissals credit the bowler" anywhere else would create a second source

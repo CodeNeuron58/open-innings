@@ -348,6 +348,17 @@ export async function updateInningCache(
 
 export type BallEventInsert = Omit<BallEvent, 'id' | 'createdAt' | 'createdBy'>;
 
+/**
+ * Insert a delivery on its own, without touching the innings cache.
+ *
+ * @deprecated Prefer `recordBall`, which does both in one transaction.
+ *
+ * Kept because a caller that genuinely wants only the row is plausible — a
+ * backfill or an import would. But the ball endpoint used this and then
+ * updated the cache separately, and a failure between the two left the score
+ * a delivery behind with nothing to recompute it. Reach for `recordBall`
+ * unless you have thought about that and decided it does not apply.
+ */
 export async function insertBallEvent(input: BallEventInsert): Promise<BallEvent | null> {
   const userId = await getUserId();
   if (!userId) {
@@ -361,6 +372,49 @@ export async function insertBallEvent(input: BallEventInsert): Promise<BallEvent
     })
     .returning();
   return rows[0] ?? null;
+}
+
+/**
+ * Record a delivery and move the innings on, in one transaction.
+ *
+ * These were two awaits in the route: insert the ball, then update the
+ * innings' cached runs/wickets/balls/extras. Anything failing between them —
+ * a dropped connection at a ground, a dyno restart mid-request — left the
+ * ball stored and the cache a delivery behind, and nothing recomputes the
+ * cache except the next successful ball.
+ *
+ * The unique index on (innings_id, ball_number) is what makes this matter
+ * rather than merely being tidy: a duplicate submission now raises inside the
+ * transaction, and the cache update rolls back with it instead of being
+ * applied twice for a ball that was written once.
+ */
+export async function recordBall(
+  input: BallEventInsert,
+  inningsId: string,
+  cache: {
+    runs: number;
+    wickets: number;
+    ballsBowled: number;
+    extras: number;
+    status: 'not_started' | 'in_progress' | 'completed';
+    completedAt?: Date;
+  },
+): Promise<BallEvent | null> {
+  const userId = await getUserId();
+  if (!userId) {
+    throw new Error('Unauthorized: ball events require a signed-in user');
+  }
+
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .insert(ballEvents)
+      .values({ ...input, createdBy: userId })
+      .returning();
+
+    await tx.update(inningsTable).set(cache).where(eq(inningsTable.id, inningsId));
+
+    return rows[0] ?? null;
+  });
 }
 
 export async function listBallEvents(inningsId: string): Promise<BallEvent[]> {

@@ -38,10 +38,26 @@ export const WIDE_PENALTY = 1;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Byes and leg-byes do NOT credit runs to the batsman.
- * Only wides and no-balls (penalties) and runs off the bat do.
+ * Deliveries that do NOT count as a ball faced by the striker.
+ *
+ * Only a wide, and that is the whole list. A wide is not a fair delivery to
+ * the batter, so it is not one they faced; everything else is.
+ *
+ * This used to also exclude byes and leg-byes, citing Laws 23 and 24. Those
+ * laws govern who is credited with the *runs* — the answer being nobody, they
+ * are extras — and say nothing about who faced the ball. A batter who plays
+ * out an over of leg-byes has faced six deliveries and scored none, and their
+ * strike rate is 0.00 off six, not 0.00 off zero.
+ *
+ * A no-ball counts too: it is illegal for the bowler, but the batter still
+ * had a chance to hit it.
+ *
+ * Mirrored by `battingInningsFor` in apps/web/lib/db/stats.ts. The two
+ * disagreed in both directions before this — the SQL counted leg-byes and
+ * dropped no-balls, the engine did the reverse — so the same innings produced
+ * one strike rate on a match card and another on a career page.
  */
-export const BATSMAN_FACING_EXCLUDED_TYPES = new Set(['wide', 'bye', 'leg_bye'] as const);
+export const BATSMAN_FACING_EXCLUDED_TYPES: ReadonlySet<string> = new Set(['wide']);
 
 /**
  * Extras that are NOT charged to the bowler's analysis.

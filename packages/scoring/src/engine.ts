@@ -289,7 +289,7 @@ function updateBatting(
   // - Wides don't count as balls faced (Law 22.2)
   // - Byes/leg-byes don't count as balls faced (Law 23 + 24)
   // - No-balls DO count as balls faced (Law 21.3 — batsman had a chance to hit)
-  if (!BATSMAN_FACING_EXCLUDED_TYPES.has(event.eventType as 'wide')) {
+  if (!BATSMAN_FACING_EXCLUDED_TYPES.has(event.eventType)) {
     striker.balls += 1;
   }
 

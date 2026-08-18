@@ -29,7 +29,7 @@ import {
 } from '@open-innings/scoring';
 import {
   loadMatchInProgress,
-  insertBallEvent,
+  recordBall,
   deleteLastBallEvent,
   updateInningCache,
   completeMatch,
@@ -126,40 +126,43 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    // Persist the new ball event
+    // Persist the ball and move the innings on, together.
+    //
+    // These used to be two awaits. A failure between them stored the delivery
+    // and left the cached score a ball behind, with nothing to recompute it
+    // but the next successful ball.
     const newBall = nextState.balls[nextState.balls.length - 1]!;
-    await insertBallEvent({
-      inningsId: currentInnings.id,
-      overNumber: newBall.overNumber,
-      ballNumber: newBall.ballNumber,
-      eventType: newBall.eventType,
-      runsOffBat: newBall.runsOffBat,
-      extraRuns: newBall.extraRuns,
-      totalRuns: newBall.totalRuns,
-      isLegalDelivery: newBall.isLegalDelivery,
-      isFreeHit: newBall.isFreeHit,
-      batsmanId: newBall.batsmanId,
-      nonStrikerId: newBall.nonStrikerId,
-      bowlerId: newBall.bowlerId,
-      wicketType: newBall.wicketType ?? null,
-      wicketPlayerId: newBall.wicketPlayerId ?? null,
-      fielderId: newBall.fielderId ?? null,
-      commentary: newBall.commentary ?? null,
-    });
-
-    // Update innings cache columns
     const updated = nextState.currentInnings;
-    const cachePatch: Parameters<typeof updateInningCache>[1] = {
-      runs: updated.runs,
-      wickets: updated.wickets,
-      ballsBowled: updated.ballsBowled,
-      extras: updated.extras,
-      status: updated.status,
-    };
-    if (updated.status === 'completed') {
-      cachePatch.completedAt = new Date();
-    }
-    await updateInningCache(currentInnings.id, cachePatch);
+
+    await recordBall(
+      {
+        inningsId: currentInnings.id,
+        overNumber: newBall.overNumber,
+        ballNumber: newBall.ballNumber,
+        eventType: newBall.eventType,
+        runsOffBat: newBall.runsOffBat,
+        extraRuns: newBall.extraRuns,
+        totalRuns: newBall.totalRuns,
+        isLegalDelivery: newBall.isLegalDelivery,
+        isFreeHit: newBall.isFreeHit,
+        batsmanId: newBall.batsmanId,
+        nonStrikerId: newBall.nonStrikerId,
+        bowlerId: newBall.bowlerId,
+        wicketType: newBall.wicketType ?? null,
+        wicketPlayerId: newBall.wicketPlayerId ?? null,
+        fielderId: newBall.fielderId ?? null,
+        commentary: newBall.commentary ?? null,
+      },
+      currentInnings.id,
+      {
+        runs: updated.runs,
+        wickets: updated.wickets,
+        ballsBowled: updated.ballsBowled,
+        extras: updated.extras,
+        status: updated.status,
+        ...(updated.status === 'completed' ? { completedAt: new Date() } : {}),
+      },
+    );
 
     // Chase innings just finished → the match has a result.
     if (

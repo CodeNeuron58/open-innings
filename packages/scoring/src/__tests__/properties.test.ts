@@ -466,6 +466,32 @@ describe('conservation', () => {
    * simply wrong. That was a bad property rather than a bug, and the weaker
    * claim below is the one every source agrees on.
    */
+  /**
+   * Balls faced is every delivery except a wide.
+   *
+   * A bye and a leg-bye are legal deliveries the striker stood up to and
+   * played at; that the run came off the keeper or the pad decides who gets
+   * the *run*, which is Law 23/24, and says nothing about who faced the ball.
+   * A no-ball is faced too — they had a chance to hit it. Only a wide is not
+   * a fair delivery to them.
+   *
+   * This is also the figure `battingInningsFor` in apps/web/lib/db/stats.ts
+   * computes for a career page, and the two currently disagree in both
+   * directions: the SQL counts leg-byes and drops no-balls, the engine does
+   * the opposite. Same batter, same over, two different strike rates.
+   */
+  it('every delivery except a wide is a ball faced', () => {
+    fc.assert(
+      fc.property(arbSequence, (decisions) => {
+        const { state } = drive(decisions);
+        const faced = Object.values(state.batting).reduce((sum, b) => sum + b.balls, 0);
+        const notWides = state.balls.filter((b) => b.eventType !== 'wide').length;
+        expect(faced).toBe(notWides);
+      }),
+      RUNS,
+    );
+  });
+
   it('a wide is never counted as a ball faced', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 8 }), fc.integer({ min: 1, max: 5 }), (n, runs) => {

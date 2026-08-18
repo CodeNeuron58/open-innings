@@ -22,6 +22,7 @@
 import 'server-only';
 import { sql, type SQL } from 'drizzle-orm';
 import {
+  BATSMAN_FACING_EXCLUDED_TYPES,
   BOWLER_CREDITED_WICKETS,
   BOWLER_EXEMPT_EXTRAS,
   TEAM_WICKET_COUNTED,
@@ -50,6 +51,13 @@ function enumList(values: ReadonlySet<string>): SQL {
  * drift from the one on the scorecard the same balls produced.
  */
 const exemptExtras = enumList(BOWLER_EXEMPT_EXTRAS);
+
+/**
+ * Deliveries that are not a ball faced — a wide, and nothing else. Imported
+ * so the strike rate on a career page matches the one on the scorecard the
+ * same balls produced.
+ */
+const notFaced = enumList(BATSMAN_FACING_EXCLUDED_TYPES);
 
 /** One innings of batting. */
 export type BattingInnings = {
@@ -112,11 +120,29 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
       -- was scheduled. created_at is the last resort so this is never null.
       coalesce(m.completed_at, m.started_at, m.scheduled_at, m.created_at) as played_at,
       bowl_team.name as opponent,
-      coalesce(sum(be.runs_off_bat), 0)::int as runs,
-      -- Balls faced excludes wides: a wide is not a ball the batter faced.
-      count(*) filter (where be.is_legal_delivery)::int as balls,
-      count(*) filter (where be.runs_off_bat = 4)::int as fours,
-      count(*) filter (where be.runs_off_bat = 6)::int as sixes,
+      -- Every figure below is scoped to deliveries this player actually faced.
+      --
+      -- The WHERE clause below deliberately widens to include balls where they
+      -- were only the *dismissed* player, so that a non-striker run out
+      -- without facing a ball still produces an innings row. Without these
+      -- filters that widening leaked: the ball on which they were run out at
+      -- the bowler's end brought the striker's runs and a phantom ball faced
+      -- into their innings.
+      coalesce(sum(be.runs_off_bat) filter (where be.batsman_id = ${playerId}::uuid), 0)::int
+        as runs,
+      -- Balls faced is every delivery except a wide — byes and leg-byes were
+      -- faced, and so was a no-ball. The exempt list is imported from the
+      -- engine so a career page and a match card cannot disagree.
+      count(*) filter (
+        where be.batsman_id = ${playerId}::uuid
+          and be.event_type not in (${notFaced})
+      )::int as balls,
+      count(*) filter (
+        where be.batsman_id = ${playerId}::uuid and be.runs_off_bat = 4
+      )::int as fours,
+      count(*) filter (
+        where be.batsman_id = ${playerId}::uuid and be.runs_off_bat = 6
+      )::int as sixes,
       -- The dismissal is recorded against wicket_player_id, which is not
       -- always the striker: a run-out can take the non-striker.
       coalesce(bool_or(
@@ -277,8 +303,9 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
       select
         be.batsman_id as player_id,
         coalesce(sum(be.runs_off_bat), 0)::int as runs,
-        -- Balls faced excludes wides: a wide is not a ball the batter faced.
-        count(*) filter (where be.is_legal_delivery)::int as balls,
+        -- Every delivery except a wide, same rule as battingInningsFor and
+        -- the engine, from the same imported list.
+        count(*) filter (where be.event_type not in (${notFaced}))::int as balls,
         count(distinct i.match_id)::int as matches
       from ball_events be
       join innings i on i.id = be.innings_id
