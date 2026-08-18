@@ -20,6 +20,7 @@ import {
   getTeam,
   deleteMatch,
   completeMatch,
+  abandonMatch,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
@@ -74,6 +75,35 @@ export function sizeBowlerQuota(
   return bowlingSquadSize * standard >= oversPerInnings ? standard : null;
 }
 
+/**
+ * The three openers are in the two squads that are actually playing.
+ *
+ * The client filters its dropdowns, but a request can be crafted directly, so
+ * this is re-checked server-side — and a Zod schema cannot do it, because it
+ * needs a database round trip.
+ *
+ * Shared by both innings, which is the point. It was inline in
+ * `createMatchWithFirstInnings` and simply absent from `startSecondInnings`,
+ * so a chase could be opened with batters from the fielding side, or with
+ * player ids belonging to another user entirely — who would then appear on
+ * that player's public career page, having never been at the ground.
+ */
+function assertOpenersInSquads(
+  battingSquad: { id: string }[],
+  bowlingSquad: { id: string }[],
+  openers: { openingStrikerId: string; openingNonStrikerId: string; openingBowlerId: string },
+): void {
+  const inBattingSquad = (id: string) => battingSquad.some((p) => p.id === id);
+  const inBowlingSquad = (id: string) => bowlingSquad.some((p) => p.id === id);
+
+  if (!inBattingSquad(openers.openingStrikerId) || !inBattingSquad(openers.openingNonStrikerId)) {
+    throw invalid('Opening batters must be in the batting squad', 'openingStrikerId');
+  }
+  if (!inBowlingSquad(openers.openingBowlerId)) {
+    throw invalid('The opening bowler must be in the bowling squad', 'openingBowlerId');
+  }
+}
+
 /** Load a match the current user owns, or throw. */
 async function requireOwnedMatch(matchId: string) {
   const userId = await getUserId();
@@ -108,15 +138,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     getTeamMembers(battingTeamId),
     getTeamMembers(bowlingTeamId),
   ]);
-  const inBattingSquad = (id: string) => battingSquad.some((p) => p.id === id);
-  const inBowlingSquad = (id: string) => bowlingSquad.some((p) => p.id === id);
-
-  if (!inBattingSquad(input.openingStrikerId) || !inBattingSquad(input.openingNonStrikerId)) {
-    throw invalid('Opening batters must be in the batting squad', 'openingStrikerId');
-  }
-  if (!inBowlingSquad(input.openingBowlerId)) {
-    throw invalid('The opening bowler must be in the bowling squad', 'openingBowlerId');
-  }
+  assertOpenersInSquads(battingSquad, bowlingSquad, input);
 
   const match = await createMatch({
     title: input.title,
@@ -180,10 +202,14 @@ export async function startSecondInnings(matchId: string, input: StartSecondInni
   const existing = allInnings.find((i) => i.inningsNumber === 2);
   if (existing) return { match, inning: existing, alreadyExisted: true as const };
 
-  // The sides swap, so the squad that bowled the first innings is the one now
-  // batting. Loaded for the same reason as in the first innings: ten wickets is
-  // the wrong number for a side that does not have eleven players.
-  const chasingSquad = await getTeamMembers(first.bowlingTeamId);
+  // The sides swap: whoever bowled the first innings now bats. Both squads are
+  // needed — one to size the innings, both to check the openers really belong
+  // to the teams playing this match.
+  const [chasingSquad, defendingSquad] = await Promise.all([
+    getTeamMembers(first.bowlingTeamId),
+    getTeamMembers(first.battingTeamId),
+  ]);
+  assertOpenersInSquads(chasingSquad, defendingSquad, input);
 
   const inning = await createInning({
     matchId: match.id,
@@ -257,12 +283,45 @@ export async function endCurrentInnings(matchId: string) {
   return { match, inning: current, alreadyEnded: false as const };
 }
 
+/**
+ * Abandon a match: rain, a dispute, or one started by mistake.
+ *
+ * Deliberately not a result. A no-result is a real outcome in cricket and is
+ * not the same as a tie, so it is recorded as one rather than faked as a
+ * scoreline nobody played to.
+ *
+ * Also the way out of a dead end: a live match could not be deleted, and the
+ * error told the caller to "finish or abandon" it while offering no way to do
+ * either. Once abandoned it is no longer live, so deletion works unchanged.
+ *
+ * Idempotent, like the other lifecycle calls here — the button gets tapped
+ * twice by someone standing in the rain.
+ */
+export async function abandonOwnedMatch(matchId: string, reason?: string) {
+  const { match } = await requireOwnedMatch(matchId);
+
+  if (match.status === 'abandoned') {
+    return { match, alreadyAbandoned: true as const };
+  }
+  if (match.status === 'completed') {
+    throw invalid('This match already has a result. Delete it instead.');
+  }
+
+  const summary = reason?.trim() ? `Match abandoned — ${reason.trim()}` : 'Match abandoned';
+  await abandonMatch(matchId, summary);
+
+  const updated = await getMatch(matchId);
+  return { match: updated ?? match, alreadyAbandoned: false as const };
+}
+
 /** Delete a match and everything scored in it. Blocked while it's live. */
 export async function deleteOwnedMatch(matchId: string) {
   const { match, userId } = await requireOwnedMatch(matchId);
 
   // Racing the auto-complete-on-chase-win logic corrupts the result, so a
-  // live match must be finished or abandoned first.
+  // live match must be finished or abandoned first. Until `abandonOwnedMatch`
+  // existed this named an action there was no way to perform, which made a
+  // mistaken match permanent.
   if (match.status === 'live') {
     throw invalid('Finish or abandon the match before deleting it');
   }

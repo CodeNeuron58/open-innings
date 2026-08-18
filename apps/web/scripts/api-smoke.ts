@@ -17,9 +17,17 @@
  * Run: SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:api
  */
 import { createHash } from 'node:crypto';
-import { eq, like } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import { db } from '../lib/db/client';
-import { users, players, teams, matches, sessions, notifySignups } from '../lib/db/schema';
+import {
+  users,
+  players,
+  teams,
+  matches,
+  innings as inningsTable,
+  sessions,
+  notifySignups,
+} from '../lib/db/schema';
 
 /** Mirrors the hashing in lib/auth/session.ts — the DB never stores raw tokens. */
 const sha256 = (input: string) => createHash('sha256').update(input).digest('hex');
@@ -464,6 +472,32 @@ async function main() {
       Array.isArray(atBreak.json.nextBattingSquad) && atBreak.json.nextBattingSquad.length > 0,
       'innings break offers the chasing side as next batters',
       atBreak.json.nextBattingSquad?.length,
+    );
+
+    // The chase needs two batters who are actually in the chasing squad, and
+    // the remove-member test above took one of them back out of team B.
+    //
+    // This script had been opening the second innings with that player anyway,
+    // and it worked: `startSecondInnings` never checked squad membership, so a
+    // chase could be opened with somebody who was not in either side — who
+    // would then appear on the scorecard and on their own public career page,
+    // having never been at the ground. The check exists on both innings now,
+    // so the fixture has to field a legal side.
+    const restored = await call('POST', `/api/teams/${teamBId}/members`, {
+      playerId: createdPlayerIds[3],
+    });
+    ok(restored.json.members.length === 2, 'chasing squad restored to two', restored.json.members);
+
+    const wrongChaseOpener = await call('POST', `/api/matches/${matchId}/innings`, {
+      openingStrikerId: createdPlayerIds[2],
+      // In the *bowling* side, not the chasing one.
+      openingNonStrikerId: createdPlayerIds[0],
+      openingBowlerId: createdPlayerIds[0],
+    });
+    ok(
+      wrongChaseOpener.status === 400,
+      'chase opener outside the chasing squad → 400',
+      wrongChaseOpener,
     );
 
     const second = await call('POST', `/api/matches/${matchId}/innings`, {
@@ -952,14 +986,42 @@ async function main() {
     const badFormat = await call('GET', `/api/matches/${matchId}/export?format=pdf`);
     ok(badFormat.status === 400, 'an unsupported format → 400', badFormat);
 
-    // ── 10. Delete ──────────────────────────────────────────────────────────
-    console.log('delete');
+    // ── 10. Abandon, then delete ────────────────────────────────────────────
+    //
+    // These belong together, because until there was a way to abandon a match
+    // there was no way to delete a live one either — and this script hid that
+    // by reaching past the API and setting `status = 'completed'` in the
+    // database. A fixture that writes the state the endpoint refuses to reach
+    // proves the endpoint works on state a user can never produce.
+    console.log('abandon + delete');
     const liveDelete = await call('DELETE', `/api/matches/${matchId}`);
     ok(liveDelete.status === 400, 'deleting a live match → 400', liveDelete);
 
-    await db.update(matches).set({ status: 'completed' }).where(eq(matches.id, matchId));
+    const abandoned = await call('POST', `/api/matches/${matchId}/abandon`, { reason: 'Rain' });
+    ok(abandoned.status === 200, 'abandoning a live match → 200', abandoned);
+    ok(abandoned.json.match?.status === 'abandoned', 'match status = abandoned', abandoned.json);
+    ok(abandoned.json.match?.result === 'no_result', 'match result = no_result', abandoned.json);
+    ok(
+      typeof abandoned.json.match?.summary === 'string' &&
+        abandoned.json.match.summary.includes('Rain'),
+      'the reason reaches the scorecard',
+      abandoned.json,
+    );
+
+    // Tapped twice by somebody packing up in the rain.
+    const abandonedTwice = await call('POST', `/api/matches/${matchId}/abandon`);
+    ok(abandonedTwice.status === 200, 'abandoning twice → 200', abandonedTwice);
+
+    // No innings may be left in progress, or the scorer console would still
+    // offer to take deliveries for a match that is over.
+    const openInnings = await db
+      .select({ id: inningsTable.id })
+      .from(inningsTable)
+      .where(and(eq(inningsTable.matchId, matchId), eq(inningsTable.status, 'in_progress')));
+    ok(openInnings.length === 0, 'abandon closes every innings still in progress', openInnings);
+
     const goneDelete = await call('DELETE', `/api/matches/${matchId}`);
-    ok(goneDelete.status === 200, 'deleting a finished match → 200', goneDelete);
+    ok(goneDelete.status === 200, 'deleting an abandoned match → 200', goneDelete);
 
     const afterDelete = await call('GET', `/api/matches/${matchId}`);
     ok(afterDelete.status === 404, 'deleted match → 404', afterDelete);
