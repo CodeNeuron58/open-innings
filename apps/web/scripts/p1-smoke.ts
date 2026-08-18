@@ -101,10 +101,11 @@ async function main() {
     throw new Error('Seeded innings is missing openers');
   }
 
-  // Start from a pristine innings — the extras assertions below all bowl to
-  // the opening pair, so any leftover ball would have rotated the strike.
-  // score-smoke runs first in CI and leaves this match completed, so the
-  // match status has to come back too.
+  // Start from a pristine innings, so the run and extras totals below are
+  // predictable rather than stacked on whatever was already scored. The pair
+  // at the crease is read back from each response, so rotation is no longer a
+  // reason for this — but score-smoke runs first in CI and leaves this match
+  // completed, so the status still has to come back.
   const stale2 = await db
     .select()
     .from(inningsTable)
@@ -131,19 +132,54 @@ async function main() {
       headers: { 'Content-Type': 'application/json', cookie },
       body: JSON.stringify(body),
     });
-    return { status: res.status, json: (await res.json()) as { state?: { balls: unknown[] } } };
+    return {
+      status: res.status,
+      json: (await res.json()) as {
+        state?: {
+          balls: unknown[];
+          currentInnings: { strikerId: string; nonStrikerId: string; currentBowlerId: string };
+        };
+      },
+    };
   };
-  const base = {
-    inningsId: inn1.id,
+
+  /*
+   * The pair at the crease, read back from the replayed state after every
+   * delivery rather than assumed to be the openers.
+   *
+   * This script used to send a fixed `base` for both balls below, on the
+   * reasoning that neither would rotate the strike. That was only true while
+   * the engine had the rotation bug: a wide worth four is one penalty plus
+   * three runs *run*, the batters cross an odd number of times, and the
+   * strike turns over. The old code compared `totalRuns` — four, even — and
+   * left them where they were, so this script and the engine were wrong
+   * together and agreed.
+   *
+   * Reading the pair back means the script asserts what it is actually about
+   * (how runs are split between bat and extras) without also encoding a
+   * second claim about rotation that belongs in the engine's own tests.
+   */
+  let pair = {
     batsmanId: inn1.openingStrikerId,
     nonStrikerId: inn1.openingNonStrikerId,
     bowlerId: inn1.openingBowlerId,
+  };
+  const base = () => ({ inningsId: inn1.id, ...pair });
+  const refresh = (state?: {
+    currentInnings: { strikerId: string; nonStrikerId: string; currentBowlerId: string };
+  }) => {
+    if (!state) return;
+    pair = {
+      batsmanId: state.currentInnings.strikerId,
+      nonStrikerId: state.currentInnings.nonStrikerId,
+      bowlerId: state.currentInnings.currentBowlerId,
+    };
   };
 
   // Wide worth 4 total (byes run after the keeper misses it) — ALL 4 must be
   // extras; the batter must not be credited with any runs off the bat.
   const wideRes = await post({
-    ...base,
+    ...base(),
     eventType: 'wide',
     runsOffBat: 0,
     extraRuns: 4,
@@ -154,11 +190,12 @@ async function main() {
     { runsOffBat: number; extraRuns: number; totalRuns: number } | undefined;
   ok(wideBall?.runsOffBat === 0, 'wide: runsOffBat is 0 (bat never touched it)', wideBall);
   ok(wideBall?.extraRuns === 4, 'wide: all 4 runs recorded as extras', wideBall);
+  refresh(wideRes.json.state);
 
   // No-ball worth 5 total (1 penalty + a struck four) — the 4 struck runs
   // belong to the batter; only the 1-run penalty is an extra.
   const nbRes = await post({
-    ...base,
+    ...base(),
     eventType: 'no_ball',
     runsOffBat: 4,
     extraRuns: 1,
@@ -169,6 +206,7 @@ async function main() {
     { runsOffBat: number; extraRuns: number; totalRuns: number } | undefined;
   ok(nbBall?.runsOffBat === 4, 'no-ball: 4 runs credited to the batter', nbBall);
   ok(nbBall?.extraRuns === 1, 'no-ball: exactly 1 extra (the penalty)', nbBall);
+  refresh(nbRes.json.state);
 
   // ── 3. deleteMatch ───────────────────────────────────────────────────────
   console.log('deleteMatch');
