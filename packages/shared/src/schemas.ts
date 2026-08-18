@@ -170,9 +170,74 @@ export const createMatchSchema = z
   );
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;
 
-/** Innings 2 needs openers only — sides and target are derived from innings 1. */
-export const startSecondInningsSchema = openersSchema;
-export type StartSecondInningsInput = z.infer<typeof startSecondInningsSchema>;
+/**
+ * Any innings after the first needs openers only.
+ *
+ * Which innings it is, which way round the sides go, and what the target is
+ * are all derived from what has already been played — the client does not get
+ * to assert any of them. Named for the second innings when that was the only
+ * one that could be started; a super over is innings 3 and 4 and takes exactly
+ * the same three players.
+ */
+export const startNextInningsSchema = openersSchema;
+export type StartNextInningsInput = z.infer<typeof startNextInningsSchema>;
+
+/** @deprecated Use `startNextInningsSchema`. */
+export const startSecondInningsSchema = startNextInningsSchema;
+/** @deprecated Use `StartNextInningsInput`. */
+export type StartSecondInningsInput = StartNextInningsInput;
+
+/**
+ * What can be changed about a match after it has been created.
+ *
+ * Deliberately narrow. The teams cannot move — every ball already recorded
+ * names players from the squads that were chosen — and neither can the toss,
+ * because `resolveBattingSides` read it once to decide who batted and the
+ * innings rows carry that answer.
+ *
+ * `oversPerInnings` is the one that is load-bearing rather than cosmetic: the
+ * engine ends an innings on it, so changing it re-decides whether an innings
+ * that has already been scored is over. The service recomputes and only
+ * permits it while the match is live.
+ */
+export const updateMatchSchema = z
+  .object({
+    title: optionalText(120),
+    venue: optionalText(120),
+    format: z.enum(MATCH_FORMATS).optional(),
+    oversPerInnings: z.coerce.number().int().min(1).max(200).optional(),
+    maxOversPerBowler: z.coerce.number().int().min(1).max(200).nullable().optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: 'Nothing to change',
+  });
+export type UpdateMatchInput = z.infer<typeof updateMatchSchema>;
+
+/**
+ * The two facts that belong to a squad membership rather than to a person.
+ *
+ * Somebody captains one club and bats at six for another, so captaincy and
+ * keeping live on the membership. Both columns have existed since the first
+ * migration and nothing has ever written them, which is why every squad in the
+ * system has no captain and no keeper.
+ *
+ * Each field is tri-state: absent leaves it alone, so setting a jersey number
+ * does not silently strip a captaincy.
+ */
+export const updateTeamMemberSchema = z
+  .object({
+    playerId: idSchema,
+    isCaptain: z.boolean().optional(),
+    isWicketkeeper: z.boolean().optional(),
+    /** Null clears it. Two digits is the convention; three is allowed. */
+    jerseyNumber: z.coerce.number().int().min(0).max(999).nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      v.isCaptain !== undefined || v.isWicketkeeper !== undefined || v.jerseyNumber !== undefined,
+    { message: 'Nothing to change' },
+  );
+export type UpdateTeamMemberInput = z.infer<typeof updateTeamMemberSchema>;
 
 // ---------------------------------------------------------------------------
 // Ball events

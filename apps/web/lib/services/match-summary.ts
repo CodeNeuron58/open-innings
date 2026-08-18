@@ -69,6 +69,15 @@ export type MatchSummary = {
    * one — it is "who had the biggest game", computed.
    */
   playerOfTheMatch: { playerId: string; name: string; line: string } | null;
+  /**
+   * The scores are level and a super over can be opened.
+   *
+   * Answered here rather than left to the client, because the rule belongs to
+   * the server — `startNextInnings` refuses innings 3 unless the match is
+   * tied, and a button offering something the API will reject is worse than no
+   * button at all.
+   */
+  canStartSuperOver: boolean;
 };
 
 function oversOf(balls: number): string {
@@ -271,6 +280,9 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
     bestBowler,
     mostSixes,
     playerOfTheMatch: potm,
+    // Only after a completed second innings: innings 3 and 4 are the super
+    // over itself, and a tie there needs another one, which is not supported.
+    canStartSuperOver: match.result === 'tie' && allInnings.length === 2,
   };
 }
 

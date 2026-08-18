@@ -6,8 +6,19 @@
  * only one of them is a rule that isn't enforced.
  */
 import 'server-only';
-import type { CreateMatchInput, StartSecondInningsInput } from '@open-innings/shared';
+import type {
+  CreateMatchInput,
+  StartNextInningsInput,
+  UpdateMatchInput,
+} from '@open-innings/shared';
 import { resolveBattingSides } from '@open-innings/shared';
+import {
+  SUPER_OVER_MAX_WICKETS,
+  asInningsId,
+  asPlayerId,
+  replayInnings,
+} from '@open-innings/scoring';
+import type { Innings } from '@/lib/db/schema';
 import {
   createMatch,
   createInning,
@@ -21,6 +32,9 @@ import {
   deleteMatch,
   completeMatch,
   abandonMatch,
+  reopenMatch,
+  updateMatchDetails,
+  listBallEvents,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
@@ -185,48 +199,208 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
 }
 
 /**
- * Open innings 2 with the target set from innings 1.
+ * Open the next innings: the chase, or a super over after a tie.
  *
- * Idempotent on double-submit: if innings 2 already exists it returns it
- * rather than creating a second one.
+ * One function rather than two, because every difference between them is
+ * data. Which innings it is, which way round the sides go, and what the target
+ * is are all read from what has already been played — the caller sends three
+ * openers and nothing else, so there is no way to assert a state the match is
+ * not in.
+ *
+ * Idempotent at every step. The innings break and the result screen are both
+ * places a nervous second tap happens.
  */
-export async function startSecondInnings(matchId: string, input: StartSecondInningsInput) {
+export async function startNextInnings(matchId: string, input: StartNextInningsInput) {
   const { match } = await requireOwnedMatch(matchId);
-
   const allInnings = await getInnings(matchId);
-  const first = allInnings.find((i) => i.inningsNumber === 1);
-  if (!first || first.status !== 'completed') {
-    throw invalid('The first innings has not finished yet');
+  const at = (n: number) => allInnings.find((i) => i.inningsNumber === n);
+
+  const first = at(1);
+  const second = at(2);
+  const third = at(3);
+  const fourth = at(4);
+  const played = (i?: Innings) => i?.status === 'completed';
+
+  /*
+   * Which innings comes next, and off which one.
+   *
+   * A super over is innings 3 and 4, and is refused unless the match is
+   * genuinely tied — it is not something a scorer decides to have. Innings 3
+   * bats the side that batted second in the match, which is the playing
+   * condition, so the sides do **not** swap there as they do everywhere else.
+   */
+  let battingTeamId: string;
+  let bowlingTeamId: string;
+  let inningsNumber: 2 | 3 | 4;
+  let target: number | undefined;
+
+  if (!second) {
+    if (!first || !played(first)) throw invalid('The first innings has not finished yet');
+    battingTeamId = first.bowlingTeamId;
+    bowlingTeamId = first.battingTeamId;
+    inningsNumber = 2;
+    target = first.runs + 1;
+  } else if (!third) {
+    if (!played(second)) return { match, inning: second, alreadyExisted: true as const };
+    if (match.result !== 'tie') {
+      throw invalid('A Super Over is only played when the scores are level');
+    }
+    battingTeamId = second.battingTeamId;
+    bowlingTeamId = second.bowlingTeamId;
+    inningsNumber = 3;
+    target = undefined;
+  } else if (!fourth) {
+    if (!played(third)) return { match, inning: third, alreadyExisted: true as const };
+    battingTeamId = third.bowlingTeamId;
+    bowlingTeamId = third.battingTeamId;
+    inningsNumber = 4;
+    target = third.runs + 1;
+  } else {
+    /*
+     * A tied super over is replayed in the professional game. Innings are
+     * capped at four — see migration 0010 — so this returns the last one
+     * rather than failing on a constraint the caller cannot see. Repeat super
+     * overs are a real gap, and one worth naming rather than crashing into.
+     */
+    return { match, inning: fourth, alreadyExisted: true as const };
   }
 
-  const existing = allInnings.find((i) => i.inningsNumber === 2);
-  if (existing) return { match, inning: existing, alreadyExisted: true as const };
-
-  // The sides swap: whoever bowled the first innings now bats. Both squads are
-  // needed — one to size the innings, both to check the openers really belong
-  // to the teams playing this match.
-  const [chasingSquad, defendingSquad] = await Promise.all([
-    getTeamMembers(first.bowlingTeamId),
-    getTeamMembers(first.battingTeamId),
+  // Both squads: one to size the innings, both to check the openers really
+  // belong to the teams playing this match.
+  const [battingSquad, bowlingSquad] = await Promise.all([
+    getTeamMembers(battingTeamId),
+    getTeamMembers(bowlingTeamId),
   ]);
-  assertOpenersInSquads(chasingSquad, defendingSquad, input);
+  assertOpenersInSquads(battingSquad, bowlingSquad, input);
+
+  /*
+   * A super over is two wickets, and still no more than the side has players
+   * for. Its length needs no storing: the engine caps innings 3 and 4 at one
+   * over from the innings number alone.
+   */
+  const squadWickets = sizeMaxWickets(battingSquad.length);
+  const maxWickets =
+    inningsNumber >= 3 ? Math.min(SUPER_OVER_MAX_WICKETS, squadWickets) : squadWickets;
 
   const inning = await createInning({
     matchId: match.id,
-    inningsNumber: 2,
-    battingTeamId: first.bowlingTeamId,
-    bowlingTeamId: first.battingTeamId,
-    target: first.runs + 1,
+    inningsNumber,
+    battingTeamId,
+    bowlingTeamId,
+    target,
     openingStrikerId: input.openingStrikerId,
     openingNonStrikerId: input.openingNonStrikerId,
     openingBowlerId: input.openingBowlerId,
-    maxWickets: sizeMaxWickets(chasingSquad.length),
+    maxWickets,
   });
-  if (!inning) throw new Error('Could not create the second innings');
+  if (!inning) throw new Error('Could not create the innings');
 
   await updateInningCache(inning.id, { status: 'in_progress', startedAt: new Date() });
 
-  return { match, inning, alreadyExisted: false as const };
+  // The tie closed the match. A super over reopens it, or the ball endpoint
+  // would refuse every delivery of the innings it was just asked to open.
+  if (inningsNumber === 3) await reopenMatch(matchId);
+
+  const fresh = await getMatch(matchId);
+  return { match: fresh ?? match, inning, alreadyExisted: false as const };
+}
+
+/** @deprecated Use `startNextInnings`, which also opens a super over. */
+export const startSecondInnings = startNextInnings;
+
+/**
+ * Change what a match says about itself.
+ *
+ * `oversPerInnings` is the one that is not cosmetic. The engine ends an
+ * innings on it, so changing it re-decides whether an innings already scored
+ * is over: shorten a twenty-over game to ten after twelve overs and that
+ * innings finished two overs ago. The cached score would go on saying "in
+ * progress" until the next delivery, which the engine would then refuse.
+ *
+ * So it is allowed only while the match is still being played, and every
+ * innings is replayed afterwards. A finished match keeps its length —
+ * re-deciding a result that has already been shared is a different feature
+ * with a different name.
+ */
+export async function updateOwnedMatch(matchId: string, input: UpdateMatchInput) {
+  const { match, userId } = await requireOwnedMatch(matchId);
+
+  const lengthChanged =
+    input.oversPerInnings !== undefined && input.oversPerInnings !== match.oversPerInnings;
+
+  if (lengthChanged && match.status !== 'live' && match.status !== 'scheduled') {
+    throw invalid(
+      'The innings length can only be changed while the match is being played',
+      'oversPerInnings',
+    );
+  }
+
+  await updateMatchDetails(matchId, userId, input);
+
+  if (lengthChanged || input.maxOversPerBowler !== undefined) {
+    await recomputeInningsCaches(matchId);
+  }
+
+  return (await getMatch(matchId)) ?? match;
+}
+
+/**
+ * Replay every innings of a match and write back what the deliveries say.
+ *
+ * The cached columns on `innings` are a read optimisation over the ball log,
+ * and they stay correct because every write path recomputes them. Changing a
+ * playing condition is the exception: it alters what the same deliveries mean
+ * without adding one, so nothing would recompute until the next ball — and by
+ * then the engine and the cache would disagree about whether the innings was
+ * still open.
+ *
+ * A function rather than four lines inside its one caller, because ball
+ * correction needs exactly this shape.
+ */
+export async function recomputeInningsCaches(matchId: string): Promise<void> {
+  const match = await getMatch(matchId);
+  if (!match) return;
+
+  for (const inn of await getInnings(matchId)) {
+    const balls = await listBallEvents(inn.id);
+    const state = replayInnings(
+      {
+        matchId: match.id,
+        oversPerInnings: match.oversPerInnings,
+        teamAId: match.teamAId,
+        teamBId: match.teamBId,
+        battingTeamId: inn.battingTeamId,
+        bowlingTeamId: inn.bowlingTeamId,
+        inningsId: inn.id,
+        inningsNumber: inn.inningsNumber as 1 | 2 | 3 | 4,
+        strikerId: inn.openingStrikerId ?? '',
+        nonStrikerId: inn.openingNonStrikerId ?? '',
+        bowlerId: inn.openingBowlerId ?? '',
+        maxWickets: inn.maxWickets,
+        target: inn.target ?? undefined,
+        maxOversPerBowler: match.maxOversPerBowler ?? undefined,
+      },
+      balls.map((b) => ({
+        ...b,
+        inningsId: asInningsId(b.inningsId),
+        batsmanId: asPlayerId(b.batsmanId),
+        nonStrikerId: asPlayerId(b.nonStrikerId),
+        bowlerId: asPlayerId(b.bowlerId),
+        wicketPlayerId: b.wicketPlayerId ? asPlayerId(b.wicketPlayerId) : undefined,
+        fielderId: b.fielderId ? asPlayerId(b.fielderId) : undefined,
+        wicketType: b.wicketType ?? undefined,
+        commentary: b.commentary ?? undefined,
+      })),
+    );
+
+    await updateInningCache(inn.id, {
+      runs: state.currentInnings.runs,
+      wickets: state.currentInnings.wickets,
+      ballsBowled: state.currentInnings.ballsBowled,
+      extras: state.currentInnings.extras,
+      status: state.currentInnings.status,
+    });
+  }
 }
 
 /**
@@ -276,7 +450,8 @@ export async function endCurrentInnings(matchId: string) {
             ? 'team_a_win'
             : 'team_b_win',
       winningTeamId: result.winningTeamId,
-      summary: formatMatchResult(result, winner?.name),
+      // Nobody says a super over was won by seven runs.
+      summary: formatMatchResult(result, winner?.name, { superOver: current.inningsNumber >= 3 }),
     });
   }
 

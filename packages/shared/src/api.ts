@@ -253,6 +253,14 @@ export type MatchResultResponse = {
    * had the biggest game", not as an award — see the service for why.
    */
   playerOfTheMatch: { playerId: string; name: string; line: string } | null;
+  /**
+   * The match is tied and a super over can be started.
+   *
+   * On the response rather than left to the client to infer, because the rule
+   * is the server's: innings 3 is refused unless the scores are level, and a
+   * button that offers something the API will reject is worse than no button.
+   */
+  canStartSuperOver: boolean;
 };
 
 /** One delivery, with names already resolved so the client renders no ids. */

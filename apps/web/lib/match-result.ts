@@ -40,9 +40,21 @@ export function computeMatchResult(inn: ChaseInnings): MatchResult {
 export function formatMatchResult(
   result: MatchResult,
   winnerName: string | null | undefined,
+  opts: { superOver?: boolean } = {},
 ): string {
-  if (result.winningTeamId === null) return 'Match tied';
+  if (result.winningTeamId === null) {
+    // A tied super over needs another one, and innings are capped at four —
+    // see migration 0010. Said plainly rather than reported as a plain tie,
+    // which would look like the super over had not happened.
+    return opts.superOver ? 'Super Over tied' : 'Match tied';
+  }
   const name = winnerName ?? 'Winner';
+  /*
+   * Nobody says a super over was won by seven runs. It is one over a side and
+   * the margin is not the story — "won the Super Over" is how it is reported
+   * and how a scorer would read it back.
+   */
+  if (opts.superOver) return `${name} won the Super Over`;
   if (result.marginWickets !== undefined) {
     return `${name} won by ${result.marginWickets} wicket${result.marginWickets === 1 ? '' : 's'}`;
   }
