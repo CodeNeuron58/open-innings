@@ -111,11 +111,22 @@ export type Milestone = {
  * function so that if this ever needs to become April–March, there is a single
  * place to change it.
  */
-function seasonOf(date: Date): number {
+/*
+ * The four functions below are exported for tests, not for callers.
+ *
+ * They are the only genuinely intricate logic in this file — high score and
+ * its asterisk, best bowling figures, ordinals, and when a milestone happened
+ * — and all four are pure. They were reachable only through `careerFor`,
+ * which needs a database, so nothing could exercise them without one and
+ * nothing did.
+ *
+ * Prefer `careerFor` from application code; it is the whole answer.
+ */
+export function seasonOf(date: Date): number {
   return date.getFullYear();
 }
 
-function foldBatting(rows: BattingInnings[]): BattingCareer {
+export function foldBatting(rows: BattingInnings[]): BattingCareer {
   const runs = rows.reduce((n, r) => n + r.runs, 0);
   const balls = rows.reduce((n, r) => n + r.balls, 0);
   const outs = rows.filter((r) => r.isOut).length;
@@ -148,7 +159,7 @@ function foldBatting(rows: BattingInnings[]): BattingCareer {
   };
 }
 
-function foldBowling(rows: BowlingInnings[]): BowlingCareer {
+export function foldBowling(rows: BowlingInnings[]): BowlingCareer {
   const balls = rows.reduce((n, r) => n + r.balls, 0);
   const runs = rows.reduce((n, r) => n + r.runs, 0);
   const wickets = rows.reduce((n, r) => n + r.wickets, 0);
@@ -201,7 +212,7 @@ const ORDINALS = [
   'Tenth',
 ] as const;
 
-function ordinal(n: number): string {
+export function ordinal(n: number): string {
   const word = ORDINALS[n - 1];
   if (word) return word;
   // 11th, 12th, 13th are the exceptions to the -st/-nd/-rd rule.
@@ -227,7 +238,10 @@ function ordinal(n: number): string {
  * crossed the fifty mark a dozen times, and listing all of them buries the
  * one that matters.
  */
-function milestonesFor(battingRows: BattingInnings[], bowlingRows: BowlingInnings[]): Milestone[] {
+export function milestonesFor(
+  battingRows: BattingInnings[],
+  bowlingRows: BowlingInnings[],
+): Milestone[] {
   // Chronological position of every match this player appeared in, so
   // "matches ago" counts appearances rather than calendar time — a player who
   // missed two months has not had a milestone age by two months.

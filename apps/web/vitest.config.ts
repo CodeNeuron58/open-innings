@@ -15,6 +15,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, '.'),
+      // See test/server-only-stub.ts — the real package is resolution-only
+      // and cannot load outside a bundler.
+      'server-only': resolve(__dirname, 'test/server-only-stub.ts'),
     },
   },
 });
