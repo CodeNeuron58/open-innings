@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Blueprint } from '@/components/marketing/blueprint';
+import { CONTACT_EMAIL, CONTACT_MAILTO } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Privacy',
@@ -309,8 +310,8 @@ export default function PrivacyPage() {
             <div className="oi-faq-aside-rule" />
             <span className="oi-kick oi-faq-aside-kick">Contact</span>
             <p className="oi-faq-aside-body oi-faq-aside-last">
-              <a className="oi-fl" href="mailto:biprayanchoudhuri58@gmail.com">
-                biprayanchoudhuri58@gmail.com
+              <a className="oi-fl" href={CONTACT_MAILTO}>
+                {CONTACT_EMAIL}
               </a>
               <br />
               Anything about your data, at that address. Bugs are better in{' '}

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Blueprint } from '@/components/marketing/blueprint';
+import { CONTACT_EMAIL, CONTACT_MAILTO } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Delete your account',
@@ -99,8 +100,8 @@ export default function DeleteAccountPage() {
               will do it for you. No reason needed, and no attempt to talk you out of it.
             </p>
             <p className="oi-faq-aside-body">
-              <a className="oi-fl" href="mailto:biprayanchoudhuri58@gmail.com">
-                biprayanchoudhuri58@gmail.com
+              <a className="oi-fl" href={CONTACT_MAILTO}>
+                {CONTACT_EMAIL}
               </a>
             </p>
             <div className="oi-faq-aside-rule" />
