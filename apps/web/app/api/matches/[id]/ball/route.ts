@@ -17,23 +17,25 @@ import {
   type MatchState,
 } from '@open-innings/scoring';
 import {
+  ballByRequestId,
+  completeMatch,
+  getTeam,
   loadMatchInProgress,
   recordBall,
   removeLastBall,
-  completeMatch,
-  getTeam,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { consistentBallEventSchema } from '@open-innings/shared';
 import { enforceRateLimit } from '@/lib/api/request-meta';
-import { readJson, toErrorResponse } from '@/lib/api/respond';
+import { readJson, toErrorResponse, assertId } from '@/lib/api/respond';
 import { buildSeed } from '@/lib/services/innings-seed';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, ctx: RouteParams) {
   const { id: matchId } = await ctx.params;
+  assertId(matchId);
 
   try {
     const userId = await getUserId();
@@ -57,6 +59,25 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         { error: 'Only the match owner can score this match' },
         { status: 403 },
       );
+    }
+
+    /*
+     * Already recorded under this id? Then this is a retry of a request that
+     * succeeded and whose response never arrived, and the honest answer is
+     * the success the scorer did not get to see — not a 409, which would show
+     * as an error for a ball that is already on the scorecard.
+     *
+     * The check is a read, so it loses a genuine race. The partial unique
+     * index from migration 0013 catches that case, and `respond.ts` maps the
+     * violation.
+     */
+    if (parsed.requestId) {
+      const already = await ballByRequestId(currentInnings.id, parsed.requestId);
+      if (already) {
+        return NextResponse.json({
+          state: replayEvents(buildSeed(match, currentInnings), ballsToInputs(balls)),
+        });
+      }
     }
 
     // Server-owned fields are derived, not accepted from body.
@@ -121,6 +142,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         fielderId: newBall.fielderId ?? null,
         bowlerReplacedMidOver: newBall.bowlerReplacedMidOver ?? false,
         commentary: newBall.commentary ?? null,
+        requestId: parsed.requestId ?? null,
       },
       currentInnings.id,
       {
@@ -131,6 +153,11 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         status: updated.status,
         ...(updated.status === 'completed' ? { completedAt: new Date() } : {}),
       },
+      // The cache above describes the innings as it was when `balls` was read.
+      // If anything has landed since — a correction from another device, most
+      // plausibly — this write would overwrite it with a number computed from
+      // a state that no longer exists. Refuse instead.
+      balls.length,
     );
 
     // Chase innings just finished → the match has a result.
@@ -177,6 +204,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
 
 export async function DELETE(request: NextRequest, ctx: RouteParams) {
   const { id: matchId } = await ctx.params;
+  assertId(matchId);
   try {
     const userId = await getUserId();
     if (!userId) {

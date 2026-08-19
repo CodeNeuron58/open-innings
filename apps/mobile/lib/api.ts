@@ -37,6 +37,7 @@ import {
 } from '@open-innings/shared';
 import type { BallEventInput, MatchState } from '@open-innings/scoring';
 import { API_BASE, MISSING_API_BASE_MESSAGE } from './config';
+import { newRequestId } from './request-id';
 
 /** A non-2xx response, carrying the server's `{ error }` contract. */
 export class ApiError extends Error {
@@ -293,11 +294,24 @@ export const api = {
   scorer: (token: string, matchId: string, signal?: AbortSignal) =>
     apiFetch<ScorerResponse>(`/api/matches/${matchId}/scorer`, { token, signal }),
 
-  /** Record a delivery. Returns the replayed state — never patch locally. */
-  postBall: async (token: string, matchId: string, ball: BallEventInput): Promise<MatchState> => {
+  /**
+   * Record a delivery. Returns the replayed state — never patch locally.
+   *
+   * `requestId` identifies this delivery rather than this HTTP call, so the
+   * server can recognise a resend. Pass the **same** id when re-sending a
+   * delivery whose outcome you did not learn; pass a new one for a new ball.
+   * Omitting it falls back to the old behaviour, where a retry after a lost
+   * response records the ball a second time.
+   */
+  postBall: async (
+    token: string,
+    matchId: string,
+    ball: BallEventInput,
+    requestId: string = newRequestId(),
+  ): Promise<MatchState> => {
     const result = await apiFetch<BallResponse>(`/api/matches/${matchId}/ball`, {
       method: 'POST',
-      body: ball,
+      body: { ...ball, requestId },
       token,
     });
     return result.state as MatchState;

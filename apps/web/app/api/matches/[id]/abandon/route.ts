@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { HTTP } from '@open-innings/shared';
 import { abandonOwnedMatch } from '@/lib/services/matches';
-import { handle, readJson } from '@/lib/api/respond';
+import { handle, readJson, assertId } from '@/lib/api/respond';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -17,6 +17,7 @@ const bodySchema = z.object({
 
 export const POST = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
 
   // An empty body is a valid abandon; reason is optional.
   const { reason } = await readJson(request, bodySchema).catch(() => ({ reason: undefined }));

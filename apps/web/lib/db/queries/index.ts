@@ -150,13 +150,42 @@ export async function mergePlayerInto(
     // would silently detach them from their own career.
     if (dupe.userId && dupe.userId !== keep.userId) return null;
 
+    /*
+     * Refuse if both players appear in the same innings, in any role.
+     *
+     * This compared `batsman_id` to `batsman_id` and nothing else, which
+     * caught only the case where both had batted. The rest of the merge
+     * rewrites five columns, so the guard has to consider the same five or it
+     * is checking a different question from the one the merge asks.
+     *
+     * The gap was reachable with an ordinary duplicate: survivor batted in an
+     * innings, duplicate bowled in it. No two `batsman_id` values collide, the
+     * guard passes, and the update below sets `bowler_id` to the survivor —
+     * producing deliveries where the bowler is also the batsman. That is
+     * exactly what `validateRoles` in the engine exists to reject. Replay is
+     * tolerant, so the card still renders and nothing announces the damage,
+     * but the duplicate row has been deleted in the same transaction and the
+     * corruption is permanent.
+     */
+    const roleColumns = sql`
+      unnest(array[a.batsman_id, a.non_striker_id, a.bowler_id,
+                   a.wicket_player_id, a.fielder_id])
+    `;
     const clash = await tx.execute<{ innings_id: string }>(sql`
-      select a.innings_id
-      from ball_events a
-      join ball_events b on b.innings_id = a.innings_id
-      where a.batsman_id in (${keepId}::uuid, ${duplicateId}::uuid)
-        and b.batsman_id in (${keepId}::uuid, ${duplicateId}::uuid)
-        and a.batsman_id <> b.batsman_id
+      with roles as (
+        select a.innings_id, ${roleColumns} as player_id
+        from ball_events a
+        where a.batsman_id in (${keepId}::uuid, ${duplicateId}::uuid)
+           or a.non_striker_id in (${keepId}::uuid, ${duplicateId}::uuid)
+           or a.bowler_id in (${keepId}::uuid, ${duplicateId}::uuid)
+           or a.wicket_player_id in (${keepId}::uuid, ${duplicateId}::uuid)
+           or a.fielder_id in (${keepId}::uuid, ${duplicateId}::uuid)
+      )
+      select innings_id
+      from roles
+      where player_id in (${keepId}::uuid, ${duplicateId}::uuid)
+      group by innings_id
+      having count(distinct player_id) > 1
       limit 1
     `);
     if (clash.length > 0) return null;
@@ -626,7 +655,10 @@ export async function updateInningCache(
 // Ball events — the source of truth
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type BallEventInsert = Omit<BallEvent, 'id' | 'createdAt' | 'createdBy'>;
+export type BallEventInsert = Omit<BallEvent, 'id' | 'createdAt' | 'createdBy' | 'requestId'> & {
+  /** Optional: rows written before migration 0013 have none, and a client that does not send one still scores. */
+  requestId?: string | null;
+};
 
 /**
  * Insert a delivery on its own, without touching the innings cache.
@@ -679,6 +711,30 @@ export async function recordBall(
     status: 'not_started' | 'in_progress' | 'completed';
     completedAt?: Date;
   },
+  /**
+   * How many balls the innings held when `cache` was computed.
+   *
+   * `cache` describes the innings *as of a read that has already happened*,
+   * and this write used to apply it unconditionally. `replaceBallSequence`
+   * has guarded against exactly that since it was written; this path never
+   * did, and it is the one that runs on every delivery.
+   *
+   * The losing sequence needs no unusual timing. Device A corrects ball 3
+   * from a four to a dot and commits, so the innings drops from 87 to 83.
+   * Device B, holding a read from before that, posts ball 6 — a genuinely new
+   * ball, so the unique index is content — and writes `runs = 88`. The log
+   * now says 84 and the cache says 88, and nothing recomputes it:
+   * `recomputeInningsCaches` only runs when the overs or the bowler quota
+   * change.
+   *
+   * That is not cosmetic drift. `matches.ts` reads this cache to set the
+   * chase target for the second innings, and reads it again to decide who
+   * won — so a stale write can hand the match to the wrong side and store a
+   * result the scorecard will contradict for ever.
+   *
+   * Omit only for a caller that has genuinely just counted.
+   */
+  expectedBalls?: number,
 ): Promise<BallEvent | null> {
   const userId = await getUserId();
   if (!userId) {
@@ -686,6 +742,16 @@ export async function recordBall(
   }
 
   return db.transaction(async (tx) => {
+    if (expectedBalls !== undefined) {
+      const [{ count } = { count: 0 }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(ballEvents)
+        .where(eq(ballEvents.inningsId, inningsId));
+      if (count !== expectedBalls) {
+        throw new StaleInningsError(expectedBalls, count);
+      }
+    }
+
     const rows = await tx
       .insert(ballEvents)
       .values({ ...input, createdBy: userId })
@@ -695,6 +761,34 @@ export async function recordBall(
 
     return rows[0] ?? null;
   });
+}
+
+/**
+ * The innings moved between the read that produced a cache and the write of
+ * it. The caller should re-read and replay rather than retry blindly — the
+ * delivery may be perfectly valid against the innings as it now stands.
+ */
+export class StaleInningsError extends Error {
+  constructor(
+    readonly expected: number,
+    readonly actual: number,
+  ) {
+    super(`Innings moved while scoring: expected ${expected} balls, found ${actual}`);
+    this.name = 'StaleInningsError';
+  }
+}
+
+/** The delivery already recorded under this client-generated request id, if any. */
+export async function ballByRequestId(
+  inningsId: string,
+  requestId: string,
+): Promise<BallEvent | null> {
+  const rows = await db
+    .select()
+    .from(ballEvents)
+    .where(and(eq(ballEvents.inningsId, inningsId), eq(ballEvents.requestId, requestId)))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 export async function listBallEvents(inningsId: string): Promise<BallEvent[]> {

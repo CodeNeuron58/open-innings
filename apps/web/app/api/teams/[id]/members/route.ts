@@ -14,12 +14,13 @@ import {
   removeMemberFromOwnedTeam,
   updateOwnedTeamMember,
 } from '@/lib/services/squads';
-import { readJson, handle } from '@/lib/api/respond';
+import { readJson, handle, assertId } from '@/lib/api/respond';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const POST = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const { playerId } = await readJson(request, teamMemberSchema);
 
   await addMemberToOwnedTeam(id, playerId);
@@ -33,6 +34,7 @@ export const POST = handle(async (request: Request, ctx: RouteParams) => {
  */
 export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const input = await readJson(request, updateTeamMemberSchema);
 
   await updateOwnedTeamMember(id, input);
@@ -43,6 +45,7 @@ export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
 
 export const DELETE = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const { playerId } = await readJson(request, teamMemberSchema);
 
   await removeMemberFromOwnedTeam(id, playerId);

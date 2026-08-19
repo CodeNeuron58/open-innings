@@ -109,6 +109,30 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
   const userId = await getUserId();
   if (!userId) throw unauthorized('Sign in to create a match');
 
+  /*
+   * Both sides have to be yours.
+   *
+   * Nothing checked this. The schema refuses two identical teams and insists
+   * the toss winner is one of them; `createMatch` stamps `created_by` from
+   * the session and never looks at the teams at all. So any signed-in account
+   * could name two clubs it had no relationship with and score a full match
+   * between them.
+   *
+   * That is not a hypothetical, because the reconnaissance is free:
+   * `GET /api/teams/[id]/club` needs no session and returns the squad with
+   * real player ids. The result appears on both clubs' public pages —
+   * `clubPageFor` selects on team id with no owner filter — and every
+   * invented delivery lands in those players' public career figures. The
+   * victims cannot remove it either, since deletion requires `created_by`.
+   *
+   * Reported as not-found rather than forbidden, matching the convention in
+   * errors.ts: a team id you do not own should not be confirmable by the
+   * shape of the refusal.
+   */
+  const [teamA, teamB] = await Promise.all([getTeam(input.teamAId), getTeam(input.teamBId)]);
+  if (!teamA || teamA.ownerId !== userId) throw notFound('Team not found');
+  if (!teamB || teamB.ownerId !== userId) throw notFound('Team not found');
+
   const { battingTeamId, bowlingTeamId } = resolveBattingSides(
     input.teamAId,
     input.teamBId,

@@ -7,13 +7,14 @@ import { updateTeamSchema, HTTP } from '@open-innings/shared';
 import { getTeam, getTeamMembers } from '@/lib/db/queries';
 import { updateOwnedTeam } from '@/lib/services/squads';
 import { getUserId } from '@/lib/auth/local';
-import { readJson, handle } from '@/lib/api/respond';
+import { readJson, handle, assertId } from '@/lib/api/respond';
 import { notFound, unauthorized } from '@/lib/services/errors';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
 
   const userId = await getUserId();
   if (!userId) throw unauthorized();
@@ -28,6 +29,7 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
 
 export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const input = await readJson(request, updateTeamSchema);
 
   await updateOwnedTeam(id, input);

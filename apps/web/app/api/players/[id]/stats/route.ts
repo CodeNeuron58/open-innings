@@ -5,10 +5,11 @@
 import { NextResponse } from 'next/server';
 import { HTTP, type PlayerCareerResponse } from '@open-innings/shared';
 import { careerFor } from '@/lib/services/stats';
-import { handle } from '@/lib/api/respond';
+import { handle, assertId } from '@/lib/api/respond';
 
 export const GET = handle(async (_request: Request, ctx: { params: Promise<{ id: string }> }) => {
   const { id } = await ctx.params;
+  assertId(id);
   const career = await careerFor(id);
 
   // Type checked against shared response; JSON.stringify handles Date to string conversion.

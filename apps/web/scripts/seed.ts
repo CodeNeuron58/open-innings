@@ -14,7 +14,34 @@
 import { db } from '../lib/db/client';
 import { users, players, teams, teamMembers, matches, innings } from '../lib/db/schema';
 import { hashPassword, newSalt } from '../lib/auth/password';
+import { isLocalConnection } from '../lib/db/ssl';
 import { eq } from 'drizzle-orm';
+
+/*
+ * `reset.ts` guards and this did not, which is the wrong way round: reset
+ * destroys a database you can rebuild, and this one *creates* a working
+ * account whose password is published in this file, in the repository, and
+ * in the git history.
+ *
+ *   DATABASE_URL="$(heroku config:get DATABASE_URL)" pnpm db:seed
+ *
+ * is a plausible thing to type while trying to inspect production, and the
+ * seeding below is `getOrCreate`, so it would neither error nor warn. It
+ * would print "✓ Dev user" and leave the door open.
+ */
+if (process.env.NODE_ENV === 'production') {
+  console.error('✗ Refusing to seed with NODE_ENV=production. Aborting.');
+  process.exit(1);
+}
+
+const seedUrl = process.env.DATABASE_URL;
+if (seedUrl && !isLocalConnection(seedUrl) && !process.env.OI_SEED_REMOTE) {
+  console.error('✗ Refusing to seed a non-local database.');
+  console.error(`  host = ${(() => { try { return new URL(seedUrl).hostname; } catch { return '(unparseable)'; } })()}`);
+  console.error("  This would create dev@local with a password published in this repo.");
+  console.error('  If you genuinely mean to, re-run with OI_SEED_REMOTE=1.');
+  process.exit(1);
+}
 
 const DEV_USER = {
   email: 'dev@local',

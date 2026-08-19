@@ -128,14 +128,32 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // it would have said anyway.
   if (!user || user.anonymisedAt) return;
 
-  void purgeStaleTokens();
-
-  const token = await issueToken(user.id, 'password_reset', user.email);
-  const link = `${appUrl()}/reset?token=${encodeURIComponent(token)}`;
-  await send({
-    to: user.email,
-    ...resetPassword(link, TTL.password_reset / 60_000),
-  });
+  // Everything past the lookup runs off the response path, and that is the
+  // point rather than a performance note.
+  //
+  // The body was already constant for both outcomes. The *timing* was not:
+  // an unknown address cost one SELECT, and a known one cost a SELECT plus a
+  // write transaction plus an awaited HTTPS round trip to Resend. Hundreds of
+  // milliseconds is a far louder signal than the ~50ms Argon2 gap that
+  // `authenticateUser` goes to the trouble of closing with a fixed salt, and
+  // it turned this endpoint into a way to test whether an address has an
+  // account here.
+  //
+  // Detached, both branches are one SELECT and a return.
+  const emailTo = user.email;
+  const userId = user.id;
+  void (async () => {
+    try {
+      void purgeStaleTokens();
+      const token = await issueToken(userId, 'password_reset', emailTo);
+      const link = `${appUrl()}/reset?token=${encodeURIComponent(token)}`;
+      await send({ to: emailTo, ...resetPassword(link, TTL.password_reset / 60_000) });
+    } catch (error) {
+      // Nobody is waiting on this any more, so a failure has to be logged
+      // here or it is lost. The caller has already been told nothing.
+      console.error('[reset] could not issue a reset token', error);
+    }
+  })();
 }
 
 /**

@@ -36,6 +36,30 @@ function bareHost(url: URL): string {
   return h.startsWith('[') && h.endsWith(']') ? h.slice(1, -1) : h;
 }
 
+/**
+ * Whether a connection string points at this machine.
+ *
+ * Exported because the destructive scripts need exactly this question and
+ * were answering it with `url.includes('localhost')`, which is a substring
+ * test against the *whole* string — username, password, database name and
+ * query string included. All of these passed it and then dropped a remote
+ * database:
+ *
+ *   postgres://localhost:pw@prod.example.com/oi      (username)
+ *   postgres://u:localhost99@prod.example.com/oi     (password)
+ *   postgres://u:p@prod.example.com/localhost_stage  (database name)
+ *
+ * An unparseable URL is **not** local. The substring version failed open
+ * here, which is the wrong direction for a guard in front of DROP DATABASE.
+ */
+export function isLocalConnection(connectionString: string): boolean {
+  try {
+    return LOCAL.has(bareHost(new URL(connectionString)));
+  } catch {
+    return false;
+  }
+}
+
 export function sslFor(connectionString: string): SslSetting {
   // An explicit choice in the URL wins — someone who wrote `sslmode=disable`
   // against a remote host meant it, and someone who wrote `sslmode=require`

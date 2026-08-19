@@ -4,13 +4,14 @@
  */
 import { NextResponse } from 'next/server';
 import { HTTP } from '@open-innings/shared';
-import { handle } from '@/lib/api/respond';
+import { handle, assertId } from '@/lib/api/respond';
 import { clubPageFor } from '@/lib/services/club';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const club = await clubPageFor(id);
 
   return NextResponse.json(

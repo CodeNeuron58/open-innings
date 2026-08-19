@@ -29,13 +29,23 @@ export type Mail = {
 /** Send one message. Never throws. Requires both text and HTML parts. */
 export async function send(mail: Mail): Promise<MailResult> {
   if (!API_KEY) {
-    // Log mail contents if API key is missing to support local testing.
-    console.warn(
-      `[mail] RESEND_API_KEY is not set — not sending.\n` +
-        `       to: ${mail.to}\n` +
-        `       subject: ${mail.subject}\n` +
-        `${mail.text.replace(/^/gm, '       ')}`,
-    );
+    // The body carries a live six-digit code or a working reset link, and a
+    // token printed to a log drain is a token anyone with log access can
+    // spend. Outside development the message is that one was dropped, and
+    // nothing about what was in it.
+    if (process.env.NODE_ENV === 'production') {
+      console.warn(
+        `[mail] RESEND_API_KEY is not set — dropped "${mail.subject}". ` +
+          `Credentials are being issued that nobody can receive.`,
+      );
+    } else {
+      console.warn(
+        `[mail] RESEND_API_KEY is not set — not sending.\n` +
+          `       to: ${mail.to}\n` +
+          `       subject: ${mail.subject}\n` +
+          `${mail.text.replace(/^/gm, '       ')}`,
+      );
+    }
     return { ok: false, reason: 'not_configured' };
   }
 

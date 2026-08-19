@@ -3,7 +3,33 @@ import { NextResponse } from 'next/server';
 import type { z } from 'zod';
 import { ScoringError } from '@open-innings/scoring';
 import { HTTP, type ApiError } from '@open-innings/shared';
-import { ServiceError } from '@/lib/services/errors';
+import { ServiceError, notFound } from '@/lib/services/errors';
+import { StaleInningsError } from '@/lib/db/queries';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A path parameter that has to be an id, checked before it reaches a query.
+ *
+ * Path parameters were never validated. Every `id` column is a Postgres
+ * `uuid`, so `GET /api/matches/abc` went straight into `eq(matches.id, 'abc')`,
+ * raised `22P02 invalid input syntax for type uuid`, matched none of the
+ * handled error types, and fell through to a logged 500. Anyone could produce
+ * one, unauthenticated, on any id-bearing route — which buries real faults in
+ * the log rather than causing damage, but does so from outside.
+ *
+ * The answer is 404, not 400. A malformed id cannot name a row that exists,
+ * and 404 is what the owner-checked routes already return for something that
+ * is not yours — so a probe cannot tell "wrong shape" from "not found" from
+ * "not yours", which is the distinction those routes are careful about.
+ *
+ * `app/api/players/briefs/route.ts` already did this by hand. This is that,
+ * everywhere.
+ */
+export function assertId(value: string, label = 'Not found'): string {
+  if (!UUID.test(value)) throw notFound(label);
+  return value;
+}
 
 /**
  * Parse a JSON body against a schema.
@@ -64,6 +90,19 @@ const UNIQUE_CONFLICTS: Record<string, { error: string; code: string; field?: st
     error: 'That delivery is already recorded. Refresh to see the current score.',
     code: 'DUPLICATE_BALL',
   },
+  /*
+   * The same *request* arrived twice, not merely the same ball number.
+   *
+   * Only reachable when two copies of one retry race each other past the
+   * `ballByRequestId` check in the ball route; a retry arriving after the
+   * original committed is answered with the original's success instead. Kept
+   * distinct from DUPLICATE_BALL because it means the opposite thing to a
+   * client: the delivery you sent is recorded, exactly once.
+   */
+  ball_events_request_id_key: {
+    error: 'That delivery is already recorded.',
+    code: 'DUPLICATE_REQUEST',
+  },
   users_email_unique: {
     error: 'An account with that email already exists',
     code: 'EMAIL_TAKEN',
@@ -113,6 +152,23 @@ export function toErrorResponse(error: unknown): NextResponse<ApiError> {
     const body: ApiError = { error: conflict.error, code: conflict.code };
     if (conflict.field) body.field = conflict.field;
     return NextResponse.json(body, { status: HTTP.conflict });
+  }
+
+  /*
+   * The innings moved between the read that produced a cache and the write.
+   * A conflict rather than a fault, and the delivery may well be valid
+   * against the innings as it now stands — so the client should re-read and
+   * resend, which is a different instruction from DUPLICATE_BALL's "refresh,
+   * do not resend".
+   */
+  if (error instanceof StaleInningsError) {
+    return NextResponse.json(
+      {
+        error: 'The innings changed while you were scoring. Refresh and try that ball again.',
+        code: 'STALE_INNINGS',
+      },
+      { status: HTTP.conflict },
+    );
   }
 
   // The scoring engine rejected the delivery — a client bug or a rule the

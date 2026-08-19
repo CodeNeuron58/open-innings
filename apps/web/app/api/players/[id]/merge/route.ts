@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { mergePlayersSchema, HTTP, type MergePlayersResponse } from '@open-innings/shared';
 import { getPlayer, mergePlayerInto } from '@/lib/db/queries';
-import { readJson, handle } from '@/lib/api/respond';
+import { readJson, handle, assertId } from '@/lib/api/respond';
 import { requireUserId } from '@/lib/auth/local';
 import { ServiceError } from '@/lib/services/errors';
 
@@ -20,6 +20,7 @@ export const POST = handle(async (request: Request, ctx: RouteParams) => {
   // Auth before schema validation to prevent anonymous probing.
   const userId = await requireUserId('Sign in to merge players');
   const { id: keepId } = await ctx.params;
+  assertId(keepId);
   const { duplicateId } = await readJson(request, mergePlayersSchema);
 
   const moved = await mergePlayerInto(keepId, duplicateId, userId);

@@ -1,33 +1,50 @@
 -- =============================================================================
--- Open Innings — Row Level Security policies
+-- Open Innings — Row Level Security: not in use, and why
 -- =============================================================================
--- Apply this AFTER `drizzle-kit migrate` has created the tables.
--- It enables RLS and sets the access rules below.
+-- This migration is a NO-OP apart from one helper function. It is kept in the
+-- sequence because it has already been applied and recorded, and because the
+-- policy draft below is still the design worth returning to.
 --
--- ⚠️  v0.1 NOTE: RLS is DISABLED by default because our app uses a single
--- Postgres role for now (Supabase Auth is not in use). Authorization is
--- enforced at the application layer in lib/auth/. When we move to a
--- per-user DB role (or Supabase), re-enable this file.
+-- READ THIS BEFORE UNCOMMENTING ANYTHING.
 --
--- To enable: `psql $DATABASE_URL -f supabase/migrations/0001_rls_policies.sql`
--- =============================================================================
+-- Authorization in this app is enforced entirely in the route handlers, by
+-- comparing `created_by` / `owner_id` against the session user. There is no
+-- second line of defence behind that, so a missing check in a handler is a
+-- full authorization bypass. That is a deliberate trade for v0.1, not an
+-- oversight — but it should be an informed one.
 --
--- Rule of thumb:
---   - "users"   → owner-only write, public read
---   - "players" → public read (so anyone can view player profiles), owner write
---   - "teams"   → public read, owner write
---   - "matches" → public read, scorer (created_by) write
---   - "innings" → same as parent match
---   - "ball_events" → public read (live scorecard is public), scorer write
---   - "tournaments" → public read, creator write
+-- Two things are true today, and BOTH must change before the block below can
+-- do anything at all:
 --
--- Public = no auth required to read. Required for shareable /m/{matchId} links.
+--   1. `app.current_user_id` is never set. Nothing in the codebase calls
+--      `set_config` or `SET LOCAL` — grep and see. So `current_user_id()`
+--      returns NULL on every connection, every `using (x = current_user_id())`
+--      evaluates NULL rather than true, and every policy DENIES. Uncommenting
+--      this block without wiring that up locks the application out of its own
+--      database on the next deploy.
+--
+--   2. The application connects as the table owner. `scripts/migrate.ts`
+--      creates the tables, so the role the app uses owns them, and an owner
+--      bypasses RLS unless the table is marked `force row level security`.
+--      No table here is. So even with policies enabled and the session
+--      variable set, they would not be consulted.
+--
+-- Doing this properly means a second, non-owning role for the application,
+-- `force row level security` on each table, and a `SET LOCAL` at the start of
+-- every request — most naturally in the `db` wrapper in lib/db/client.ts, so
+-- no query can be issued without it.
+--
+-- The header this file used to carry said RLS was "disabled by default" and
+-- pointed at `drizzle-kit migrate` and a manual `psql -f`. None of that was
+-- accurate: migrations run through scripts/migrate.ts, this file among them,
+-- and "disabled" undersold the situation — the policies could not have worked
+-- if they had been enabled. It also referred to Supabase Auth, which this
+-- project has never used; the folder name is the last trace of that.
 -- =============================================================================
 
--- Helper: get the current authenticated user from a session variable.
--- The app sets `app.current_user_id` at the start of every request via
---   SET LOCAL app.current_user_id = '<uuid>';
--- Until we wire that up, this returns NULL and policies become restrictive.
+-- The helper the draft policies below would call. Created rather than dropped
+-- so a fresh database matches the one already in production, where this has
+-- been applied since day one. Nothing calls it today.
 create or replace function public.current_user_id()
 returns uuid
 language sql
@@ -37,7 +54,8 @@ as $$
 $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Uncomment the block below to ENABLE RLS. Disabled in v0.1 (see header).
+-- DESIGN REFERENCE ONLY — see the two preconditions above. Uncommenting this
+-- as it stands denies every query the application makes.
 -- ─────────────────────────────────────────────────────────────────────────────
 /*
 

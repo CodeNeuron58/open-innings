@@ -8,13 +8,14 @@ import { HTTP, updateMatchSchema } from '@open-innings/shared';
 import { getMatch, getInnings } from '@/lib/db/queries';
 import { deleteOwnedMatch, updateOwnedMatch } from '@/lib/services/matches';
 import { getUserId } from '@/lib/auth/local';
-import { handle, readJson } from '@/lib/api/respond';
+import { handle, readJson, assertId } from '@/lib/api/respond';
 import { notFound, unauthorized } from '@/lib/services/errors';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
 
   const userId = await getUserId();
   if (!userId) throw unauthorized();
@@ -32,6 +33,7 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
  */
 export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const input = await readJson(request, updateMatchSchema);
 
   const match = await updateOwnedMatch(id, input);
@@ -40,6 +42,7 @@ export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
 
 export const DELETE = handle(async (_request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   await deleteOwnedMatch(id);
   return NextResponse.json({ deleted: true }, { status: HTTP.ok });
 });

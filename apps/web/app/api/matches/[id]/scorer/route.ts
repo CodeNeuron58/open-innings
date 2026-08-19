@@ -8,7 +8,7 @@ import { replayInnings, asInningsId, asPlayerId, type BallEventInput } from '@op
 import { HTTP } from '@open-innings/shared';
 import { loadMatchInProgress, getTeam, getTeamMembers, getInnings } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
-import { handle } from '@/lib/api/respond';
+import { handle, assertId } from '@/lib/api/respond';
 import { countWatching } from '@/lib/services/watching';
 import { notFound, unauthorized } from '@/lib/services/errors';
 
@@ -16,6 +16,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
 
   const userId = await getUserId();
   if (!userId) throw unauthorized();

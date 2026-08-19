@@ -14,7 +14,8 @@ import { careerBriefsFor } from '@/lib/db/stats';
 import { createPlayerFor } from '@/lib/services/squads';
 import { readJson, handle } from '@/lib/api/respond';
 import { requireUserId, getUserId } from '@/lib/auth/local';
-import { ServiceError } from '@/lib/services/errors';
+import { enforceRateLimit } from '@/lib/api/request-meta';
+import { ServiceError, unauthorized } from '@/lib/services/errors';
 
 export const GET = handle(async (request: Request) => {
   const params = new URL(request.url).searchParams;
@@ -42,6 +43,31 @@ export const GET = handle(async (request: Request) => {
   const { scope, limit } = parsed.data;
 
   const userId = await getUserId();
+
+  /*
+   * Cross-club search is for signed-in scorers, and now says so.
+   *
+   * `scope=all` returns every player matching two letters, with full name,
+   * playing styles, career runs and wickets, and the clubs they turn out for.
+   * The query layer only refused `scope=mine` without a session, so the
+   * *wider* of the two searches was the open one. A few thousand two-letter
+   * queries enumerated everybody in the system along with their clubs.
+   *
+   * It exists so a scorer can find a person who already has a career at
+   * another club — the merge and add-player flows — and every one of those
+   * callers is signed in. The rate limit is the second half: the cost of this
+   * search is real (see `careerBriefsFor`), so an account should not be able
+   * to run it in a loop either.
+   */
+  if (scope === 'all') {
+    if (!userId) throw unauthorized('Sign in to search all players');
+    enforceRateLimit(request, 'player-search', {
+      max: 60,
+      windowMs: 60_000,
+      identity: userId,
+    });
+  }
+
   const { rows, truncated } = await searchPlayersByName(parsed.data.q, scope, limit);
 
   const ids = rows.map((p) => p.id);

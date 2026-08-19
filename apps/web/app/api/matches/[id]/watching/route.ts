@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { HTTP } from '@open-innings/shared';
-import { handle, readJson } from '@/lib/api/respond';
+import { handle, readJson, assertId } from '@/lib/api/respond';
 import { enforceRateLimit } from '@/lib/api/request-meta';
 import { countWatching, markWatching } from '@/lib/services/watching';
 
@@ -19,6 +19,7 @@ const bodySchema = z.object({
 
 export const POST = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
 
   // Generous rate limit to support multiple viewers behind CGNAT.
   enforceRateLimit(request, 'watching', { max: 600, windowMs: 60 * 1000 });

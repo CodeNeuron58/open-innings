@@ -6,7 +6,7 @@
  * DATABASE_URL on credential rotation. It had no test.
  */
 import { describe, it, expect } from 'vitest';
-import { sslFor } from './ssl';
+import { sslFor, isLocalConnection } from './ssl';
 
 describe('sslFor', () => {
   it('does not negotiate TLS for a database on this machine', () => {
@@ -56,5 +56,43 @@ describe('sslFor', () => {
   it('downgrades verify-full to unverified TLS — known, and not obviously right', () => {
     expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-full')).toBe('require');
     expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-ca')).toBe('require');
+  });
+});
+
+/**
+ * The guard in front of DROP DATABASE.
+ *
+ * `reset.ts` asked `url.includes('localhost')`, a substring test against the
+ * whole connection string. A username, password, query string or database name
+ * containing "localhost" passed it, and the script then dropped a remote
+ * database. These are the strings that used to get through.
+ */
+describe('isLocalConnection', () => {
+  it('accepts the local hosts, including bracketed IPv6', () => {
+    for (const host of ['localhost', '127.0.0.1', '[::1]', '0.0.0.0']) {
+      expect(isLocalConnection(`postgresql://u:p@${host}:5432/open_innings`)).toBe(true);
+    }
+  });
+
+  it('rejects a remote host whose USERNAME contains localhost', () => {
+    expect(isLocalConnection('postgresql://localhost:pw@prod.example.com:5432/oi')).toBe(false);
+  });
+
+  it('rejects a remote host whose PASSWORD contains localhost', () => {
+    expect(isLocalConnection('postgresql://u:localhost99@prod.example.com/oi')).toBe(false);
+  });
+
+  it('rejects a remote host whose DATABASE NAME contains localhost', () => {
+    expect(isLocalConnection('postgresql://u:p@prod.example.com/localhost_staging')).toBe(false);
+  });
+
+  it('rejects a remote host with localhost in the query string', () => {
+    expect(
+      isLocalConnection('postgresql://u:p@prod.example.com/oi?application_name=localhost-tunnel'),
+    ).toBe(false);
+  });
+
+  it('fails CLOSED on an unparseable url, unlike the substring version', () => {
+    expect(isLocalConnection('not a url at all')).toBe(false);
   });
 });

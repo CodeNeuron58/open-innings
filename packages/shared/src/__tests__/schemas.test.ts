@@ -19,13 +19,27 @@ import {
   resolveBattingSides,
 } from '../index';
 
+/*
+ * Ids are uuids, because every `id` column is. These were readable
+ * strings until `idSchema` started validating the shape it had always
+ * claimed to accept.
+ */
+const TEAM_A = '11111111-1111-4111-8111-111111111111';
+const TEAM_B = '22222222-2222-4222-8222-222222222222';
+const P1 = 'aaaaaaaa-0000-4000-8000-000000000001';
+const P2 = 'aaaaaaaa-0000-4000-8000-000000000002';
+const P3 = 'aaaaaaaa-0000-4000-8000-000000000003';
+const BAT1 = 'bbbbbbbb-0000-4000-8000-000000000001';
+const BAT2 = 'bbbbbbbb-0000-4000-8000-000000000002';
+const BOWL1 = 'cccccccc-0000-4000-8000-000000000001';
+
 const validMatch = {
   oversPerInnings: 20,
-  teamAId: 'team-a',
-  teamBId: 'team-b',
-  openingStrikerId: 'p1',
-  openingNonStrikerId: 'p2',
-  openingBowlerId: 'p3',
+  teamAId: TEAM_A,
+  teamBId: TEAM_B,
+  openingStrikerId: P1,
+  openingNonStrikerId: P2,
+  openingBowlerId: P3,
 };
 
 describe('emailSchema', () => {
@@ -54,12 +68,12 @@ describe('createMatchSchema', () => {
   });
 
   it('rejects a team playing itself', () => {
-    const result = createMatchSchema.safeParse({ ...validMatch, teamBId: 'team-a' });
+    const result = createMatchSchema.safeParse({ ...validMatch, teamBId: TEAM_A });
     expect(result.success).toBe(false);
   });
 
   it('rejects the same player opening at both ends', () => {
-    const result = createMatchSchema.safeParse({ ...validMatch, openingNonStrikerId: 'p1' });
+    const result = createMatchSchema.safeParse({ ...validMatch, openingNonStrikerId: P1 });
     expect(result.success).toBe(false);
   });
 
@@ -73,7 +87,7 @@ describe('createMatchSchema', () => {
   it('treats the toss as all-or-nothing', () => {
     // A winner with no decision would silently fall through to "team A bats",
     // which is how you put the wrong side in to bat.
-    const winnerOnly = createMatchSchema.safeParse({ ...validMatch, tossWinnerTeamId: 'team-b' });
+    const winnerOnly = createMatchSchema.safeParse({ ...validMatch, tossWinnerTeamId: TEAM_B });
     expect(winnerOnly.success).toBe(false);
 
     const decisionOnly = createMatchSchema.safeParse({ ...validMatch, tossDecision: 'bowl' });
@@ -81,7 +95,7 @@ describe('createMatchSchema', () => {
 
     const both = createMatchSchema.safeParse({
       ...validMatch,
-      tossWinnerTeamId: 'team-b',
+      tossWinnerTeamId: TEAM_B,
       tossDecision: 'bowl',
     });
     expect(both.success).toBe(true);
@@ -115,9 +129,9 @@ describe('optional text fields', () => {
 describe('openersSchema', () => {
   it('rejects a duplicated opener', () => {
     const result = openersSchema.safeParse({
-      openingStrikerId: 'p1',
-      openingNonStrikerId: 'p1',
-      openingBowlerId: 'p3',
+      openingStrikerId: P1,
+      openingNonStrikerId: P1,
+      openingBowlerId: P3,
     });
     expect(result.success).toBe(false);
   });
@@ -126,9 +140,9 @@ describe('openersSchema', () => {
     // Nonsensical in a real match, but it is the squad check's job to catch
     // it — not the schema's. Keep the layers honest about what they own.
     const result = openersSchema.safeParse({
-      openingStrikerId: 'p1',
-      openingNonStrikerId: 'p2',
-      openingBowlerId: 'p1',
+      openingStrikerId: P1,
+      openingNonStrikerId: P2,
+      openingBowlerId: P1,
     });
     expect(result.success).toBe(true);
   });
@@ -174,9 +188,9 @@ describe('ballEventSchema', () => {
     eventType: 'dot',
     runsOffBat: 0,
     extraRuns: 0,
-    batsmanId: 'bat1',
-    nonStrikerId: 'bat2',
-    bowlerId: 'bowl1',
+    batsmanId: BAT1,
+    nonStrikerId: BAT2,
+    bowlerId: BOWL1,
   };
 
   it('accepts five off the bat', () => {
@@ -246,9 +260,9 @@ describe('consistentBallEventSchema', () => {
     eventType: 'dot',
     runsOffBat: 0,
     extraRuns: 0,
-    batsmanId: 'bat1',
-    nonStrikerId: 'bat2',
-    bowlerId: 'bowl1',
+    batsmanId: BAT1,
+    nonStrikerId: BAT2,
+    bowlerId: BOWL1,
   };
   const parse = (o: Record<string, unknown>) => consistentBallEventSchema.safeParse(o);
 

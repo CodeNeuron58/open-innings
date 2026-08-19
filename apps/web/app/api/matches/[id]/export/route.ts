@@ -4,7 +4,7 @@
  */
 import { NextResponse } from 'next/server';
 import { HTTP } from '@open-innings/shared';
-import { handle } from '@/lib/api/respond';
+import { handle, assertId } from '@/lib/api/respond';
 import { matchCardFor } from '@/lib/services/match-summary';
 import { invalid } from '@/lib/services/errors';
 
@@ -61,6 +61,7 @@ function ballInOver(
 
 export const GET = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
+  assertId(id);
   const format = new URL(request.url).searchParams.get('format') ?? 'csv';
 
   if (format !== 'csv' && format !== 'json') {

@@ -16,7 +16,7 @@ import {
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { enforceRateLimit } from '@/lib/api/request-meta';
-import { readJson, toErrorResponse } from '@/lib/api/respond';
+import { readJson, toErrorResponse, assertId } from '@/lib/api/respond';
 import { buildSeed } from '@/lib/services/innings-seed';
 import { correctBall, BallCorrectionError, type StoredBall } from '@/lib/services/ball-correction';
 
@@ -24,6 +24,8 @@ type RouteParams = { params: Promise<{ id: string; ballId: string }> };
 
 export async function PATCH(request: NextRequest, ctx: RouteParams) {
   const { id: matchId, ballId } = await ctx.params;
+  assertId(matchId);
+  assertId(ballId);
 
   try {
     const userId = await getUserId();

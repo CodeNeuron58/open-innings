@@ -565,6 +565,21 @@ export const ballEvents = pgTable(
     // Free text — scorer commentary
     commentary: text('commentary'),
 
+    /*
+     * Client-generated id for one delivery, stable across retries of it.
+     *
+     * `ball_number` is derived from the stored log, so it moves when the log
+     * moves — which means it cannot tell a resent request from a new ball. A
+     * retry after a lost response re-reads, computes the *next* number, and
+     * inserts a second copy without ever touching the unique index below.
+     * Only a value the client mints once and resends unchanged distinguishes
+     * the two. Migration 0013 has the full account.
+     *
+     * Nullable: rows written before 0013 have none, and a client that does
+     * not send one still scores.
+     */
+    requestId: uuid('request_id'),
+
     // Audit
     createdBy: uuid('created_by')
       .notNull()
@@ -581,6 +596,24 @@ export const ballEvents = pgTable(
     inningsIdx: uniqueIndex('ball_events_innings_idx').on(t.inningsId, t.ballNumber),
     batsmanIdx: index('ball_events_batsman_idx').on(t.batsmanId),
     bowlerIdx: index('ball_events_bowler_idx').on(t.bowlerId),
+    /*
+     * Partial in SQL — `where request_id is not null` — so pre-0013 rows do
+     * not all collide on NULL. Drizzle cannot express the predicate, so this
+     * declaration is narrower than the index migration 0013 actually creates.
+     * The database is the authority; see that file.
+     */
+    requestIdx: uniqueIndex('ball_events_request_id_key').on(t.requestId),
+    /*
+     * Three of the five player-role columns were unindexed while `stats.ts`
+     * queried all five. `where batsman_id = $1 or wicket_player_id = $1`
+     * cannot use a bitmap OR across an indexed and an unindexed column, so
+     * the batting career page sequentially scanned every ball ever bowled.
+     * Declared here for parity; created in migration 0014.
+     */
+    nonStrikerIdx: index('ball_events_non_striker_idx').on(t.nonStrikerId),
+    wicketPlayerIdx: index('ball_events_wicket_player_idx').on(t.wicketPlayerId),
+    fielderIdx: index('ball_events_fielder_idx').on(t.fielderId),
+    createdByIdx: index('ball_events_created_by_idx').on(t.createdBy),
   }),
 );
 
