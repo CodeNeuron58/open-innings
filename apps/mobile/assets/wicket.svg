@@ -1,0 +1,29 @@
+<!--
+  Open Innings — the WICKET mark.
+
+  Three stumps and a bail. Four rectangles, one pen weight (46 units), drawn
+  on a 1024 grid. Chosen over the seam, scorebook-cell and monogram concepts
+  because it is the only one of the four that survives 16px without losing a
+  stroke, and because a circle reads as a baseball at small sizes while three
+  rods under a cap read as nothing else.
+
+  Geometry, at the 1.0 scale below:
+    bail    448 wide x 46 thick, overhanging the outer stumps by 29 a side
+    stumps  46 wide x 436 tall, on a 172 pitch
+    mark    448 x 482 overall, centred on 512,512
+
+  The 1:2.7 stroke-to-gap ratio is load-bearing. Thicker and the three rods
+  merge into a slab; thinner and the outer stumps disappear below 24px.
+
+  Colour is inherited, so this file drops into a component as currentColor.
+  The raster set is generated from the same numbers by make-icons.py.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="currentColor" role="img" aria-label="Open Innings">
+  <title>Open Innings</title>
+  <!-- bail -->
+  <rect x="288" y="271" width="448" height="46" />
+  <!-- stumps -->
+  <rect x="317" y="317" width="46" height="436" />
+  <rect x="489" y="317" width="46" height="436" />
+  <rect x="661" y="317" width="46" height="436" />
+</svg>

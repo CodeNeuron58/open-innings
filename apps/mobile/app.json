@@ -6,10 +6,12 @@
     "orientation": "portrait",
     "scheme": "openinnings",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "android": {
       "package": "app.openinnings",
       "adaptiveIcon": {
-        "backgroundColor": "#0F2A20"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1d2d3d"
       },
       "intentFilters": [
         {
@@ -38,7 +40,8 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "static",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
@@ -49,7 +52,14 @@
           "androidAppId": "ca-app-pub-8954748975838698~4371071953"
         }
       ],
-      "expo-splash-screen"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#1d2d3d",
+          "imageWidth": 180
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
