@@ -189,6 +189,24 @@ export const api = {
     apiFetch<{ message: string }>('/api/auth/reset', { method: 'POST', body: { email } }),
 
   /**
+   * Delete your own account.
+   *
+   * The password goes with it, on a DELETE, which is unusual and right here:
+   * a session proves who signed in, not who is holding the phone now, and
+   * this is the one action in the app that cannot be undone.
+   *
+   * What comes back is what *survived* — matches, squads, the released player
+   * claim — because that is the half people need to understand. A screen that
+   * says only "account deleted" leaves somebody wondering what happened to
+   * their club's season.
+   */
+  deleteAccount: (token: string, password: string) =>
+    apiFetch<{
+      deleted: boolean;
+      kept: { matchesKept: number; teamsKept: number; playerReleased: boolean };
+    }>('/api/me', { method: 'DELETE', body: { password, confirm: true }, token }),
+
+  /**
    * Say which player on the field this account is.
    *
    * Only a player you created and nobody else has claimed. An account and a

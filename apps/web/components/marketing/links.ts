@@ -25,4 +25,8 @@ export const MARKETING_LINKS: ReadonlyArray<{ href: Route; label: string }> = [
  */
 export const FOOTER_ONLY_LINKS: ReadonlyArray<{ href: Route; label: string }> = [
   { href: '/privacy', label: 'Privacy' },
+  // Play requires deletion to be reachable from a public URL, and the Data
+  // Safety form asks for it by name. A link nobody can find would satisfy the
+  // form and not the intent.
+  { href: '/delete-account', label: 'Delete account' },
 ];

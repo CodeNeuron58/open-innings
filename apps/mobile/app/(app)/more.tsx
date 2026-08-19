@@ -22,6 +22,7 @@ import { useSession } from '../../lib/session';
 import { useSettings } from '../../lib/settings';
 import { useSupporter } from '../../lib/purchases';
 import { Button, Kicker } from '../../components/ui';
+import { DeleteAccount } from '../../components/DeleteAccount';
 
 const REPO = 'https://github.com/CodeNeuron58/open-innings';
 
@@ -340,6 +341,16 @@ export default function More() {
           />
           <Row label={isGuest ? 'Leave guest mode' : 'Sign out'} onPress={() => void signOut()} />
         </Group>
+
+        {/*
+          Below everything, outside every group, and only for a real account.
+          Google Play requires deletion to be reachable in-app; putting it in a
+          settings group beside "Sound on each ball" would satisfy the rule and
+          miss the point.
+        */}
+        {user && !isGuest && token ? (
+          <DeleteAccount token={token} email={user.email} onDeleted={() => void signOut()} />
+        ) : null}
 
         <Text className="text-foreground/50 pt-6 text-[11.5px] leading-[17px]">
           AGPL-3.0. Every figure in this app is derived from ball logs, so nothing is typed twice

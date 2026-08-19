@@ -552,3 +552,23 @@ export const confirmEmailSchema = z.object({
     .regex(/^[0-9]{6}$/, 'Enter the six digits from the email'),
 });
 export type ConfirmEmailInput = z.infer<typeof confirmEmailSchema>;
+
+/**
+ * Delete your own account.
+ *
+ * The password is asked for again, on an action that cannot be undone and
+ * that anybody holding an unlocked phone could otherwise reach in three taps.
+ * It is the same reasoning as a bank asking before a transfer: the session
+ * proves who signed in, not who is holding the device now.
+ *
+ * `confirm` is separate from the password because they answer different
+ * questions — *are you who you say* and *do you mean this*. A single field
+ * would let a client satisfy both by accident.
+ */
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Enter your password to confirm'),
+  confirm: z.literal(true, {
+    errorMap: () => ({ message: 'Deleting an account cannot be undone' }),
+  }),
+});
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;

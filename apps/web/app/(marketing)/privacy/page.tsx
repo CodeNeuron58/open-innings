@@ -269,9 +269,15 @@ export default function PrivacyPage() {
               app, ball by ball. Nothing is held back and no plan is required.
             </p>
             <p className="oi-body oi-dim-strong">
-              <strong>Deletion.</strong> Email us and we will delete your account. Your email
-              address and display name are erased, your password and sessions are destroyed, and the
-              account can no longer be signed in to.
+              <strong>Deletion.</strong> From inside the app: More → Delete account, and your
+              password to confirm. It takes effect immediately, with no waiting period. Your email
+              address and display name are erased, your password and sessions are destroyed, any
+              confirmation or reset link in flight is killed, and the account can never be signed in
+              to again. If you cannot reach the app,{' '}
+              <Link className="oi-fl" href="/delete-account">
+                this page
+              </Link>{' '}
+              explains how to ask us instead.
             </p>
             <p className="oi-body oi-dim-strong">
               Matches and ball events survive, with no trace of who recorded them. That is

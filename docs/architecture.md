@@ -148,36 +148,35 @@ If a user requests account deletion, we **anonymise** rather than hard-delete:
 - `users.anonymised_at` → set
 - All matches they scored remain valid (history is preserved)
 - All players they created remain valid (no PII)
-- All teams they owned get `owner_id` set to null (team becomes "orphan", can be reclaimed)
+- All teams they owned are kept, still referencing the now-anonymous row (see the note below — this bullet is wrong)
 
 This is the pattern Lichess uses. We never break references to historical
 match data, but the user's identity is removed from anything user-facing.
 
-> ### ⚠️ Not implemented, and the last bullet is currently impossible
+> ### ✅ Built 2026-08-19 — and the teams bullet above is wrong
 >
-> **2026-08-18.** This section describes a policy, not behaviour. `anonymised_at`
-> exists and every read path honours it — `getUserFromToken` and
-> `authenticateUser` both refuse an anonymised user — but **nothing ever writes
-> it.** There is no `DELETE /api/me`, no settings entry, and no public
-> `/delete-account` page.
+> Deletion is `DELETE /api/me`, in-app under More → Delete account with the
+> password re-entered, and explained publicly at `/delete-account` — the URL
+> Google Play's Data Safety form asks for.
 >
-> That matters beyond tidiness: Google Play requires deletion both in-app and at
-> a publicly reachable URL, and the Data Safety form asks for that URL. **It
-> blocks publication.**
+> **Correct the third bullet when you next touch this file.** Teams do _not_
+> get `owner_id` set to null, and never could: the column is `NOT NULL` with
+> `ON DELETE restrict`, as are `matches.created_by` and
+> `ball_events.created_by`, each carrying a comment saying why — users are
+> anonymised rather than deleted, so `SET NULL` could never fire.
 >
-> The teams bullet also cannot be implemented as written: `teams.owner_id` is
-> `NOT NULL` with `ON DELETE restrict`, so it can never be set to null. Before
-> building the endpoint, pick one and change this document to match:
+> Making it nullable was considered and rejected. It buys nothing for privacy,
+> because the column points at a row that no longer describes anybody; it
+> would orphan a club with no way to reclaim it; and it would answer the same
+> question differently in three tables. The schema was right and the document
+> was wrong.
 >
-> 1. **Make the column nullable** — matches the text above, and orphan squads
->    stay reclaimable.
-> 2. **Transfer ownership** to another squad member — needs a rule for who, and
->    for a squad of one.
-> 3. **Delete the squad** with the account — simplest, and destroys other
->    people's fixtures, which is the reason we anonymise rather than delete
->    everywhere else.
->
-> Tracked as the first item in [`checklist.md`](../checklist.md) §1.
+> What actually happens, beyond the three bullets above: the phone number is
+> released, the credentials are overwritten with random bytes that are thrown
+> away, every session and every verification token is destroyed, the address
+> is removed from the release-notification list, and any claim on a player is
+> released — the player stays, because they are somebody other people have
+> scored.
 
 ## Performance considerations
 

@@ -1689,6 +1689,174 @@ async function main() {
       ok(res.status === 401, `${method} ${path.split('?')[0]} without a token → 401`, res.status);
     }
 
+    // ── 11b. Deleting an account ─────────────────────────────────────────────
+    //
+    // The endpoint Google Play requires before it will publish an app that
+    // lets anybody create an account. `users.anonymised_at` was in the first
+    // migration and every read honoured it; nothing ever wrote it.
+    //
+    // Before the rate-limit section, not after: that one deliberately
+    // exhausts the login bucket for this IP, which would turn the "the old
+    // password no longer signs in" check into a 429 that proves throttling
+    // rather than rejection.
+    console.log('delete account');
+
+    const delEmail = `api-smoke-del-${Date.now()}@local`;
+    const delPassword = 'delete-me-password-1';
+    const delSignup = await call(
+      'POST',
+      '/api/auth/signup',
+      { email: delEmail, password: delPassword },
+      false,
+    );
+    ok(delSignup.status === 201, 'a throwaway account to delete', delSignup.status);
+    const delToken = delSignup.json.token as string;
+    const delUserId = delSignup.json.user?.id as string;
+
+    const asDeleting = async (method: string, path: string, body?: unknown) => {
+      const res = await fetch(`${BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${delToken}` },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      return { status: res.status, json: (await res.json().catch(() => ({}))) as Json };
+    };
+
+    // Something to preserve, so "the cricket stays" is tested rather than
+    // asserted about an empty account.
+    const delPlayer = await asDeleting('POST', '/api/players', {
+      fullName: 'Smoke Deleted Owner',
+      role: 'batsman',
+    });
+    const delPlayerId = delPlayer.json.player?.id as string;
+    await asDeleting('PUT', '/api/me/player', { playerId: delPlayerId });
+    const delTeam = await asDeleting('POST', '/api/teams', {
+      name: 'Smoke Deleted XI',
+      playerIds: [delPlayerId],
+    });
+    const delTeamId = delTeam.json.team?.id as string;
+    ok(Boolean(delTeamId), 'with a squad and a claimed player', delTeamId);
+
+    const anonDelete = await call(
+      'DELETE',
+      '/api/me',
+      { password: delPassword, confirm: true },
+      false,
+    );
+    ok(anonDelete.status === 401, 'deleting without a session → 401', anonDelete);
+
+    const unconfirmedDelete = await asDeleting('DELETE', '/api/me', { password: delPassword });
+    ok(
+      unconfirmedDelete.status === 400,
+      'deleting without the confirm flag → 400',
+      unconfirmedDelete,
+    );
+
+    const wrongPassword = await asDeleting('DELETE', '/api/me', {
+      password: 'not-the-password',
+      confirm: true,
+    });
+    ok(wrongPassword.status === 400, 'deleting with a wrong password → 400', wrongPassword);
+
+    const stillThere = await asDeleting('GET', '/api/auth/session');
+    ok(
+      stillThere.json.user !== null,
+      'and a wrong password leaves the account alone — a failed attempt must not be destructive',
+      stillThere.json.user,
+    );
+
+    const deleted = await asDeleting('DELETE', '/api/me', {
+      password: delPassword,
+      confirm: true,
+    });
+    ok(deleted.status === 200, 'deleting with the right password → 200', deleted);
+    ok(
+      deleted.json.kept?.teamsKept === 1 && deleted.json.kept?.playerReleased === true,
+      'and it reports what survived — the squad stays, the player claim is released',
+      deleted.json.kept,
+    );
+
+    const sessionAfterDelete = await asDeleting('GET', '/api/auth/session');
+    ok(sessionAfterDelete.json.user === null, 'every session is gone', sessionAfterDelete.json);
+
+    const relogin = await call(
+      'POST',
+      '/api/auth/login',
+      { email: delEmail, password: delPassword },
+      false,
+    );
+    /*
+     * "Does not open a session", not "returns 400".
+     *
+     * The rate limiter is in-process and survives between runs of this script
+     * against a long-lived dev server, so an earlier run can leave the login
+     * bucket empty and turn a genuine rejection into a 429. Asserting the
+     * exact status made this test depend on the server having been restarted,
+     * which is the same fragility as counting rows across a whole table.
+     *
+     * What must be true either way is that no session comes back. The proof
+     * that the *password* specifically is dead is the row check below: the
+     * hash was overwritten with random bytes nothing will ever verify.
+     */
+    ok(
+      relogin.status !== 200 && relogin.json.token === undefined,
+      'the old password does not open a session',
+      relogin.status,
+    );
+
+    const [anonymised] = await db.select().from(users).where(eq(users.id, delUserId)).limit(1);
+    ok(Boolean(anonymised), 'the row survives — matches reference it and must stay valid');
+    ok(
+      Boolean(anonymised) && anonymised!.anonymisedAt !== null,
+      'and is marked anonymised',
+      anonymised?.anonymisedAt,
+    );
+    ok(
+      Boolean(anonymised) &&
+        anonymised!.email !== delEmail &&
+        anonymised!.email.endsWith('@deleted.invalid'),
+      'the address is replaced with one on a domain RFC 2606 reserves — undeliverable, and never a real account',
+      anonymised?.email,
+    );
+    ok(
+      Boolean(anonymised) && anonymised!.displayName === null && anonymised!.phone === null,
+      'and nothing identifying is left on the row',
+      anonymised && { displayName: anonymised.displayName, phone: anonymised.phone },
+    );
+
+    const leftoverSessions = await db.select().from(sessions).where(eq(sessions.userId, delUserId));
+    ok(leftoverSessions.length === 0, 'no session rows remain', leftoverSessions.length);
+
+    const leftoverTokens = await db
+      .select()
+      .from(verificationTokens)
+      .where(eq(verificationTokens.userId, delUserId));
+    ok(
+      leftoverTokens.length === 0,
+      'and no confirmation or reset in flight — a live link must not outlive the account',
+      leftoverTokens.length,
+    );
+
+    /*
+     * The half that matters most, and the half a deletion feature usually
+     * gets wrong: the cricket is other people's too.
+     */
+    const keptTeam = await fetch(`${BASE}/c/${delTeamId}`);
+    ok(
+      keptTeam.status === 200,
+      "the club page survives — it is other people's cricket",
+      keptTeam.status,
+    );
+    const keptCareer = await fetch(`${BASE}/p/${delPlayerId}`);
+    ok(keptCareer.status === 200, 'and so does the career page', keptCareer.status);
+
+    const publicDeletePage = await fetch(`${BASE}/delete-account`);
+    ok(
+      publicDeletePage.status === 200,
+      'the public deletion page Play asks for by name is reachable',
+      publicDeletePage.status,
+    );
+
     // ── 11. Rate limiting ────────────────────────────────────────────────────
     console.log('rate limit');
     // Must exceed the login cap in app/api/auth/login/route.ts (30 per 15 min).

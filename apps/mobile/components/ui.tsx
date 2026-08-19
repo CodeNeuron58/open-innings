@@ -61,7 +61,7 @@ function Corners({ tone = 'border' }: { tone?: 'border' | 'inverse' }) {
 type ButtonProps = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'destructive';
   disabled?: boolean;
   loading?: boolean;
 };
@@ -75,17 +75,27 @@ export function Button({
 }: ButtonProps) {
   const isInert = disabled || loading;
 
-  // Primary is the one filled object; secondary is outlined; ghost is bare.
+  /*
+   * Primary is the one filled object; secondary is outlined; ghost is bare.
+   *
+   * Destructive is filled too, in the wicket colour — the same one a fallen
+   * wicket already uses across this app, so it reads as "this ends something"
+   * to somebody who has been scoring for an hour. It exists for exactly one
+   * button, account deletion, and a shared style is what stops the next
+   * destructive action being drawn to look like an ordinary one.
+   */
   const surface = {
     primary: 'bg-primary border-primary',
     secondary: 'bg-transparent border-border',
     ghost: 'bg-transparent border-transparent',
+    destructive: 'bg-wicket border-wicket',
   }[variant];
 
   const text = {
     primary: 'text-primary-foreground',
     secondary: 'text-foreground',
     ghost: 'text-steel-700',
+    destructive: 'text-wicket-foreground',
   }[variant];
 
   return (
@@ -98,9 +108,13 @@ export function Button({
         isInert ? 'opacity-50' : 'active:opacity-80'
       }`}
     >
-      {variant === 'primary' && !isInert ? <Corners tone="inverse" /> : null}
+      {(variant === 'primary' || variant === 'destructive') && !isInert ? (
+        <Corners tone="inverse" />
+      ) : null}
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#f2f2f3' : '#5980a6'} />
+        <ActivityIndicator
+          color={variant === 'primary' || variant === 'destructive' ? '#f2f2f3' : '#5980a6'}
+        />
       ) : (
         <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[1.2px]`}>
           {label}
