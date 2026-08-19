@@ -1,35 +1,9 @@
 /**
- * Deleting an account, which means anonymising it.
+ * Deleting an account (anonymising it).
  *
- * Google Play requires that any app allowing account creation also allows
- * account **deletion**, in-app and at a publicly reachable URL. Until this
- * existed the app could not be published at all: `users.anonymised_at` was in
- * the schema from the first migration, every read path honoured it, and
- * nothing ever wrote it. The mechanism was built and had no trigger.
- *
- * ## Why the row survives
- *
- * A match is other people's cricket too. Deleting the rows would remove
- * innings from the careers of everyone else who played in them — the opposing
- * side, the person who took the catch — none of whom asked for anything. So
- * the user row stays and is stripped of everything that identifies a person,
- * which is what anonymisation means and what the schema was built for:
- * `teams.owner_id`, `matches.created_by` and `ball_events.created_by` are all
- * `NOT NULL … RESTRICT`, each with a comment saying exactly this.
- *
- * `docs/architecture.md` used to promise that a deleted user's teams get
- * `owner_id` set to null. That was never implementable against those
- * constraints, and it was also unnecessary: the column points at a row that no
- * longer describes anybody. Nulling it would orphan a club with no way to
- * reclaim it, and would answer the same question differently in three tables.
- * The document was corrected rather than the schema.
- *
- * ## What is actually destroyed
- *
- * Everything that could reach the person or let anyone in as them. The
- * credentials are scrambled rather than left alone, so the account is
- * unusable even if the `anonymised_at` check were ever bypassed — defence
- * that does not depend on every future read path remembering.
+ * The user row survives to preserve match history for other players, but is
+ * stripped of all identifying information. Credentials are scrambled to make
+ * the account permanently inaccessible.
  */
 import 'server-only';
 import { eq, sql } from 'drizzle-orm';

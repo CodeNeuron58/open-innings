@@ -1,14 +1,6 @@
 /**
- * D1 — the scorecard proper.
- *
- * Laid out as a scorecard has been laid out for a century: batters with how
- * they went out, extras broken up, fall of wickets, then the bowlers. Someone
- * checking this against a paper book should be able to read down it in the
- * same order.
- *
- * Every figure column is `shrink-0`. React Native gives Text in a flex row an
- * implicit flexShrink and will clip "147.1" to "147." mid-glyph rather than
- * wrap — which on a scorecard is not a cosmetic bug, it is a wrong number.
+ * Traditional innings scorecard.
+ * Prevents text wrapping in figure columns using shrink-0.
  */
 import { Text, View } from 'react-native';
 import type { CardInnings } from '@open-innings/shared';

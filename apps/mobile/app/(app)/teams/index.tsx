@@ -1,9 +1,6 @@
 /**
  * Teams and squads.
- *
- * A team is created with its squad in one step rather than "create, then go
- * somewhere else and add players" — a team with no players can't be picked for
- * a match, so the two-step version just produces broken teams.
+ * Teams are created with their squad in a single step.
  */
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';

@@ -1,44 +1,13 @@
 /**
- * Sending mail, through Resend's REST API.
- *
- * ## Why no SDK
- *
- * One `fetch` to one endpoint. The `resend` package would add a dependency,
- * a version to keep current, and a bundle to a Next server that already has
- * `fetch` — in exchange for wrapping a POST. This project has already lost a
- * day to a dependency that was present but undeclared; the cheapest dependency
- * is the one not taken.
- *
- * ## Why it degrades instead of throwing
- *
- * Mail is the one thing here that depends on somebody else's uptime and on a
- * DNS record propagating. If a send failing took signup down with it, an
- * outage at a mail provider would stop a scorer opening an account at a
- * ground — for the sake of a confirmation they did not need in that moment.
- *
- * So `send` reports whether it worked and never throws. Callers decide, and
- * for signup the decision is: create the account anyway.
- *
- * ## Why the link is logged when there is no key
- *
- * Without `RESEND_API_KEY` — a fresh clone, a local database, a preview
- * environment — this logs the message instead of sending it. That is not a
- * stub standing in for the real thing: it is what makes the whole flow
- * testable before a domain is verified, and it is deliberately loud rather
- * than silent, because a send that quietly does nothing is the failure mode
- * that reaches a tester as "the email never arrived".
+ * Send mail using Resend's REST API via fetch.
+ * Returns success/failure status and never throws.
+ * Logs mail body to console if API key is missing.
  */
 import 'server-only';
 
 const API = 'https://api.resend.com/emails';
 
-/**
- * Who the mail comes from.
- *
- * Must be on a domain verified with Resend, or every send is rejected. The
- * default matches the apex this app already serves from, so the only setup
- * left is the DNS records.
- */
+/** Sender address. Must be on a verified domain. */
 const FROM = process.env.MAIL_FROM ?? 'Open Innings <no-reply@openinnings.com>';
 const API_KEY = process.env.RESEND_API_KEY;
 
@@ -57,20 +26,10 @@ export type Mail = {
   html: string;
 };
 
-/**
- * Send one message. Never throws.
- *
- * Both a text and an HTML body on every message, and not for tidiness: a
- * mail with only HTML scores worse with spam filters, and the text part is
- * what a screen reader, a watch, and a preview pane actually read. For a
- * domain with no sending reputation — which this one has — that difference
- * decides whether a confirmation lands in the inbox or in spam.
- */
+/** Send one message. Never throws. Requires both text and HTML parts. */
 export async function send(mail: Mail): Promise<MailResult> {
   if (!API_KEY) {
-    // Loud on purpose. The link is here so the flow can be walked end to end
-    // locally, and so a misconfigured deploy is obvious in the logs rather
-    // than presenting as mail that never arrives.
+    // Log mail contents if API key is missing to support local testing.
     console.warn(
       `[mail] RESEND_API_KEY is not set — not sending.\n` +
         `       to: ${mail.to}\n` +
@@ -94,16 +53,12 @@ export async function send(mail: Mail): Promise<MailResult> {
         text: mail.text,
         html: mail.html,
       }),
-      // A scorer waiting on a signup response must not wait on a slow third
-      // party. Ten seconds is generous for one API call and short enough that
-      // a hung provider does not hold a request open.
+      // 10 second timeout so slow third party doesn't hang signup.
       signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {
-      // The body carries Resend's reason — an unverified domain, a bad
-      // address — and it belongs in the log, never in a response to the
-      // client, where it would confirm whether an address exists.
+      // Log rejection reason but don't leak it to client.
       const detail = await res.text().catch(() => '');
       console.error(`[mail] rejected (${res.status}) for ${mail.subject}: ${detail.slice(0, 400)}`);
       return { ok: false, reason: 'rejected', detail: String(res.status) };

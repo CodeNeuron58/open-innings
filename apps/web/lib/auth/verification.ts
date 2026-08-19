@@ -1,28 +1,8 @@
 /**
- * Single-use secrets: confirming an address, and getting back into an account.
+ * Single-use secrets for confirming addresses and resetting passwords.
  *
- * One mechanism, two purposes, because they are the same problem — issue a
- * secret to a channel only the right person can read, and accept it back once.
- *
- * ## The rules, and why each one is here
- *
- * **Hashed at rest.** A live reset token is a bearer credential: whoever holds
- * it owns the account. `sessions` already stores SHA-256 for this reason, and
- * a reset token deserves it more, not less. The row proves a token was issued;
- * it cannot reproduce one.
- *
- * **Single use.** `usedAt` is stamped inside the same transaction that spends
- * it. Mail clients follow links to scan them, people forward them, and
- * browsers prefetch — a token that works twice works for whoever gets there
- * second.
- *
- * **Issuing invalidates the last one.** Tapping "resend" three times must not
- * leave three live tokens; the user is looking at the newest mail and the
- * older two are just extra ways in.
- *
- * **Consuming a reset kills every session.** The common reason for a reset is
- * that somebody else may have the password. Leaving their existing sessions
- * alive would make the reset theatre.
+ * Secrets are hashed at rest, single-use, invalidate previous tokens,
+ * and consuming a password reset kills all active sessions.
  */
 import 'server-only';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
@@ -33,40 +13,17 @@ import { sessions, users, verificationTokens } from '@/lib/db/schema';
 
 /**
  * How long each kind of secret lives.
- *
- * A reset is short because it is the dangerous one: it is a live key to an
- * account sitting in an inbox, and an inbox is not always the owner's alone —
- * a shared laptop, a synced desktop client, a phone somebody left on a bench.
- *
- * A confirmation is long because it is not dangerous at all. Following it
- * proves an address; it grants nothing. Making it short buys no safety and
- * costs the person who signed up in the evening and read their mail the next
- * morning.
+ * Password resets are short for security; email confirmations are longer.
  */
 export const TTL = {
-  /*
-   * Ten minutes, not twenty-four hours, because this is now a **code**.
-   *
-   * A 32-byte link could live for a day safely: it is unguessable, so time
-   * buys an attacker nothing. Six digits is a million possibilities, and the
-   * only thing standing between a guesser and an account is how long the
-   * window stays open and how many tries fit inside it. Both are now small.
-   */
+  /* 10 minutes because a 6-digit code is guessable over long periods. */
   email_verify: 10 * 60 * 1000, // 10 minutes
   password_reset: 60 * 60 * 1000, // 60 minutes
 } as const;
 
 /**
- * Wrong guesses before a code is destroyed.
- *
- * Five, and then it is spent — not locked for a while, spent, so the only way
- * forward is a fresh code sent to the address being proven. That turns a
- * million-guess search into five guesses per email delivered, which is a
- * different problem entirely.
- *
- * The counter lives on the row rather than in memory because the rate limiter
- * does not survive a dyno restart, and a limit that a restart resets is not a
- * limit.
+ * Wrong guesses before a code is destroyed (stored in DB to survive restarts).
+ * Limits guessing attacks on 6-digit codes.
  */
 export const MAX_CODE_ATTEMPTS = 5;
 
@@ -90,10 +47,7 @@ function generateToken(): string {
 }
 
 /**
- * Issue a secret and return the raw value — the only time it exists.
- *
- * The caller mails it. Nothing else can, because nothing else will ever be
- * able to read it back.
+ * Issue a single-use secret and return the raw value to be mailed.
  */
 export async function issueToken(
   userId: string,
@@ -130,16 +84,8 @@ export async function issueToken(
 }
 
 /**
- * Issue a six-digit code and return it — the only time it exists in the clear.
- *
- * `randomInt` and not `Math.random`. The latter is seeded, predictable, and
- * has no business generating anything anybody has to guess; it is the single
- * most common way a code like this turns out to be worthless.
- *
- * Hashed with Argon2 rather than SHA-256. Six digits is a million
- * possibilities, which a fast hash gives up instantly to a leaked row — see
- * migration 0012. Argon2 makes that million about a day's work against a code
- * that lives ten minutes.
+ * Issue a securely generated 6-digit code and return it in the clear.
+ * Hashed with Argon2 to protect against brute-force on leaked DB rows.
  */
 export async function issueCode(userId: string, purpose: Purpose, sentTo: string): Promise<string> {
   // 0..999999 padded, so `007421` is as likely as `907421`. Slicing a random
@@ -183,16 +129,7 @@ export type CodeResult =
 
 /**
  * Check a code against the live one for this account.
- *
- * Looked up by **user and purpose**, not by the code — which is the whole
- * reason this endpoint needs a session where the link flow did not. It means
- * a guesser must already be signed in as the person whose address they are
- * trying to prove, and their five attempts are counted against that one
- * account rather than sprayed across every account at once.
- *
- * A wrong guess costs an attempt. The fifth spends the code outright, so
- * recovering needs a new message delivered to the address in question — which
- * is the thing being proven in the first place.
+ * Deducts attempts on failure and destroys the code after MAX_CODE_ATTEMPTS.
  */
 export async function consumeCode(
   userId: string,
@@ -260,12 +197,7 @@ export type ConsumeResult =
 
 /**
  * Spend a secret, once.
- *
- * Every failure is deliberately narrow in what it reveals. "Expired" and
- * "used" are worth distinguishing to the person holding the link, because the
- * useful next step differs — ask for another, or you are already done — and
- * neither discloses anything about an account that the holder of the token
- * does not already have.
+ * Returns distinct error reasons to guide the user without leaking info.
  */
 export async function consumeToken(token: string, purpose: Purpose): Promise<ConsumeResult> {
   if (!token) return { ok: false, reason: 'invalid' };
@@ -312,14 +244,7 @@ export async function markEmailVerified(userId: string, address: string): Promis
 }
 
 /**
- * Set a new password and end every session on the account.
- *
- * One transaction. The reason somebody resets is usually that a password may
- * be known to somebody else — leaving that person's existing sessions alive
- * would make the whole exercise decorative.
- *
- * Confirming a reset also verifies the address, and that is not a shortcut:
- * following a link sent to it is exactly the proof `email_verify` asks for.
+ * Set a new password, end all active sessions, and mark email as verified.
  */
 export async function applyPasswordReset(
   userId: string,
@@ -358,11 +283,7 @@ export async function applyPasswordReset(
 }
 
 /**
- * Delete spent and expired rows.
- *
- * Opportunistic, like the session purge: called on issue rather than
- * scheduled, because Heroku's Essential tier has no cron and a table that
- * only grows is a slow leak nobody notices until a backup gets large.
+ * Opportunistically delete spent and expired tokens.
  */
 export async function purgeStaleTokens(): Promise<void> {
   try {
@@ -375,11 +296,6 @@ export async function purgeStaleTokens(): Promise<void> {
 
 /**
  * Compare two secrets without leaking their difference through timing.
- *
- * Not used by the token path — that looks up by hash, so there is nothing to
- * compare — but exported for the phone OTP that will need it. A six-digit
- * code *is* guessable, and `===` on a short secret returns faster the earlier
- * it differs.
  */
 export function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);

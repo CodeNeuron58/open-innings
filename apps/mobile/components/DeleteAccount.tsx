@@ -1,26 +1,6 @@
 /**
- * Deleting your account, from inside the app.
- *
- * Google Play requires this to exist in-app as well as at a public URL, and
- * until it did the app could not be published at all.
- *
- * ## Two steps, and the first one is the important one
- *
- * Tapping the row does not open a password field. It opens an explanation of
- * what is erased and — at greater length — **what stays**, because that is the
- * part people are actually asking about. Somebody deleting their account wants
- * to know whether their club's season goes with them. It does not, and finding
- * that out afterwards would be the worst possible time.
- *
- * Only after that does it ask for the password. Not because the session is in
- * doubt, but because a signed-in phone is not proof of who is holding it, and
- * this is the one action in the app that cannot be undone.
- *
- * ## Why there is no "are you sure" on top of it
- *
- * Typing a password *is* the confirmation. A separate yes/no dialog in front
- * of it would be a step people learn to dismiss without reading, which makes
- * the real check weaker rather than stronger.
+ * In-app account deletion.
+ * Explains what is deleted vs. kept, then requires a password to confirm.
  */
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';

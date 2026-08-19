@@ -1,17 +1,6 @@
 /**
  * B2–B4 — Starting a match, in three steps.
- *
- * One screen rather than three routes: the draft has to survive every step and
- * a wizard is the one place where local state beats navigation params. Back
- * moves a step, not a screen.
- *
- *   B2  Format and toss
- *   B3  Pick the XI
- *   B4  Openers and the opening bowler
- *
- * `resolveBattingSides` comes from @open-innings/shared — the same function
- * the server uses — so the openers this screen asks for can never disagree
- * with the side the server decides is batting.
+ * Uses local state for wizard progression so draft survives back navigation.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -31,17 +20,7 @@ import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/
 
 /**
  * The formats offered at the toss.
- *
- * `overs` is what the engine actually consumes; `stored` is the label the
- * match keeps, so its card can say "T20" rather than "20 overs". The
- * unsupported ones have no `stored` value because they can never be chosen.
- *
- * The ones marked unsupported
- * are shown but cannot be chosen: Tests need two innings a side with
- * declarations and a follow-on, the Hundred counts five-ball sets rather than
- * overs, and box cricket scores zone runs and negative runs. None of that is
- * in packages/scoring. Offering them and failing mid-match would be far worse
- * than saying so at the toss — see docs/wiring.md.
+ * Unsupported formats are shown but disabled as their rules are not implemented.
  */
 const FORMATS = [
   {
@@ -223,13 +202,7 @@ export default function NewMatch() {
 
   const xi = battingPlayers.filter((p) => selected.has(p.id));
 
-  /*
-   * Re-read the squads whenever this screen comes back into focus.
-   *
-   * The only way to leave and return mid-wizard is via "add a player", and
-   * coming back to a list that does not contain the person just added would
-   * read as the add having failed. `refresh` is stable, so this does not loop.
-   */
+  // Re-read squads on focus to include any newly added players.
   useFocusEffect(
     useCallback(() => {
       void battingSquad.refresh();
@@ -336,31 +309,14 @@ export default function NewMatch() {
               <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
                 Balls per over
               </Text>
-              {/*
-                Fixed at six. BALLS_PER_OVER is a constant in the engine, not a
-                setting — making it configurable means touching every over-based
-                calculation. Shown because the design does, disabled because
-                changing it here would be a lie.
-              */}
+              {/* Fixed at six balls per over as required by the engine. */}
               <View className="border-input mt-1.5 h-12 justify-center border bg-neutral-200 px-4">
                 <Text className="text-foreground/55 font-heading text-[17px]">6</Text>
               </View>
             </View>
           </View>
 
-          {/*
-            The per-bowler limit.
-
-            A playing condition rather than a Law, and the engine enforces it —
-            so this is not decoration. Left alone, the server applies the usual
-            fifth of the innings when the fielding side has enough bowlers to
-            cover it. Turned off, nobody is capped, which is what gully and box
-            cricket need and what a club with a different condition needs too.
-
-            Worth being able to reach *before* the match rather than after: a
-            scorer who finds out at the fifteenth over that their best bowler is
-            blocked cannot change it from the console.
-          */}
+          {/* Configures per-bowler limit (usually 1/5th of innings) enforced by the engine. */}
           <View className="mt-5">
             <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
               Overs per bowler
@@ -524,8 +480,7 @@ export default function NewMatch() {
                   <Text className="text-foreground/50 font-heading w-6 text-[13px]">{i + 1}</Text>
                   <Text className="text-foreground flex-1 text-[15px]" numberOfLines={1}>
                     {p.fullName}
-                    {/* (c) and † — the marks a scorer already reads on a
-                        teamsheet, so no legend is needed. */}
+                    {/* Standard symbols for captain (c) and wicketkeeper (†). */}
                     {p.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
                     {p.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
                   </Text>
@@ -538,15 +493,7 @@ export default function NewMatch() {
               );
             })}
 
-            {/*
-              The design's "add a guest player".
-              
-              Sends you to the squad screen rather than creating someone
-              inline, because that screen searches Open Innings first — and a
-              "guest" who has played anywhere before should keep their career
-              rather than start a second empty one. Coming back re-fetches the
-              squad, so the new name is here.
-            */}
+            {/* Routes to squad screen to search existing players before adding a new one. */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add a player to this squad"
@@ -655,14 +602,7 @@ export default function NewMatch() {
   );
 }
 
-/**
- * A list of players to choose one from, with the figures that inform the
- * choice.
- *
- * `kind` decides which end the context is read from: openers get a batting
- * line, the bowler gets an economy. Showing both on every row would be more
- * information and less help.
- */
+/** Player list with context-specific stats (batting line or economy). */
 function PlayerPicker({
   players,
   value,

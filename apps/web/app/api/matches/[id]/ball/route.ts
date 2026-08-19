@@ -1,23 +1,9 @@
 /**
  * POST /api/matches/[id]/ball — record a ball event.
- *
- * Request body: a BallEventInput (the scorer UI's view of the ball).
- *
- * Flow:
- *   1. Load current innings + all existing ball events for it.
- *   2. Build a seed from the innings row (opening players + bowler).
- *   3. Replay existing balls through the engine to reconstruct state.
- *   4. Apply the new event through the engine (validates, may throw ScoringError).
- *   5. Persist the new event to the DB.
- *   6. Update the innings cache columns (runs, wickets, balls_bowled, extras, status).
- *   7. Return the updated MatchState so the scorer UI can re-render.
- *
+ * Replays state, applies event, persists, and updates cache columns.
+ * 
  * DELETE /api/matches/[id]/ball — undo the last ball.
- *   Same flow, but deletes the last ball_events row and recomputes.
- *
- * Correcting a delivery that is **not** the last one is a different endpoint:
- * `PATCH /api/matches/[id]/ball/[ballId]`. It cannot be expressed here,
- * because changing a delivery in the middle rewrites every delivery after it.
+ * Deletes the last event and recomputes state.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
@@ -55,23 +41,10 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
     }
 
-    // Keyed on the scorer, not the IP — a whole club shares one IP behind
-    // NAT, and throttling the second scorer in the room would be a bug.
-    // Generous: a real over is six taps, this allows a sustained two a second.
+    // Rate limit keyed on the scorer (not IP) to support multiple scorers on same NAT.
     enforceRateLimit(request, 'ball', { max: 120, windowMs: 60_000, identity: userId });
 
-    /*
-     * Parsed, not cast.
-     *
-     * This line was `(await request.json()) as BallEventInput` — an assertion
-     * that told the compiler to stop asking and let arbitrary JSON reach the
-     * engine and then Postgres. `ballEventSchema` existed in the shared
-     * package the whole time, describing a shape nobody sent; it now
-     * describes this one and is finally used.
-     *
-     * The cast is how tapping 5 on the keypad became a 500: nothing between
-     * the screen and the database checked the event type against the enum.
-     */
+    // Parse input using schema to ensure valid event types.
     const parsed = await readJson(request, consistentBallEventSchema);
 
     const loaded = await loadMatchInProgress(matchId);
@@ -86,12 +59,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       );
     }
 
-    /*
-     * Server-owned fields are not taken from the body, and the schema does not
-     * accept them. `inningsId` comes from the innings this match is actually
-     * on rather than whichever one the client believes; `totalRuns`,
-     * `isLegalDelivery` and `isFreeHit` are the engine's to derive.
-     */
+    // Server-owned fields are derived, not accepted from body.
     const body: BallEventInput = {
       inningsId: asInningsId(currentInnings.id),
       eventType: parsed.eventType,
@@ -103,9 +71,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       wicketType: parsed.wicketType,
       wicketPlayerId: parsed.wicketPlayerId ? asPlayerId(parsed.wicketPlayerId) : undefined,
       fielderId: parsed.fielderId ? asPlayerId(parsed.fielderId) : undefined,
-      // The one client-asserted fact the engine cannot derive: Law 17.4 lets
-      // the bowler change mid-over only when they cannot continue, and nothing
-      // in the ball log distinguishes an injury from a mis-tap.
+      // Engine cannot derive Law 17.4 mid-over replacements.
       bowlerReplacedMidOver: parsed.bowlerReplacedMidOver,
       commentary: parsed.commentary,
     };
@@ -132,11 +98,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    // Persist the ball and move the innings on, together.
-    //
-    // These used to be two awaits. A failure between them stored the delivery
-    // and left the cached score a ball behind, with nothing to recompute it
-    // but the next successful ball.
+    // Persist the ball and move the innings on together in one transaction.
     const newBall = nextState.balls[nextState.balls.length - 1]!;
     const updated = nextState.currentInnings;
 
@@ -221,11 +183,7 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'Sign in to score' }, { status: 401 });
     }
 
-    // Undo was the one unthrottled half of this endpoint. It costs more than
-    // POST does — it deletes, then replays the whole innings from scratch —
-    // so leaving it open while capping the cheaper direction had it backwards.
-    // Same bucket and same key as POST: a scorer's undos and their deliveries
-    // are the same person doing the same job.
+    // Undo shares the same rate limit bucket as POST.
     enforceRateLimit(request, 'ball', { max: 120, windowMs: 60_000, identity: userId });
 
     const loaded = await loadMatchInProgress(matchId);
@@ -243,21 +201,13 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'No balls to undo' }, { status: 400 });
     }
 
-    /*
-     * Replay first, write second.
-     *
-     * Replay is pure, so computing the innings as it will stand *without* the
-     * last delivery costs nothing before touching the database — and it means
-     * the delete and the corrected score go down together rather than as two
-     * awaits with a window between them.
-     */
+    // Replay first to compute new score before hitting the database.
     const last = balls[balls.length - 1]!;
     const remaining = balls.slice(0, -1);
     const seed = buildSeed(match, currentInnings);
     const state = replayEvents(seed, ballsToInputs(remaining));
 
-    // Undoing the winning run of a chase reopens the match, and that is part
-    // of the same undo rather than a write that follows it.
+    // Reopen match if undoing the winning run.
     const reopenMatchId =
       match.status === 'completed' && state.currentInnings.status !== 'completed'
         ? matchId
@@ -290,9 +240,7 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
 
     return NextResponse.json({ state });
   } catch (err) {
-    // Through the shared mapper, like POST. This used to flatten everything
-    // to a 500, which would have turned the new rate-limit rejection into a
-    // server fault instead of the 429 it is.
+    // Use shared mapper for proper error status codes.
     return toErrorResponse(err);
   }
 }

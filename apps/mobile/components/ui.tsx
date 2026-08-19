@@ -1,22 +1,6 @@
 /**
- * The Industry kit, mobile edition.
- *
- * Deliberately small — only what the auth and match screens need. The design
- * reference is the phone mockup on the marketing site
- * (apps/web/components/marketing/phone-screen.tsx), not the web's own
- * components/ui.tsx: these render RN primitives, not DOM.
- *
- * Two rules from the design system drive everything here:
- *
- *   - Objects are square-cornered line drawings with a hairline border. Cards
- *     and secondary buttons carry no fill; the primary button is the one
- *     solid object on the screen.
- *   - Barlow Condensed, uppercase and tracked out, for anything that labels
- *     or counts. Barlow for prose.
- *
- * Touch targets stay 48pt minimum. This app is used one-handed, outdoors, in
- * sunlight, often by someone also watching the cricket — that constraint
- * outranks the design system where the two disagree.
+ * The Industry UI kit, mobile edition.
+ * Features square-cornered hairline borders, Barlow Condensed for labels, and 48pt minimum touch targets.
  */
 import { forwardRef } from 'react';
 import {

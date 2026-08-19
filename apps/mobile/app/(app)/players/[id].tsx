@@ -1,14 +1,6 @@
 /**
  * E1 — the career record.
- *
- * The screen that answers "why bother scoring?". A scorer taps two hundred
- * times over three hours; twenty-two people get this out of it, and it is the
- * only page here anyone would put in a bio.
- *
- * The mobile twin of `/p/[playerId]` on the web. Same numbers, same source —
- * both read `GET /api/players/[id]/stats`, which folds everything from the
- * ball log rather than storing it, so the two cannot disagree and a corrected
- * ball corrects the career.
+ * Player statistics computed entirely from ball logs via /stats.
  */
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, Text, View } from 'react-native';
@@ -57,13 +49,7 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
-/**
- * The form strip, as a bar chart.
- *
- * Bars are scaled against the best score in the window, not against a fixed
- * ceiling — the point is the shape of a run of scores, and 34 next to 74 says
- * more than either does against an imaginary 100.
- */
+/** Form strip bar chart. Scaled against the best score in the window. */
 function FormChart({ form }: { form: FormEntryView[] }) {
   // Oldest on the left. The API sends newest first, which is right for a list
   // and backwards for a chart people read left to right as time.

@@ -1,18 +1,6 @@
 /**
  * DELETE /api/me — delete your own account.
- *
- * The endpoint Google Play requires before it will publish an app that lets
- * anyone create an account. Until this existed the app was unpublishable:
- * `users.anonymised_at` was in the first migration, every read honoured it,
- * and nothing ever wrote it.
- *
- * DELETE rather than POST, on `/api/me` rather than `/api/me/delete`, because
- * the resource being removed is you. `/api/me/player` already reads that way.
- *
- * The password is in the body, so this is a DELETE that carries one — unusual,
- * and correct here. A session proves who signed in; it does not prove who is
- * holding the phone now, and this is the one action in the app that cannot be
- * undone.
+ * Requires password in the body since this action cannot be undone.
  */
 import { NextResponse } from 'next/server';
 import { deleteAccountSchema, HTTP } from '@open-innings/shared';

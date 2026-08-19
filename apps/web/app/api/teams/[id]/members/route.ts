@@ -29,9 +29,7 @@ export const POST = handle(async (request: Request, ctx: RouteParams) => {
 });
 
 /**
- * Captaincy and keeping belong to the membership, not the person — somebody
- * captains one club and bats at six for another — and both are exclusive
- * within a squad, so claiming either releases whoever held it.
+ * Captaincy and keeping belong to membership and are exclusive within a squad.
  */
 export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;

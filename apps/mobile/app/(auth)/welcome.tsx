@@ -1,14 +1,6 @@
 /**
- * A2 — What it does.
- *
- * The first screen anyone reads. Its job is to make the pitch in five seconds
- * and then get out of the way.
- *
- * Three ways out, in the order most people want them: start scoring, look
- * around without an account, or sign in. Looking around is second rather than
- * hidden, because asking for an account before showing anything is how
- * first-run flows lose people — and every scorecard in this app is public
- * anyway, so there is nothing to protect by making them sign up to read one.
+ * A2 — Welcome screen.
+ * Pitches the app and offers paths: sign up, browse as guest, or sign in.
  */
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

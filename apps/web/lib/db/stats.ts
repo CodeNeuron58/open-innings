@@ -1,23 +1,6 @@
 /**
- * Career statistics, derived from the ball log.
- *
- * Nothing here is stored. Every figure on a player's profile is computed from
- * `ball_events`, which is the same source the scorecard replays from — so a
- * corrected ball fixes the career record too, and there is no aggregate table
- * to drift out of step with the balls that produced it.
- *
- * **The dismissal rules are imported, never retyped.** Which dismissals credit
- * the bowler is Law 25, and `packages/scoring/src/rules.ts` already encodes it
- * with the law references. Writing that list again as a SQL literal would
- * create a second source of truth that silently disagrees the first time
- * someone adds a dismissal type — so the sets are injected into the query
- * instead.
- *
- * Shape of the work: two queries return one row per innings the player batted
- * or bowled in, and the totals are folded in TypeScript. That is deliberate
- * rather than aggregating in SQL — a career is tens to low hundreds of rows,
- * and it means high score, fifties, best figures and recent form all fall out
- * of the same data without a query each.
+ * Career statistics derived on the fly from the ball log.
+ * Rules for dismissals and extras are imported from the scoring engine.
  */
 import 'server-only';
 import { sql, type SQL } from 'drizzle-orm';
@@ -29,15 +12,7 @@ import {
 } from '@open-innings/scoring';
 import { db } from './client';
 
-/**
- * Renders a set of dismissal types as a bound parameter list for `in (…)`.
- *
- * Not `= any(${[...set]}::wicket_type[])` — drizzle binds a JS array as a
- * single row parameter, and Postgres rejects it with "cannot cast type record
- * to wicket_type[]". Joining one parameter per value keeps the values bound
- * (no string interpolation into SQL) and lets Postgres coerce each text
- * literal to the enum on comparison.
- */
+/** Renders a set of strings as a bound parameter list for `in (…)`. */
 function enumList(values: ReadonlySet<string>): SQL {
   return sql.join(
     [...values].map((v) => sql`${v}`),
@@ -45,18 +20,10 @@ function enumList(values: ReadonlySet<string>): SQL {
   );
 }
 
-/**
- * Event types that never enter a bowler's runs conceded — Law 24's byes and
- * leg-byes. Imported from the engine so the figure a career page shows cannot
- * drift from the one on the scorecard the same balls produced.
- */
+/** Event types that do not count against a bowler's runs conceded. */
 const exemptExtras = enumList(BOWLER_EXEMPT_EXTRAS);
 
-/**
- * Deliveries that are not a ball faced — a wide, and nothing else. Imported
- * so the strike rate on a career page matches the one on the scorecard the
- * same balls produced.
- */
+/** Deliveries that are not counted as a ball faced by the batter. */
 export const notFaced = enumList(BATSMAN_FACING_EXCLUDED_TYPES);
 
 /** One innings of batting. */
@@ -90,12 +57,7 @@ export type FieldingTotals = {
   stumpings: number;
 };
 
-/**
- * Every innings this player has batted in, newest first.
- *
- * `is_out` counts only dismissals that end an innings — a retired hurt batter
- * can come back, so it is not an out and must not enter the average.
- */
+/** Every innings this player has batted in, newest first. */
 export async function battingInningsFor(playerId: string): Promise<BattingInnings[]> {
   const dismissals = enumList(TEAM_WICKET_COUNTED);
 
@@ -115,24 +77,13 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
     select
       be.innings_id,
       m.id as match_id,
-      -- There is no single "match date": a finished game is dated by when it
-      -- finished, a live one by when it started, an unplayed one by when it
-      -- was scheduled. created_at is the last resort so this is never null.
+      -- Coalesce dates to find closest match played date.
       coalesce(m.completed_at, m.started_at, m.scheduled_at, m.created_at) as played_at,
       bowl_team.name as opponent,
-      -- Every figure below is scoped to deliveries this player actually faced.
-      --
-      -- The WHERE clause below deliberately widens to include balls where they
-      -- were only the *dismissed* player, so that a non-striker run out
-      -- without facing a ball still produces an innings row. Without these
-      -- filters that widening leaked: the ball on which they were run out at
-      -- the bowler's end brought the striker's runs and a phantom ball faced
-      -- into their innings.
+      -- Filter by batsman_id to exclude runs scored by the striker when this player is run out at the non-striker's end.
       coalesce(sum(be.runs_off_bat) filter (where be.batsman_id = ${playerId}::uuid), 0)::int
         as runs,
-      -- Balls faced is every delivery except a wide — byes and leg-byes were
-      -- faced, and so was a no-ball. The exempt list is imported from the
-      -- engine so a career page and a match card cannot disagree.
+      -- Count balls faced, exempting wides.
       count(*) filter (
         where be.batsman_id = ${playerId}::uuid
           and be.event_type not in (${notFaced})
@@ -143,8 +94,7 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
       count(*) filter (
         where be.batsman_id = ${playerId}::uuid and be.runs_off_bat = 6
       )::int as sixes,
-      -- The dismissal is recorded against wicket_player_id, which is not
-      -- always the striker: a run-out can take the non-striker.
+      -- Check if player was dismissed (including non-striker run outs).
       coalesce(bool_or(
         be.wicket_player_id = ${playerId}::uuid
         and be.wicket_type in (${dismissals})
@@ -172,13 +122,7 @@ export async function battingInningsFor(playerId: string): Promise<BattingInning
   }));
 }
 
-/**
- * Every innings this player has bowled in, newest first.
- *
- * Runs conceded charges the bowler for wides and no-balls but not for byes or
- * leg-byes — those came off the keeper or the pad, and Law 24 does not put
- * them on the bowler's analysis.
- */
+/** Every innings this player has bowled in, newest first. */
 export async function bowlingInningsFor(playerId: string): Promise<BowlingInnings[]> {
   const credited = enumList(BOWLER_CREDITED_WICKETS);
 
@@ -202,9 +146,7 @@ export async function bowlingInningsFor(playerId: string): Promise<BowlingInning
       coalesce(m.completed_at, m.started_at, m.scheduled_at, m.created_at) as played_at,
       bat_team.name as opponent,
       count(*) filter (where be.is_legal_delivery)::int as balls,
-      -- Byes and leg-byes are not charged to the bowler; the wide and no-ball
-      -- penalties are. The exempt list is imported from the engine rather than
-      -- written out here, so this cannot drift from what a scorecard shows.
+      -- Calculate runs conceded, exempting byes/leg-byes.
       coalesce(sum(be.total_runs) filter (
         where be.event_type not in (${exemptExtras})
       ), 0)::int as runs,
@@ -231,12 +173,7 @@ export async function bowlingInningsFor(playerId: string): Promise<BowlingInning
   }));
 }
 
-/**
- * Catches, run-outs and stumpings.
- *
- * A stumping is the keeper's, and it also credits the bowler — both are true
- * at once, so it appears here and in the bowler's wickets.
- */
+/** Catches, run-outs and stumpings. */
 export async function fieldingTotalsFor(playerId: string): Promise<FieldingTotals> {
   const rows = await db.execute<{ catches: number; run_outs: number; stumpings: number }>(sql`
     select
@@ -259,24 +196,7 @@ export async function fieldingTotalsFor(playerId: string): Promise<FieldingTotal
 // Many players at once
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * How many matches each of these players appeared in, in any role at all.
- *
- * Batting and bowling rows were the only evidence used before, and between
- * them they miss people. A specialist fielder who took two catches and neither
- * batted nor bowled had played **zero matches** according to their own career
- * page — on a page listing the catches. And `careerBriefsFor` took the larger
- * of its two counts, so somebody who batted in one match and only bowled in
- * another was credited with one.
- *
- * Every role on the delivery counts, the non-striker included: standing at the
- * other end without facing a ball is still having played.
- *
- * `unnest` expands each delivery into its five roles in a single pass over the
- * table, which is what keeps this one scan rather than one per player — the
- * pickers call it with a whole squad at once. Null roles disappear on the
- * `in` filter without needing to be excluded.
- */
+/** Matches each player appeared in, counting any role (batter, bowler, fielder, non-striker). */
 export async function appearancesFor(playerIds: string[]): Promise<Map<string, number>> {
   if (playerIds.length === 0) return new Map();
 
@@ -304,14 +224,7 @@ export async function appearancesFor(playerIds: string[]): Promise<Map<string, n
   return new Map(rows.map((r) => [r.player_id, Number(r.matches)]));
 }
 
-/**
- * Enough of a career to decide whether this is the right person.
- *
- * Not a shrunken `PlayerCareer` — a different question. The career page is
- * read about one player who has been chosen; this is read while *choosing*,
- * across a whole squad, and the only figures that help are the ones that
- * distinguish two people with the same name.
- */
+/** Basic career stats to help disambiguate players with the same name. */
 export type CareerBrief = {
   playerId: string;
   matches: number;
@@ -322,18 +235,7 @@ export type CareerBrief = {
   bowlingBalls: number;
 };
 
-/**
- * Career totals for a list of players, in two queries rather than 2N.
- *
- * The reason this exists: three screens want a line of context beside each
- * name in a list — the XI picker, the openers picker, and the add-a-player
- * search. Calling the per-player endpoint per row is twenty-two round trips
- * on a screen someone is trying to get past, on ground-side mobile data.
- *
- * Totals, not per-innings rows. Nothing here needs an innings breakdown, and
- * folding one for twenty-two players to produce six numbers each would move
- * the same waste from the network to the server.
- */
+/** Bulk career totals for a list of players. */
 export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[]> {
   if (playerIds.length === 0) return [];
 
@@ -348,8 +250,7 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
       select
         be.batsman_id as player_id,
         coalesce(sum(be.runs_off_bat), 0)::int as runs,
-        -- Every delivery except a wide, same rule as battingInningsFor and
-        -- the engine, from the same imported list.
+        -- Count balls faced, exempting wides.
         count(*) filter (where be.event_type not in (${notFaced}))::int as balls
       from ball_events be
       where be.batsman_id in (${ids})
@@ -364,9 +265,7 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
       select
         be.bowler_id as player_id,
         count(*) filter (where be.is_legal_delivery)::int as balls,
-        -- Byes and leg-byes are not charged to the bowler; the wide and
-        -- no-ball penalties are. Same imported list as bowlingInningsFor — if
-        -- these two ever disagree, one screen contradicts another.
+        -- Calculate runs conceded, exempting byes/leg-byes.
         coalesce(sum(be.total_runs) filter (
           where be.event_type not in (${exemptExtras})
         ), 0)::int as runs,
@@ -389,11 +288,7 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
     bowlingBalls: 0,
   });
 
-  // Matches come from `appearancesFor` rather than from either of these.
-  // Both queries are scoped to one role, so neither can see a game the player
-  // only featured in through the other — and taking the larger of the two, as
-  // this used to, credited an all-rounder who batted in match A and only
-  // bowled in match B with a single appearance.
+  // Use appearancesFor to count matches played in any role.
   for (const r of battingRows) {
     const brief = byPlayer.get(r.player_id) ?? blank(r.player_id);
     brief.runs = Number(r.runs);
@@ -413,7 +308,6 @@ export async function careerBriefsFor(playerIds: string[]): Promise<CareerBrief[
     byPlayer.set(playerId, brief);
   }
 
-  // Everyone asked about, including players who have never faced a ball —
-  // a caller should not have to distinguish "no record" from "not returned".
+  // Return a brief for every requested ID, using blanks if no record.
   return playerIds.map((id) => byPlayer.get(id) ?? blank(id));
 }

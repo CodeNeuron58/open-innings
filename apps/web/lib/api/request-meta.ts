@@ -32,23 +32,7 @@ export function clientIp(request: Request): string | undefined {
 }
 
 /**
- * Throttle an endpoint.
- *
- * Keys on `identity` when given — a user id, for authenticated endpoints —
- * and falls back to client IP. That distinction matters for scoring: a whole
- * club shares one IP behind NAT, so an IP-keyed limit on the ball endpoint
- * would throttle the second scorer in the room.
- *
- * ⚠️ IP keying is a blunt instrument for this app specifically. Indian mobile
- * carriers run CGNAT, so thousands of unrelated users can present the same
- * address — a tight IP-keyed cap on the unauthenticated endpoints would lock
- * out real signups, not attackers. The caps below are therefore deliberately
- * loose. Two follow-ups make them safe to tighten: count only *failed*
- * attempts (a successful login shouldn't spend anyone's budget), and move the
- * counter to Redis so instances share it.
- *
- * In-process, so each instance counts separately — fine for a single-instance
- * deployment, and the limiter's own docs flag Redis as the v0.3 fix.
+ * Throttle an endpoint by identity (if signed in) or IP.
  */
 export function enforceRateLimit(
   request: Request,

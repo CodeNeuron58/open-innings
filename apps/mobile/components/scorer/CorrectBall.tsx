@@ -1,31 +1,6 @@
 /**
  * Correcting a delivery that has already been recorded.
- *
- * Undo only ever reached the last ball, so a scorer who noticed at the end of
- * the over that the third one was wrong had to undo four deliveries and
- * re-enter them from memory, in front of everyone, with the game waiting.
- * Tapping the chip and re-entering the one delivery is the whole feature.
- *
- * ## Two screens, and the second is the point
- *
- * A correction is not local. One run instead of two rotates the strike, so
- * every delivery after it was faced by the other batter — and the server says
- * exactly what moved. That has to be **shown and accepted**, not applied
- * silently: a card that rearranges itself while you watch is indistinguishable
- * from a bug, and a scorer who cannot tell the difference stops trusting the
- * app for the rest of the match.
- *
- * So: choose the delivery, send it, read what it did. The second screen is
- * not a success toast; it is the receipt.
- *
- * ## Why the batters are not offered
- *
- * Who was on strike is **derived** — the app fills it from engine state and
- * the scorer never picks it. Offering it here would invite somebody to
- * "correct" the consequence of the mistake instead of the mistake, and the
- * two disagree. The one case that genuinely needs a name — the wrong batter
- * sent in after a wicket — is the next-batter sheet's job, on the delivery
- * that actually recorded it.
+ * Replaces a single delivery and shows the resulting changes to the innings.
  */
 import { useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';

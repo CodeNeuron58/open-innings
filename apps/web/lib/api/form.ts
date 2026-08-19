@@ -1,9 +1,5 @@
 /**
- * Bridging HTML forms to the shared schemas.
- *
- * Server actions receive `FormData`; the REST handlers receive JSON. Both
- * validate with the same Zod schemas so the web and the app can't disagree
- * about what a valid match looks like.
+ * Bridge HTML forms to shared Zod schemas to ensure consistent validation.
  */
 import { redirect } from 'next/navigation';
 import type { z } from 'zod';
@@ -29,13 +25,7 @@ export function formValues<K extends string>(
   return out;
 }
 
-/**
- * Redirect back to a form with a message in the query string.
- *
- * Failures belong on the form the user is looking at, never on the Next.js
- * error screen. Unexpected errors are logged and shown as something generic —
- * an exception's message can carry internals.
- */
+/** Redirect back to a form with a message in the query string. */
 export function redirectWithError(path: string, error: unknown): never {
   let message = 'Something went wrong. Please try again.';
 

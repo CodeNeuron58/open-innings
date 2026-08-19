@@ -1,16 +1,6 @@
 /**
- * C3 — end of over.
- *
- * A full screen rather than the sheet this used to be. The bowler change is
- * the one moment in an over when the scorer has time and the captain is
- * deciding something, so it is worth showing the over that just went, the
- * figures of everyone who could bowl the next one, and how much each of them
- * has left. A list of eleven names in a modal answered none of that.
- *
- * Blocking by design: the engine cannot validate the next delivery until it
- * knows who is bowling, so there is no dismiss. "Undo last ball" is the way
- * out, because the usual reason to be here wrongly is a mis-recorded sixth
- * ball.
+ * End of over screen.
+ * Shows the previous over, bowler figures, and remaining quotas. Blocking by design.
  */
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';

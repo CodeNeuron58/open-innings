@@ -1,16 +1,7 @@
 /**
  * A5 — Who are you on the field?
- *
- * ⚠️ NOT WIRED. The fields are complete; nothing is saved.
- *
- * Three of them have nowhere to go yet. `players` carries a name, a role and
- * batting/bowling styles, but a player is not linked to a user account, there
- * is no club field, and the career page is addressed by UUID rather than the
- * slug this screen promises. Persisting any of it means a schema change and a
- * decision about what a "profile" is — the account, or a player row, or both.
- *
- * Ends on the career URL deliberately: the last thing someone sees before
- * finishing setup is the thing they are getting for it.
+ * ⚠️ NOT WIRED. UI is complete but backend persistence and schema changes are pending.
+ * Concludes by previewing the career URL.
  */
 import { useState } from 'react';
 import { ScrollView, Text, TextInput, View, Pressable } from 'react-native';
@@ -147,8 +138,7 @@ export default function Profile() {
           <Field label="Club" value={club} onChangeText={setClub} placeholder="Koramangala XI" />
         </View>
 
-        {/* The payoff. Someone finishing setup should see what they are
-            getting, not just a Done button. */}
+        {/* Preview of the resulting career page URL. */}
         <View className="border-border relative mt-6 border p-4">
           <Text className="font-heading text-[10px] uppercase tracking-[1.6px] text-neutral-600">
             Your page will live at

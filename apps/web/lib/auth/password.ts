@@ -1,11 +1,6 @@
 /**
- * Open Innings — password hashing.
- *
- * Uses Argon2id (via @node-rs/argon2, a native binding — fast + memory-hard).
- * Each password gets its own random salt, stored alongside the hash.
- *
- * We store hash and salt separately (rather than as a single PHC-format string)
- * because our schema has explicit columns. The combination is equivalent.
+ * Password hashing using Argon2id.
+ * Hashes and salts are stored separately to align with explicit DB columns.
  */
 import { hash, verify } from '@node-rs/argon2';
 import { randomBytes } from 'node:crypto';

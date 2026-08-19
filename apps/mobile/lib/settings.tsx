@@ -1,21 +1,6 @@
 /**
- * Device settings.
- *
- * Per-device, not per-account: "keep the screen on while I score" is a
- * property of the phone in someone's hand, not of who is signed in. A scorer
- * borrowing a club phone should not inherit the owner's preferences, and
- * syncing them would mean a settings table and a round trip to answer a
- * question the device can answer instantly.
- *
- * Stored in **expo-secure-store**, which is a slightly odd home for a boolean
- * — it is the Android Keystore, meant for credentials. The alternative was
- * adding AsyncStorage, and a whole extra native module to persist two booleans
- * is the worse trade. The values are tiny and the store is already here for
- * the session token. If settings ever grow past a handful, move them.
- *
- * Defaults are applied optimistically so the first render is correct: waiting
- * on disk to decide whether to keep the screen awake would let it sleep during
- * the read.
+ * Device settings stored locally (expo-secure-store).
+ * Applies defaults optimistically for immediate first render.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
@@ -23,14 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 const STORE_KEY = 'oi_settings_v1';
 
 export type Settings = {
-  /**
-   * Hold the screen on while a match is being scored.
-   *
-   * On by default, and the reason this module exists. A three-hour match on a
-   * phone that sleeps every thirty seconds means unlocking it between every
-   * delivery — which is the difference between an app someone scores a season
-   * with and one they abandon after a game.
-   */
+  /** Hold the screen on while a match is being scored. */
   keepAwakeWhileScoring: boolean;
 };
 

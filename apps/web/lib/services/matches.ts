@@ -50,33 +50,15 @@ import { invalid, notFound, unauthorized } from './errors';
  */
 
 /**
- * How many wickets this side can lose before the innings is over.
- *
- * One fewer than the number of players, because the last batter has nobody to
- * bat with. This used to be a hardcoded ten, so a six-a-side or box-cricket
- * team could **never be bowled out** — the innings ran to the over limit with
- * nobody left to come in, and the scorer had to notice and end it by hand.
- *
- * Capped at ten rather than taken from the squad alone: a club may register
- * fifteen players against a team, but only eleven bat.
+ * Max wickets a side can lose (squad size - 1, capped at 10).
  */
 export function sizeMaxWickets(squadSize: number): number {
   return Math.min(10, Math.max(1, squadSize - 1));
 }
 
 /**
- * The per-bowler over limit to apply, given what the client asked for.
- *
- * Three-way, matching the schema. `undefined` means "use the competition's
- * usual rule" and is the common case; explicit `null` means no limit, which
- * gully cricket needs; a number is taken as given.
- *
- * The usual rule is a fifth of the innings rounded up — four overs in a T20,
- * ten in a fifty-over game. It is applied **only when the bowling side can
- * actually cover the innings under it**, which is the check that makes turning
- * this on safe: five bowlers at four overs cover twenty, but four players
- * capped at one over each cannot bowl five, and a quota nobody is left to
- * satisfy would deadlock the innings with every remaining delivery refused.
+ * Determine per-bowler over limit.
+ * Defaults to a fifth of the innings if the squad is large enough to bowl it.
  */
 export function sizeBowlerQuota(
   requested: number | null | undefined,
@@ -90,17 +72,7 @@ export function sizeBowlerQuota(
 }
 
 /**
- * The three openers are in the two squads that are actually playing.
- *
- * The client filters its dropdowns, but a request can be crafted directly, so
- * this is re-checked server-side — and a Zod schema cannot do it, because it
- * needs a database round trip.
- *
- * Shared by both innings, which is the point. It was inline in
- * `createMatchWithFirstInnings` and simply absent from `startSecondInnings`,
- * so a chase could be opened with batters from the fielding side, or with
- * player ids belonging to another user entirely — who would then appear on
- * that player's public career page, having never been at the ground.
+ * Ensure opening batters and bowler belong to the correct playing squads.
  */
 function assertOpenersInSquads(
   battingSquad: { id: string }[],
@@ -132,10 +104,6 @@ async function requireOwnedMatch(matchId: string) {
 
 /**
  * Create a match, open innings 1, and put it live.
- *
- * The client filters opener dropdowns to the right squad, but a request can
- * be crafted directly, so squad membership is re-checked here. The Zod schema
- * can't do this — it needs a database round trip.
  */
 export async function createMatchWithFirstInnings(input: CreateMatchInput) {
   const userId = await getUserId();
@@ -199,16 +167,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
 }
 
 /**
- * Open the next innings: the chase, or a super over after a tie.
- *
- * One function rather than two, because every difference between them is
- * data. Which innings it is, which way round the sides go, and what the target
- * is are all read from what has already been played — the caller sends three
- * openers and nothing else, so there is no way to assert a state the match is
- * not in.
- *
- * Idempotent at every step. The innings break and the result screen are both
- * places a nervous second tap happens.
+ * Open the next innings (the chase or a super over). Idempotent.
  */
 export async function startNextInnings(matchId: string, input: StartNextInningsInput) {
   const { match } = await requireOwnedMatch(matchId);
@@ -309,18 +268,8 @@ export async function startNextInnings(matchId: string, input: StartNextInningsI
 export const startSecondInnings = startNextInnings;
 
 /**
- * Change what a match says about itself.
- *
- * `oversPerInnings` is the one that is not cosmetic. The engine ends an
- * innings on it, so changing it re-decides whether an innings already scored
- * is over: shorten a twenty-over game to ten after twelve overs and that
- * innings finished two overs ago. The cached score would go on saying "in
- * progress" until the next delivery, which the engine would then refuse.
- *
- * So it is allowed only while the match is still being played, and every
- * innings is replayed afterwards. A finished match keeps its length —
- * re-deciding a result that has already been shared is a different feature
- * with a different name.
+ * Update match details.
+ * Changing playing conditions (like oversPerInnings) triggers a replay of all innings.
  */
 export async function updateOwnedMatch(matchId: string, input: UpdateMatchInput) {
   const { match, userId } = await requireOwnedMatch(matchId);
@@ -345,17 +294,7 @@ export async function updateOwnedMatch(matchId: string, input: UpdateMatchInput)
 }
 
 /**
- * Replay every innings of a match and write back what the deliveries say.
- *
- * The cached columns on `innings` are a read optimisation over the ball log,
- * and they stay correct because every write path recomputes them. Changing a
- * playing condition is the exception: it alters what the same deliveries mean
- * without adding one, so nothing would recompute until the next ball — and by
- * then the engine and the cache would disagree about whether the innings was
- * still open.
- *
- * A function rather than four lines inside its one caller, because ball
- * correction needs exactly this shape.
+ * Replay every innings of a match and update cached totals based on ball events.
  */
 export async function recomputeInningsCaches(matchId: string): Promise<void> {
   const match = await getMatch(matchId);
@@ -404,15 +343,7 @@ export async function recomputeInningsCaches(matchId: string): Promise<void> {
 }
 
 /**
- * Close the innings in progress.
- *
- * Used when a side has no batters left to replace a dismissed one — a short
- * squad can't lose ten wickets. Ending the chase early also settles the match.
- *
- * Idempotent on double-submit, like `startSecondInnings`. The button lives on
- * the mandatory next-batter sheet, so it gets tapped by someone who has just
- * been told their innings is over — a second tap must not surface "No innings
- * is in progress" on the innings-break screen that follows.
+ * Close the innings in progress. Settles the match if it's a chase. Idempotent.
  */
 export async function endCurrentInnings(matchId: string) {
   const { match } = await requireOwnedMatch(matchId);
@@ -459,18 +390,7 @@ export async function endCurrentInnings(matchId: string) {
 }
 
 /**
- * Abandon a match: rain, a dispute, or one started by mistake.
- *
- * Deliberately not a result. A no-result is a real outcome in cricket and is
- * not the same as a tie, so it is recorded as one rather than faked as a
- * scoreline nobody played to.
- *
- * Also the way out of a dead end: a live match could not be deleted, and the
- * error told the caller to "finish or abandon" it while offering no way to do
- * either. Once abandoned it is no longer live, so deletion works unchanged.
- *
- * Idempotent, like the other lifecycle calls here — the button gets tapped
- * twice by someone standing in the rain.
+ * Abandon a match (e.g. rain). Records as a no-result. Idempotent.
  */
 export async function abandonOwnedMatch(matchId: string, reason?: string) {
   const { match } = await requireOwnedMatch(matchId);

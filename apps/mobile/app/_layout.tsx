@@ -17,26 +17,12 @@ import { SettingsProvider } from '../lib/settings';
 import { initPurchases } from '../lib/purchases';
 
 /**
- * Barlow Condensed for headings and figures, Barlow for body — the Industry
- * pairing, matching the marketing site.
- *
- * The splash screen is held until they load rather than letting the app paint
- * in the system font and reflow. A scoreboard that jumps a few pixels the
- * moment fonts arrive reads as broken, and the condensed face is materially
- * narrower than any fallback, so the reflow would be large.
+ * Global font pairing (Barlow & Barlow Condensed).
+ * Splash screen is held until fonts load to prevent layout shift.
  */
 void SplashScreen.preventAutoHideAsync();
 
-/*
- * RevenueCat, configured once before anything renders.
- *
- * At module scope rather than in an effect because the SDK must be configured
- * before the first `getCustomerInfo` call, and `AdBar` asks on mount — an
- * effect in this component would still run first, but only by accident of
- * ordering. This makes it a fact rather than a race.
- *
- * A no-op when there is no API key, which is the state until one is set.
- */
+// Initialize RevenueCat at module scope to ensure config before mount.
 initPurchases();
 
 export default function RootLayout() {
@@ -48,8 +34,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // Hide on error too — a missing font is a worse reason to show nothing
-    // than to render in the fallback face.
+    // Hide splash screen even on error to allow fallback fonts.
     if (fontsLoaded || fontError) void SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 

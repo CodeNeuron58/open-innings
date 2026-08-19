@@ -1,16 +1,6 @@
 /**
  * One delivery in the over strip.
- *
- * Colour reinforces the label, it never carries the meaning alone — every chip
- * shows text ("4", "W", "wd"). A scorer glancing at this in sunlight reads the
- * character; the value just makes the boundary and the wicket findable.
- *
- * Under the Industry palette these are steps on one steel ramp rather than
- * separate hues, because the system is mono — a four is lighter than a six is
- * lighter than a wicket. That is only safe because of the labels above; do not
- * remove them.
- *
- * Square, not pill-shaped: the design draws the over strip as a row of cells.
+ * Uses text labels for accessibility, with a monochrome steel color scale for quick visual scanning.
  */
 import { Pressable, Text, View } from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';

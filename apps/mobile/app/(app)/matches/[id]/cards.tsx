@@ -1,16 +1,6 @@
 /**
  * D4 — player cards.
- *
- * The whole growth argument in one screen. A match produces one shareable
- * artifact if you share the match; it produces twenty-two if every player gets
- * their own card, because a person will forward their own figures to people
- * who would never open a scorecard for a club they have not heard of.
- *
- * So the default here is one player, big, with their card previewed — not a
- * grid of twenty-two thumbnails nobody scrolls. Pick a name, look at the card,
- * send it.
- *
- * Previews are the real PNG endpoints, same as D3.
+ * Individual player share cards generated from the match.
  */
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
@@ -50,13 +40,7 @@ export default function PlayerCards() {
     );
   }
 
-  /*
-   * Everyone who did something, with the line they would text a friend.
-   *
-   * Built from both innings, so a player who batted in one and bowled in the
-   * other gets one entry carrying both. A player who neither batted nor bowled
-   * has no card worth sending, and is left out rather than given an empty one.
-   */
+  // Build entries for players who batted or bowled in either innings.
   const byPlayer = new Map<string, { name: string; bat?: string; bowl?: string }>();
   for (const inn of query.data.innings) {
     for (const b of inn.batting) {
@@ -126,8 +110,7 @@ export default function PlayerCards() {
         <ScrollView contentContainerClassName="px-4 pb-4">
           <View className="border-border border">
             <Image
-              // Keyed by player so switching names replaces the image rather
-              // than showing the previous card while the next one loads.
+              // Keyed by player to force image swap on selection.
               key={active.playerId}
               source={{ uri: shareUrls.playerCardImage(id, active.playerId) }}
               style={{ width: '100%', aspectRatio: CARD_ASPECT_RATIO }}
@@ -179,12 +162,7 @@ export default function PlayerCards() {
             })}
           </View>
 
-          {/*
-            The design offers "Save all 22". Saving to the gallery needs
-            expo-media-library and a permission prompt, and downloading
-            twenty-two PNGs is a feature rather than a wiring job — so it is
-            not drawn. See docs/wiring.md.
-          */}
+          {/* "Save all 22" omitted due to missing expo-media-library support. */}
         </ScrollView>
       )}
 

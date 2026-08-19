@@ -1,18 +1,6 @@
 /**
- * D2 — over by over.
- *
- * Newest over first, because during a match the only ball anyone wants is the
- * one that just happened, and afterwards everyone is scrolling regardless.
- *
- * The lines come from `describeBall` in the engine, which derives every clause
- * from the ball log and invents nothing. That is the point: this feed sits one
- * tab away from a scorecard people are checking against a paper book, and a
- * generated flourish about where a shot went would be a lie printed next to a
- * verified number.
- *
- * The chase equation ("20 needed became 16") is computed here rather than in
- * the engine, because it needs the running total and a single BallEvent does
- * not carry one.
+ * Over-by-over log.
+ * Shows newest over first and derives descriptions directly from engine events.
  */
 import { Text, View } from 'react-native';
 import {

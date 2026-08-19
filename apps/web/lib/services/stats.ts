@@ -1,8 +1,6 @@
 /**
  * A player's career record, transport-free.
- *
- * Everything here is folded from the per-innings rows in `lib/db/stats.ts`.
- * Nothing is stored, so a corrected ball corrects the career.
+ * Everything is folded from per-innings rows in `lib/db/stats.ts`.
  */
 import 'server-only';
 import type { BattingStyle, BowlingStyle, PlayerRole } from '@open-innings/shared';

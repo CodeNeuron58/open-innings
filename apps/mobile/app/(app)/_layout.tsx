@@ -1,9 +1,6 @@
 /**
  * Signed-in group.
- *
- * The guard here is convenience, not security — it decides what to render,
- * and a client-side check can always be bypassed. Every endpoint behind it
- * re-verifies the bearer token server-side and scopes rows to the owner.
+ * Client-side guard for UX convenience. Security is enforced server-side.
  */
 import { Redirect, Stack } from 'expo-router';
 import { useSession } from '../../lib/session';
@@ -13,10 +10,7 @@ export default function AppLayout() {
   const { user, isGuest, isLoading } = useSession();
 
   if (isLoading || user === undefined) return <LoadingScreen />;
-  // Guests belong inside this group: the screens they can reach live here,
-  // and every one of them reads a surface that is public anyway. What keeps
-  // them out of the rest is the server refusing an unauthenticated write,
-  // not this line.
+  // Guests are allowed as they only read public surfaces. Unauthorized writes are blocked by the server.
   if (!user && !isGuest) return <Redirect href="/welcome" />;
 
   return <Stack screenOptions={{ headerShown: false }} />;

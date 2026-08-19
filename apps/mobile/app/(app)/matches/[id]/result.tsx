@@ -1,15 +1,6 @@
 /**
  * C5 — the result.
- *
- * The last screen of a match and the first screen of the next one, because
- * this is where a scorer either sends the card to twenty-one other people or
- * closes the app and nobody else ever sees it. Everything below the result
- * line is there to be shared, not to be read here.
- *
- * Its data comes from `/summary` rather than `/scorer`: the scorer endpoint
- * replays only the innings in progress, and a result needs both. Player of the
- * match, best bowling and most sixes are all computed server-side from the
- * ball log, so this screen and the share card can never disagree.
+ * Shows match summary and sharing options. Data from /summary (not /scorer).
  */
 import { useState } from 'react';
 import { ScrollView, Share, Text, View } from 'react-native';
@@ -29,19 +20,7 @@ export default function Result() {
     (t, signal) => api.matchSummary(t, id, signal),
     [id],
   );
-  /*
-   * The Super Over.
-   *
-   * Offered only when the server says so. `canStartSuperOver` is true for a
-   * tied match and nothing else, and `startNextInnings` refuses innings 3
-   * otherwise — a button offering what the API will reject is worse than no
-   * button, so the rule stays where it belongs and this reads the answer.
-   *
-   * Squads are fetched on the tap, not with the result. This screen is public
-   * and most people opening it are not the scorer; the scorer endpoint is
-   * owner-only, so asking for it up front would fail for every viewer who
-   * followed a shared link.
-   */
+  // Super Over initiation. Squads fetched on tap as /scorer is owner-only.
   const mutation = useApiMutation();
   const [superOverSquads, setSuperOverSquads] = useState<{
     batting: ScorerPlayer[];
@@ -51,9 +30,7 @@ export default function Result() {
   async function openSuperOver() {
     const scorer = await mutation.run((t) => api.scorer(t, id));
     if (!scorer) return;
-    // The side that batted second in the match bats first in the Super Over,
-    // and the scorer endpoint's current innings *is* that second innings — so
-    // its squads already come back the right way round.
+    // The side that batted second in the match bats first in the Super Over.
     setSuperOverSquads({ batting: scorer.battingSquad, bowling: scorer.bowlingSquad });
   }
 
@@ -85,16 +62,10 @@ export default function Result() {
   const m = query.data;
   const url = shareUrls.match(id);
 
-  // The result line is the server's, written when the match was completed. If
-  // it is missing the match did not finish — say that rather than inventing a
-  // winner from the scores, which would be wrong for a tie, a washout or an
-  // innings that was simply ended early.
+  // The result line is the server's, written when the match was completed.
   const headline = m.result ?? 'Match ended';
 
-  // Not wired yet. "Share the result" below routes to the dedicated share
-  // screen, which previews the generated card before sending it. This is the
-  // direct hand-off to the OS share sheet — text and a link, no card — for
-  // when that shortcut is wanted from here.
+  // Direct hand-off to the OS share sheet — text and a link, no card.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the direct-share path
   async function share() {
     const lines = m.innings.map((i) => `${i.teamName} ${i.runs}-${i.wickets} (${i.overs})`);
@@ -108,11 +79,7 @@ export default function Result() {
       <ScrollView contentContainerClassName="pb-4">
         <View className="flex-row items-baseline justify-between gap-3 px-4 pb-1 pt-3">
           <Kicker>Match ended</Kicker>
-          {/*
-            The design says "SAVED & SYNCED" here. Every ball already went to
-            the server as it was scored — there is nothing to sync and no
-            queue that could be behind — so claiming it would be theatre.
-          */}
+          {/* SAVED & SYNCED omitted as balls are synced immediately. */}
         </View>
 
         <Text className="text-foreground font-heading px-4 text-[31px] leading-[35px]">
@@ -140,8 +107,7 @@ export default function Result() {
           ))}
         </View>
 
-        {/* The one framed object on the screen — Card brings the blueprint
-            corners the design draws at its edges. */}
+        {/* Framed player of the match card. */}
         {m.playerOfTheMatch ? (
           <View className="mx-4 mt-6">
             <Card>
@@ -152,8 +118,7 @@ export default function Result() {
               <Text className="text-steel-700 font-heading mt-0.5 text-[15px]">
                 {m.playerOfTheMatch.line}
               </Text>
-              {/* Said plainly, because it is not an award anyone voted on. */}
-              <Text className="text-foreground/50 mt-2 text-[11.5px] leading-4">
+<Text className="text-foreground/50 mt-2 text-[11.5px] leading-4">
                 Computed from the ball log — runs plus twenty a wicket. Nobody voted.
               </Text>
             </Card>
@@ -169,11 +134,7 @@ export default function Result() {
           <Standout label="Most sixes" performer={m.mostSixes} format={(p) => String(p.primary)} />
         </View>
 
-        {/*
-          A tie is not the end of the match where the competition plays a Super
-          Over — and the app had nowhere to go from here, though the engine has
-          handled innings 3 and 4 since the first version of it.
-        */}
+        {/* Super Over handling for tied matches. */}
         {m.canStartSuperOver ? (
           <View className="border-steel-300 bg-steel-100 mx-4 mt-6 border p-3.5">
             <Text className="text-steel-900 font-heading text-[15px]">Scores level</Text>

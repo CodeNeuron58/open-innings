@@ -1,13 +1,4 @@
-/**
- * The error type services throw.
- *
- * Services can't redirect (that's a web-form idea) and can't build a
- * `NextResponse` (that's a REST idea). They throw this instead, and each
- * transport translates it: server actions redirect back to the form with the
- * message, route handlers serialise it to `{ error }` with the status.
- *
- * One rule per failure, expressed once.
- */
+/** The core error type thrown by services. */
 import { HTTP } from '@open-innings/shared';
 
 export class ServiceError extends Error {

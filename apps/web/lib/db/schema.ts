@@ -1,16 +1,6 @@
 /**
- * Open Innings — database schema (source of truth).
- *
- * Design philosophy:
- *  1. `ball_events` is the single source of truth for all scoring state.
- *     Scorecards, stats, leaderboards are DERIVED from ball events.
- *     This makes undo trivial, audits complete, and bugs debuggable.
- *  2. Every row has `createdAt` + audit-friendly `createdBy`.
- *  3. Soft references (no FK cascade on user-owned rows) — see GDPR notes
- *     in docs/architecture.md. Users can be anonymised without losing
- *     historical match data.
- *  4. RLS is configured separately in supabase/migrations/*.sql because
- *     Drizzle doesn't model Postgres RLS policies.
+ * Database schema (source of truth).
+ * `ball_events` is the single source of truth for all scoring state.
  */
 
 import {

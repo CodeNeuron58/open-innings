@@ -1,33 +1,8 @@
 /**
- * PATCH /api/matches/[id]/ball/[ballId] — correct a delivery already recorded.
- *
- * The gap this closes is the one every match hits. `DELETE .../ball` removes
- * the last delivery, so a scorer who notices at the end of an over that the
- * third ball was wrong had to undo four and re-enter them from memory, in
- * front of everyone, with the game waiting.
- *
- * ## The whole innings is recomputed
- *
- * A correction is not local. One run instead of two rotates the strike, so
- * every delivery after it was faced by the other batter — and whether that is
- * even legal depends on what happened in between. `correctBall` replays the
- * innings from the seed and hands back every delivery from the edit onward as
- * it now stands; `replaceBallSequence` writes them and the score together.
- *
- * ## What comes back
- *
- * The new state, and **what changed as a consequence**. That second part is
- * the difference between a feature a scorer will use and one they will not
- * trust: a card that silently rearranges itself is indistinguishable from a
- * bug, and the server is the only thing that knows the strike moved on balls
- * 4 through 9.
- *
- * ## What it refuses
- *
- * Corrections that make a later delivery impossible — a wide inserted into an
- * over pushes a delivery past the sixth, and whoever started the next over is
- * now changing mid-over. The refusal names the delivery, because mid-match
- * "not allowed" is useless and "ball 7 (1.6)" is something to act on.
+ * PATCH /api/matches/[id]/ball/[ballId]
+ * Correct an earlier delivery. Recomputes the entire innings after the correction
+ * to handle cascading changes (e.g. strike rotation) and returns the modified state.
+ * Refuses corrections that invalidate subsequent recorded deliveries.
  */
 import { type NextRequest, NextResponse } from 'next/server';
 import { patchBallSchema, HTTP } from '@open-innings/shared';
@@ -56,14 +31,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       return NextResponse.json({ error: 'Sign in to score' }, { status: HTTP.unauthorized });
     }
 
-    /*
-     * Tighter than POST, and deliberately.
-     *
-     * Recording is six taps an over and a correction is a considered act, so
-     * a lower cap costs a real scorer nothing. It costs a loop a great deal:
-     * each of these replays the innings twice and rewrites every delivery
-     * after the edit, which is the most expensive thing this API does.
-     */
+    // Tighter rate limit for corrections as they require full innings replay.
     enforceRateLimit(request, 'ball-correct', { max: 30, windowMs: 60_000, identity: userId });
 
     const patch = await readJson(request, patchBallSchema);
@@ -80,15 +48,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       );
     }
 
-    /*
-     * The current innings only.
-     *
-     * Correcting a *finished* innings is a real thing to want and a different
-     * feature: it reopens a completed match, invalidates a result that has
-     * already been shared, and has to replay innings that follow it. Refusing
-     * it here with a reason is honest; quietly corrupting the second innings'
-     * target would not be.
-     */
+    // Only allow correcting the current innings to avoid cascading target invalidations.
     const index = balls.findIndex((b) => b.id === ballId);
     if (index === -1) {
       return NextResponse.json(
@@ -101,8 +61,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       );
     }
 
-    // Names make the diagnostics and the change list readable. Every player
-    // who appears on any delivery, in one round trip.
+    // Fetch player names for readable diagnostics.
     const names = await playerNames(balls);
 
     const correction = correctBall(
@@ -115,15 +74,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
 
     const updated = correction.state.currentInnings;
 
-    /*
-     * Undoing the winning run is part of the same write.
-     *
-     * A correction can un-finish a chase — the scorer recorded four when it
-     * was three, and the match was never actually won. Reopening the match
-     * has to happen with the rewritten deliveries, not after them, or a
-     * failure in between leaves a completed match whose ball log says the
-     * target was never reached.
-     */
+    // Reopen match if a correction un-finishes a chase.
     const reopenMatchId =
       match.status === 'completed' && updated.status !== 'completed' ? matchId : undefined;
 
@@ -157,8 +108,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       { expectedTotal: balls.length, reopenMatchId },
     );
 
-    // Something else changed the innings between the replay and the write.
-    // The correction describes deliveries that are no longer there.
+    // Guard against concurrent innings modifications.
     if (!written) {
       return NextResponse.json(
         {
@@ -169,12 +119,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       );
     }
 
-    /*
-     * A correction can also *finish* a chase that was still live — the scorer
-     * recorded three when it was four. Same shape as POST, and the same
-     * reason for the catch: the deliveries are already written, so a failed
-     * result write must not fail the request.
-     */
+    // Handle corrections that finish a live chase.
     if (
       updated.status === 'completed' &&
       currentInnings.inningsNumber >= 2 &&
@@ -213,8 +158,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
       rewritten: correction.rewritten.length,
     });
   } catch (err) {
-    // A rejection names the delivery it broke, which no generic mapper can
-    // do — so it is serialised here and everything else falls through.
+    // Format BallCorrectionError specifically to include broken delivery context.
     if (err instanceof BallCorrectionError) {
       return NextResponse.json(
         {

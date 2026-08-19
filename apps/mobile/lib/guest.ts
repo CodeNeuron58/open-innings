@@ -1,15 +1,6 @@
 /**
- * The line between reading and writing.
- *
- * A guest can open any scorecard, career or club, because those are public to
- * anyone with the link whether or not they have the app. What a guest cannot
- * do is create: no match, no player, no team, no ball.
- *
- * **This is not the enforcement.** Every mutating endpoint requires a bearer
- * token and rejects a request without one, which is what actually stops a
- * guest writing. What lives here is the *manners*: catching the tap before it
- * becomes a 401, and explaining why, rather than letting someone fill in a
- * form and be told no at the end of it.
+ * Client-side gatekeeping for guest users.
+ * Catches mutating actions before they become 401s and explains why sign-in is required.
  */
 import { useCallback } from 'react';
 import { Alert } from 'react-native';
@@ -18,10 +9,7 @@ import { useSession } from './session';
 
 /**
  * Wraps an action that writes something.
- *
- * For a signed-in user it runs. For a guest it explains and offers the way
- * out, naming the thing they were trying to do — "Sign in to score a match"
- * is an answer; "Sign in to continue" is a wall.
+ * Runs for signed-in users, prompts guests to sign in or create an account.
  */
 export function useRequireAccount(): (what: string, action: () => void) => void {
   const { isGuest } = useSession();
@@ -49,15 +37,8 @@ export function useRequireAccount(): (what: string, action: () => void) => void 
 }
 
 /**
- * A shared Open Innings link, resolved to somewhere in the app.
- *
- * The only way a guest reaches anything: there is no public browse feed, and
- * building one would put every user's matches in front of strangers by
- * default. People arrive here because somebody sent them a scorecard, so
- * pasting that link is the door.
- *
- * Accepts the bare id too — someone copying from a message often catches only
- * part of the URL, and refusing that would be pedantry.
+ * A shared Open Innings link, resolved to a match, player, or club.
+ * Also accepts bare UUIDs as a fallback.
  */
 export type ResolvedLink =
   { kind: 'match'; id: string } | { kind: 'player'; id: string } | { kind: 'club'; id: string };

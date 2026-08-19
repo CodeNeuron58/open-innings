@@ -1,15 +1,6 @@
 /**
  * Where a guest lands.
- *
- * There is no browse feed here, and that is a decision rather than a gap. A
- * public list of live matches would put every user's cricket in front of
- * strangers by default, and nobody asked for that. People arrive at this app
- * because someone sent them a scorecard — so the door is the link they were
- * sent, and this screen is the keyhole.
- *
- * The matches list would be an empty screen for a guest: it shows matches you
- * created, and a guest has created none. Landing them there would look like
- * the app was broken.
+ * Accepts share links to open specific matches, players, or clubs.
  */
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -44,7 +35,7 @@ export default function Browse() {
     }
   }
 
-  /** Saves a paste-then-tap. Most people arrive with the link already copied. */
+  /** Paste and open link directly. */
   async function pasteAndOpen() {
     const text = await Clipboard.getStringAsync();
     if (!text) {

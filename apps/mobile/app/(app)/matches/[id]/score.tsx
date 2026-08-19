@@ -1,20 +1,6 @@
 /**
- * The ball-by-ball scorer. The whole product.
- *
- * Three rules this screen is built around:
- *
- *   1. **The server owns the state.** Every delivery POSTs and the response is
- *      the replayed MatchState. Nothing is patched optimistically — a scorer
- *      whose phone briefly disagreed with the book is worse than one who waits
- *      200ms, and the engine is the only thing entitled to decide what a ball
- *      did.
- *
- *   2. **Mandatory sheets block scoring.** After a wicket, and after an over,
- *      the engine cannot validate the next ball until the replacement is
- *      named. Those sheets have no dismiss button on purpose.
- *
- *   3. **No ad ever appears here.** This is the scorer's screen — one person,
- *      240 taps, three hours. Ads live on the viewing surfaces. See TODO.md.
+ * The ball-by-ball scorer. Server owns state, mandatory sheets block scoring,
+ * and no ads are shown here.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -62,20 +48,8 @@ export default function Scorer() {
   const { token } = useSession();
   const { keepAwakeWhileScoring } = useSettings();
 
-  /*
-   * Hold the screen on while this screen is mounted.
-   *
-   * The single most important comfort in the app. A scorer taps roughly two
-   * hundred times across three hours with thirty-second gaps between
-   * deliveries — long enough for a phone to sleep before every single ball.
-   * Unlocking between deliveries is how someone decides to go back to paper.
-   *
-   * Not `useKeepAwake`, which activates unconditionally and so could not be
-   * turned off. The effect releases the lock on unmount and whenever the
-   * setting changes, so leaving for the card or the result restores normal
-   * behaviour with no bookkeeping here. The tag scopes the lock to this
-   * screen.
-   */
+  // Keep screen awake while scoring. Uses activateKeepAwakeAsync (not useKeepAwake)
+  // so the setting can be toggled. Released on unmount via the 'scorer' tag.
   useEffect(() => {
     if (!keepAwakeWhileScoring) return;
     void activateKeepAwakeAsync('scorer');
@@ -92,15 +66,8 @@ export default function Scorer() {
 
   const query = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
 
-  /*
-   * A conflict is not an error the scorer can do anything about.
-   *
-   * At a ground on patchy signal the app resends a POST it believes timed out,
-   * and the server — correctly — refuses the duplicate delivery. Before the
-   * ball endpoint answered 409 that arrived as a 500 and the client kept
-   * retrying something that could never succeed. Now it reloads, which is the
-   * only useful response: the ball is already recorded.
-   */
+  // A conflict means the server already recorded this ball.
+  // Reload the state instead of failing.
   const [conflictNote, setConflictNote] = useState<string | null>(null);
   const mutation = useApiMutation({
     onConflict: (code) => {
@@ -118,15 +85,8 @@ export default function Scorer() {
   const [live, setLive] = useState<MatchState | null>(null);
 
   const [showWicket, setShowWicket] = useState(false);
-  /*
-   * Correcting a delivery that is not the last one.
-   *
-   * Three pieces of state rather than one, because the sheet has two
-   * halves: the delivery being corrected, the error if the laws refused
-   * it, and — once it succeeds — what the correction moved. That last one
-   * is what the scorer actually needs to see, so it keeps the sheet open
-   * instead of dismissing on success.
-   */
+  // State for correcting a previous delivery.
+  // Kept open on success to show what the correction changed.
   const [correcting, setCorrecting] = useState<string | null>(null);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
@@ -139,15 +99,8 @@ export default function Scorer() {
   const [pendingBatterId, setPendingBatterId] = useState<string | null>(null);
   const [pendingBowlerId, setPendingBowlerId] = useState<string | null>(null);
 
-  /*
-   * Law 17.4's exception: the bowler could not continue.
-   *
-   * Separate from `pendingBowlerId`, which is the ordinary end-of-over change.
-   * This one happens part-way through an over, the engine refuses it unless
-   * the delivery says so, and it has to say so on the ball itself — replay
-   * re-validates every stored delivery, so the flag is persisted rather than
-   * being a property of the request.
-   */
+  // Law 17.4 exception: bowler cannot continue mid-over.
+  // This flag must be stored on the delivery itself for replay validation.
   const [midOverBowlerId, setMidOverBowlerId] = useState<string | null>(null);
   const [pickingMidOverBowler, setPickingMidOverBowler] = useState(false);
 
@@ -189,20 +142,8 @@ export default function Scorer() {
   const state = live ?? (data.state as MatchState);
   const inn = state.currentInnings;
 
-  /*
-   * The delivery being corrected, looked up rather than asserted.
-   *
-   * This was `find(...)!`, and the `!` was wrong in the way assertions
-   * usually are: `state.balls` is the **current innings'** log, so the ball
-   * disappears at an innings break, on an undo that lands from another
-   * device, and on any refresh returning a shorter log. The sheet
-   * dereferences its `ball` on the first line, so the assertion bought a
-   * white screen mid-match in exchange for silencing the one check that
-   * would have caught it.
-   *
-   * Gone means the sheet closes. The stale id is harmless — `correctBall`
-   * looks the delivery up again before sending anything.
-   */
+  // Safely look up the correcting ball.
+  // Avoids a crash if the ball is removed (e.g. via an undo on another device).
   const correctingBall = correcting
     ? (state.balls.find((b) => String(b.id) === correcting) ?? null)
     : null;
@@ -269,11 +210,7 @@ export default function Scorer() {
       ? asPlayerId(pendingBowlerId)
       : inn.currentBowlerId;
 
-  /*
-   * An over is under way when a delivery has been bowled in it — which is not
-   * the same as `ballsBowled % 6 !== 0`, because a wide starts an over without
-   * advancing that counter. Same test the engine uses.
-   */
+  // Check if over is in progress (using balls logged rather than ball count).
   const overInProgress = state.balls.some((b) => b.overNumber === Math.floor(inn.ballsBowled / 6));
 
   const completed = inn.status === 'completed';
@@ -288,14 +225,8 @@ export default function Scorer() {
     if (next) applyState(next);
   }
 
-  /**
-   * Replace one delivery and let the server replay the rest of the innings.
-   *
-   * Deliberately not through `mutation.run`: a refusal here is not a failed
-   * save, it is an answer — "this correction makes ball 7 impossible" — and it
-   * belongs inside the sheet next to the delivery it names, not in the banner
-   * at the top of the screen where the scorer has already looked away.
-   */
+  // Replace one delivery and let the server replay the rest of the innings.
+  // Not through mutation.run so errors render inside the sheet.
   async function correctBall(patch: Omit<PatchBallInput, 'bowlerId'>) {
     const ballId = correcting;
     if (!ballId || !token) return;
@@ -539,14 +470,7 @@ export default function Scorer() {
           <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
         </View>
 
-        {/*
-          Bowler.
-
-          Pressable part-way through an over, and only then, because that is
-          the one case the scorer cannot otherwise record: Law 17.4 lets the
-          bowler change mid-over when they cannot continue, and the end-of-over
-          sheet is no help when the injury happens off the third ball.
-        */}
+        {/* Bowler. Pressable mid-over only (Law 17.4 exception). */}
         <Pressable
           accessibilityRole={overInProgress && !completed ? 'button' : 'none'}
           accessibilityLabel={
@@ -620,12 +544,7 @@ export default function Scorer() {
           </Pressable>
         ) : null}
 
-        {/*
-          The innings is over but the match is not, and the server has not
-          opened the next one yet — so `awaitingSecondInnings` is still false
-          and there is nothing to score. A completed *match* never reaches
-          here; it redirects to the result screen above.
-        */}
+        {/* Completed innings but awaiting second innings. */}
         {completed ? (
           <View className="border-border mx-4 mb-4 border p-5">
             <Text className="text-foreground font-heading text-lg uppercase">Innings complete</Text>
@@ -838,34 +757,10 @@ export default function Scorer() {
 /** Column widths for the batting table, matching the design's grid. */
 const COL = ['w-[34px]', 'w-[30px]', 'w-[26px]', 'w-[30px]', 'w-[42px]'] as const;
 
-/**
- * The run keys. 0–6 and W on a single hairline grid — four columns, so the
- * boundaries and the wicket fall on the second row under the thumb.
- *
- * Tones are steps on the accent ramp, not separate hues: the system is mono.
- * The digit on the key is what identifies it.
- */
-/**
- * How many runs one key can record.
- *
- * Narrower than `number` on purpose — see RUN_EVENT_TYPE.
- */
+// Run keys for the scorer keypad.
 type RunKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-/**
- * Runs off the bat, to the event type that records them.
- *
- * This replaces `String(runsOffBat) as BallEventType`, which compiled for
- * every integer and was true for almost none of them. `ball_event_type` had
- * no '5', so tapping the 5 key built an event Postgres rejected: the insert
- * failed, the scorer saw "Internal error", and the delivery was lost. Five is
- * now a real member of the enum, but the cast would still have been a lie
- * waiting for the next gap.
- *
- * `Record<RunKey, BallEventType>` closes it from both ends. A new key with no
- * mapping will not compile, and a mapping to a string the engine does not
- * recognise will not either.
- */
+// Maps numeric run values to strict event types for the engine.
 const RUN_EVENT_TYPE: Record<RunKey, BallEventType> = {
   0: 'dot', // never '0' — the enum spells a dot out
   1: '1',

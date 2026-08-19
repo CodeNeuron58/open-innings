@@ -1,25 +1,6 @@
 /**
- * GET  /api/players — the players you created, or a search across all of them.
+ * GET  /api/players — list your players or search all players (`?q=`, `?scope=all`).
  * POST /api/players — add a player.
- *
- * ## Why this route grew a search
- *
- * It listed `players` scoped to `createdBy`, and that was the whole of player
- * discovery. It is also why the product's central claim was false: a career
- * could not follow a person between clubs, because two clubs scoring the same
- * cricketer created two rows and two half-careers with nothing able to join
- * them. The add-a-player screen was built on the premise that searching finds
- * an *existing* player. It could not.
- *
- * `?q=` searches by name. `?scope=all` searches every account rather than
- * only yours, and returns the career context — matches, runs, wickets, recent
- * clubs — that lets a scorer tell two people with one name apart.
- *
- * Nothing is disclosed that was not already public: every career page at
- * `/p/<id>` is unauthenticated and is the thing people share. What is new is
- * being able to find it before creating a duplicate.
- *
- * No `q` keeps the old behaviour exactly, so existing clients are unaffected.
  */
 import { NextResponse } from 'next/server';
 import {
@@ -78,9 +59,7 @@ export const GET = handle(async (request: Request) => {
       bowlingStyle: p.bowlingStyle,
       role: p.role,
       isMine: userId !== null && p.createdBy === userId,
-      // Whether *somebody* claimed them, never who. The useful question is
-      // "is this a person or a stub", and the owner's identity answers a
-      // different one nobody asked.
+      // True if claimed by any user.
       isClaimed: p.userId !== null,
       matches: brief?.matches ?? 0,
       runs: brief?.runs ?? 0,

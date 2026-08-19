@@ -1,10 +1,5 @@
 /**
  * Data fetching for authenticated screens.
- *
- * Every list screen needs the same four things: load on mount, a spinner, an
- * error the user can act on, and pull-to-refresh. Without this they each grow
- * their own slightly different version and the 401 case gets forgotten in one
- * of them — which is the one that strands a user on a dead screen.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from './session';
@@ -22,15 +17,8 @@ type QueryResult<T> = {
 };
 
 /**
- * A query against a **public** endpoint — the scorecard, a career, a club.
- *
- * Runs with or without a token, because those endpoints do. That is what
- * lets a guest read a shared link: they have no credential, and the server
- * was never going to ask for one.
- *
- * It also does not sign anyone out on a 401. `useApiQuery` does that because
- * a 401 there means a dead session; here it would mean the endpoint is not
- * actually public, which is a bug to see rather than a user to eject.
+ * A query against a **public** endpoint.
+ * Runs with or without a token; does not sign out on 401.
  */
 export function usePublicQuery<T>(
   fetcher: (token: string | null, signal?: AbortSignal) => Promise<T>,
@@ -57,21 +45,13 @@ export function usePublicQuery<T>(
         );
       }
     },
-    // A spread dep array is opaque to React's static analysis, so neither
-    // exhaustive-deps nor use-memo can verify it. Known and not yet fixed:
-    // the fix is to hash `deps` into a single stable key, and it changes when
-    // every screen refetches — so it needs verifying against a running app.
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- known: spread deps, needs a verified refactor
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- spread deps, needs refactor
     [token, ...deps],
   );
 
   useEffect(() => {
     const controller = new AbortController();
-    // Known and not yet fixed: setting state in an effect body triggers a
-    // second render pass on every fetch. Correct shape is to derive loading
-    // from the request rather than store it. Behaviour is right today, so
-    // this waits for a session where the app can be run to prove the change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- triggers cascading render, needs refactor
     setIsLoading(true);
     void run(controller.signal).finally(() => {
       if (!controller.signal.aborted) setIsLoading(false);
@@ -120,15 +100,13 @@ export function useApiQuery<T>(fetcher: Fetcher<T>, deps: unknown[] = []): Query
         );
       }
     },
-    // Same spread-deps limitation as usePublicQuery above — see the note there.
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- known: spread deps, needs a verified refactor
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo -- spread deps, needs refactor
     [token, signOut, ...deps],
   );
 
   useEffect(() => {
     const controller = new AbortController();
-    // Same cascading-render issue as usePublicQuery above — see the note there.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- triggers cascading render, needs refactor
     setIsLoading(true);
     void run(controller.signal).finally(() => {
       if (!controller.signal.aborted) setIsLoading(false);
@@ -149,13 +127,7 @@ export function useApiQuery<T>(fetcher: Fetcher<T>, deps: unknown[] = []): Query
  * The mutation counterpart: tracks in-flight state and surfaces a message.
  * Returns the result so callers can navigate with it.
  */
-/**
- * Codes the server sends when the request lost a race rather than being wrong.
- *
- * Both mean the same thing to a scorer: the server already knows about this,
- * and what is on screen is stale. Retrying cannot succeed and an error banner
- * describes the wrong problem — the answer is to reload and carry on.
- */
+// Error codes for when a request loses a race and the client state is stale.
 const CONFLICT_CODES = new Set(['DUPLICATE_BALL', 'ALREADY_UNDONE']);
 
 export function useApiMutation(opts: { onConflict?: (code: string) => void } = {}) {
@@ -177,14 +149,7 @@ export function useApiMutation(opts: { onConflict?: (code: string) => void } = {
           await signOut();
           return null;
         }
-        /*
-         * The request lost a race. A double tap on a ball, or an undo that a
-         * second tap already performed — the server refuses the duplicate,
-         * correctly, and the screen is simply behind. Handing this to the
-         * caller lets it refresh instead of showing an error for something
-         * that is not the scorer's mistake, and stops a retry loop that could
-         * never succeed.
-         */
+        // Handle conflict codes for lost races by notifying the caller to reload.
         if (err instanceof ApiError && err.status === 409 && err.code) {
           if (opts.onConflict && CONFLICT_CODES.has(err.code)) {
             opts.onConflict(err.code);
@@ -204,11 +169,7 @@ export function useApiMutation(opts: { onConflict?: (code: string) => void } = {
         setBusy(false);
       }
     },
-    // `opts.onConflict` is read inside and is a fresh closure each render;
-    // depending on it would rebuild `run` every time and defeat the memo. The
-    // callers pass a stable handler, and a stale one would only mean a refresh
-    // fired against the previous render's data — which is what it does anyway.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- opts is a fresh closure
     [token, signOut],
   );
 

@@ -1,9 +1,6 @@
 /**
- * POST /api/matches/[id]/innings/end — close the innings in progress.
- *
- * The manual escape hatch for short squads: a six-a-side team can't lose ten
- * wickets, so it can never go "all out" on its own. Ending the chase early
- * also settles the match.
+ * POST /api/matches/[id]/innings/end
+ * Close the innings in progress manually.
  */
 import { NextResponse } from 'next/server';
 import { HTTP } from '@open-innings/shared';

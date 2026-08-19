@@ -1,19 +1,6 @@
 /**
  * F2 — remove ads.
- *
- * The only paid screen, and the list of what stays free is deliberately longer
- * than the list of what money buys. That is not a sales trick — it is the
- * licence. The app is AGPL-3.0, so a club that would rather run its own copy
- * pays nothing and loses nothing, and the screen says so at the bottom rather
- * than hoping nobody notices.
- *
- * What ₹99 buys: no advertising. That is the whole product. No feature is held
- * back from a scorer, because the scorer is the person doing three hours of
- * unpaid work that makes the app worth anything to the other twenty-one.
- *
- * The price shown is the **store's** localised string whenever one is
- * available. The hardcoded figure is a fallback for when the store cannot be
- * reached, and it is labelled as an intention rather than a charge.
+ * Ad-free subscription screen. All other features remain free (AGPL-3.0).
  */
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';

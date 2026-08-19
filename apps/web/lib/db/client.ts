@@ -16,15 +16,8 @@ declare global {
 }
 
 /**
- * Drizzle client for the Open Innings web app. Connects directly to
- * Postgres — no pooler service, self-hosted or otherwise.
- *
- * TLS is decided by `sslFor` rather than by the connection string, because a
- * managed provider owns that string and rewrites it on credential rotation.
- * See lib/db/ssl.ts.
- *
- * The client is cached on `globalThis` in development to survive Next.js
- * hot reloads without leaking a new connection pool on every edit.
+ * Drizzle client for the Open Innings web app. Connects directly to Postgres.
+ * Client is cached on `globalThis` in development for Next.js hot reloads.
  */
 function getClient() {
   // Matches .env.example's default local setup — keep these in sync.

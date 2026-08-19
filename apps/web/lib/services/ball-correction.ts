@@ -1,50 +1,9 @@
 /**
  * Correcting a delivery that is not the last one.
  *
- * `DELETE .../ball` pops the tail. That is the only correction the app had,
- * and it is the wrong shape for the mistake scorers actually make: they
- * notice at the end of an over that the third ball was wrong. Undoing four
- * deliveries and re-entering them from memory, mid-match, with people
- * waiting, is how a scorer loses the innings.
- *
- * ## Why this cannot be done on the client
- *
- * A correction is not local. Changing ball 3 from two runs to one rotates the
- * strike, so **balls 4 onward were faced by the other batter** — and whether
- * that is even legal depends on what happened in between. Only a replay can
- * say. So the whole innings is recomputed here, from the seed, and the ball
- * log is rewritten to match.
- *
- * ## What is derived and what is asserted
- *
- * The distinction this file turns on, and the reason the result is
- * trustworthy rather than merely plausible:
- *
- * - **Who is on strike is derived.** The scorer never picks it; the app fills
- *   it from engine state. So after a correction it is re-derived, not
- *   preserved. Preserving it would keep the consequence of the mistake being
- *   corrected.
- * - **Who walks in after a wicket is asserted.** Nothing in the ball log
- *   implies it. So it is read from the delivery the scorer originally
- *   recorded, and carried across.
- * - **Who is bowling is asserted**, with one exception: correcting the
- *   bowler of a delivery corrects them for the rest of that over, because
- *   "the wrong bowler is on this over" is what the scorer means and one ball
- *   of it is never what they mean.
- *
- * ## Refusing, and refusing usefully
- *
- * Some corrections make a later delivery impossible — a wide inserted into an
- * over pushes a delivery past the sixth, and the bowler who started the next
- * over is now changing mid-over. There is no honest way to absorb that, so it
- * is refused. What matters is that the refusal names **which** delivery broke
- * and why: mid-match, "that is not allowed" is useless and "ball 7 (1.6) now
- * has the bowler changing mid-over" is something a scorer can act on.
- *
- * A delivery that was *already* unlawful before the correction is not held
- * against it. The innings is replayed once as it stands to find those first,
- * and they stay tolerated — otherwise a match containing one old violation
- * could never be corrected anywhere.
+ * The whole innings is recomputed from the seed because a single correction
+ * (like inserting a wide) can shift the strike and over counts for every
+ * subsequent ball. Invalid states are safely rejected with actionable errors.
  */
 import {
   applyBall,

@@ -1,11 +1,4 @@
-/**
- * Turning services into HTTP.
- *
- * Route handlers here are thin: parse the body against a shared schema, call
- * a service, serialise whatever comes back. All the branching on failure
- * lives in `toErrorResponse` so no handler has to remember which status a
- * given failure maps to.
- */
+/** Turning services into HTTP responses. */
 import { NextResponse } from 'next/server';
 import type { z } from 'zod';
 import { ScoringError } from '@open-innings/scoring';

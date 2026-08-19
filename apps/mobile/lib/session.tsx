@@ -1,14 +1,6 @@
 /**
  * Session state for the app.
- *
- * The token goes in expo-secure-store, which is backed by the Android Keystore
- * — not AsyncStorage, which is plain unencrypted files any rooted device or
- * backup extraction can read. It's a 30-day credential to someone's scoring
- * account; it belongs in the keystore.
- *
- * On launch the stored token is verified against `/api/auth/session` rather
- * than trusted. A token can be revoked server-side (sign-out on another
- * device, expiry, account deletion), and the only way to know is to ask.
+ * Token is stored in expo-secure-store and verified server-side on launch.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
@@ -17,14 +9,8 @@ import { api, ApiError } from './api';
 
 const TOKEN_KEY = 'oi_session_token';
 
-/**
- * "This person chose to look around without an account."
- *
- * Persisted so a guest who closes the app is not asked to decide again every
- * launch. It is a preference, not a credential — there is no anonymous
- * account on the server and nothing this flag unlocks that a stranger with a
- * link cannot already reach.
- */
+// "This person chose to look around without an account."
+// Persisted so the guest prompt is not shown on every launch.
 const GUEST_KEY = 'oi_guest_mode';
 
 type User = AuthResponse['user'];
@@ -33,31 +19,11 @@ type SessionState = {
   /** null once we know nobody is signed in; undefined while still checking. */
   user: User | null | undefined;
   token: string | null;
-  /**
-   * Looking around without an account.
-   *
-   * A guest can read every public surface — a scorecard, a career, a club —
-   * because those are public to anyone with the link whether or not they have
-   * the app. What a guest cannot do is **write**: no match, no player, no
-   * team, no ball. That is enforced on the server, which requires a bearer
-   * token for every mutation; the flag here only decides what to draw.
-   */
+  /** True if the user is exploring without an account (read-only mode). */
   isGuest: boolean;
-  /**
-   * Which player on the field this account is, if it has claimed one.
-   *
-   * Null for an account that has not said — a parent scoring their kid's
-   * match never will, and that is a legitimate way to use this app.
-   */
+  /** Which player on the field this account is, if claimed. */
   playerId: string | null;
-  /**
-   * Re-read the session from the server, without a full sign-in.
-   *
-   * Both the claimed player and the user's own record come back, which is
-   * what lets confirming an email make the prompt disappear: the banner reads
-   * `user.emailVerifiedAt`, and nothing else would update it short of signing
-   * out and back in.
-   */
+  /** Re-read the session from the server (e.g., to update email verification status). */
   refreshSession: () => Promise<void>;
   /** True until the stored token has been checked against the server. */
   isLoading: boolean;

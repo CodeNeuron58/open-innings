@@ -1,9 +1,6 @@
 /**
  * Players — the roster a club scores with.
- *
- * Adding is inline rather than on its own screen. At a ground someone is
- * always missing from the list five minutes before the toss, and making that
- * a two-screen detour is how a scorer ends up with "Fielder 3" in the book.
+ * Uses inline adding for quick access at the ground.
  */
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
@@ -43,13 +40,7 @@ export default function Players() {
     }
   }
 
-  /*
-   * Claim a player as yourself, or let go of one.
-   *
-   * Tapping the star again releases it, because the common way to get this
-   * wrong is tapping the row above the one you meant — and an account stuck
-   * to the wrong career with no way back would be a support request.
-   */
+  // Claim or release a player profile. Reversible via tap toggle.
   async function claim(player: PlayerSummary) {
     const mine = player.id === playerId;
     const done = await mutation.run<{ playerId: string | null }>((token) =>
@@ -127,13 +118,7 @@ export default function Players() {
   );
 }
 
-/**
- * A row in the players list, and the way into a career record.
- *
- * The whole point of scoring is what accumulates, so the list of players is
- * the natural doorway to it — a name here is a link to everything that person
- * has ever done.
- */
+/** A row in the players list, linking to the career record. */
 function PlayerRow({
   player,
   isMe,

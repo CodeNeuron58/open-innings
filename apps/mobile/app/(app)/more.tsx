@@ -1,16 +1,5 @@
 /**
- * F1 — More.
- *
- * Settings, plus the one paid pitch. Grouped the way the design groups them:
- * who you are, then cricket, then how scoring behaves, then the project
- * itself — with the source repository given the same weight as everything
- * else, because "you can run your own copy" is a real answer here rather than
- * a footnote.
- *
- * Several rows in the design need a settings store that does not exist, and
- * they are drawn **disabled with the reason attached** rather than as live
- * toggles that remember nothing. A switch that flips back on next launch is a
- * bug report; a greyed row that says "not built yet" is information.
+ * F1 — More screen. Settings and account info.
  */
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
@@ -26,7 +15,7 @@ import { DeleteAccount } from '../../components/DeleteAccount';
 
 const REPO = 'https://github.com/CodeNeuron58/open-innings';
 
-/** Initials for the avatar block — "A. Menon" becomes "AM". */
+/** Initials for the avatar block. */
 function initialsOf(name: string): string {
   const parts = name
     .replace(/[^\p{L}\s.]/gu, '')
@@ -39,7 +28,7 @@ function Row({
   label,
   value,
   onPress,
-  /** Why it does nothing. Present = the row is inert and looks it. */
+  /** Reason for row being disabled. */
   disabledNote,
 }: {
   label: string;
@@ -105,9 +94,7 @@ function ToggleRow({
         value={value}
         onValueChange={onChange}
         accessibilityLabel={label}
-        // The accent, not the platform default green — this system has one
-        // colour and a stray hue on a settings screen is the loudest thing
-        // in the app.
+        // Use app accent color.
         trackColor={{ false: '#d4d4d7', true: '#5980a6' }}
         thumbColor="#f2f2f3"
       />
@@ -128,18 +115,7 @@ export default function More() {
   const router = useRouter();
   const { user, token, isGuest, playerId, signOut } = useSession();
 
-  /*
-   * Confirming an address is a prompt, never a gate.
-   *
-   * Nothing in the app is locked behind it. What it unlocks is a password
-   * reset being able to *reach* somebody — and before this existed, a
-   * forgotten password meant that account and every match it had created were
-   * gone for good, because ownership is `created_by` and there is no transfer
-   * path.
-   *
-   * Gating the app on it instead would mean one bounced message costs a
-   * tester out of twelve, at a ground, with no way to unstick them.
-   */
+  // Email confirmation state.
   const [verifyState, setVerifyState] = useState<'idle' | 'sending' | 'sent' | 'unavailable'>(
     'idle',
   );
@@ -150,16 +126,12 @@ export default function More() {
     try {
       const result = await api.sendVerification(token);
       if (!result.mailConfigured) {
-        // "Sent" and "this build cannot send" are different things, and
-        // telling somebody to check an inbox nothing was sent to is the worse
-        // of the two mistakes.
+        // Handle unavailable mail provider.
         setVerifyState('unavailable');
         return;
       }
       setVerifyState('idle');
-      // Straight to the keypad. The code is already in flight, and making
-      // somebody find a second button to type it into is the step that loses
-      // people.
+      // Redirect to verification code input.
       router.push('/verify');
     } catch {
       setVerifyState('idle');
@@ -178,14 +150,7 @@ export default function More() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView contentContainerClassName="px-4 pb-8 pt-4">
-        {/*
-          The account, and the player it says it is.
-
-          The two stay separate on purpose: a parent scoring their kid's match
-          is an account with no player, and every opponent is a player with no
-          account. When the account has claimed one, this row opens that
-          career page; until then it is just who you are signed in as.
-        */}
+        {/* Account and associated player profile. */}
         <Pressable
           accessibilityRole={playerId ? 'button' : 'none'}
           accessibilityLabel={playerId ? 'Your career page' : displayName}
@@ -216,7 +181,7 @@ export default function More() {
           {playerId ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
         </Pressable>
 
-        {/* The pitch. Inside the app, never in front of a feature. */}
+        {/* Supporter plan pitch. */}
         {!isSupporter ? (
           <Pressable
             accessibilityRole="button"
@@ -236,7 +201,7 @@ export default function More() {
           </Pressable>
         ) : null}
 
-        {/* The pitch, aimed at the one thing a guest cannot do. */}
+        {/* Guest signup pitch. */}
         {isGuest ? (
           <View className="border-border mt-3 border p-3.5">
             <Text className="text-foreground font-heading text-[15px]">Keep a record</Text>
@@ -250,11 +215,7 @@ export default function More() {
           </View>
         ) : null}
 
-        {/*
-          Only for a signed-in account whose address is unproven. A guest has
-          no address, and somebody already confirmed does not need reminding
-          of something they have done.
-        */}
+        {/* Email verification prompt for unverified accounts. */}
         {user && !isGuest && !user.emailVerifiedAt ? (
           <View className="border-steel-300 bg-steel-100 mb-5 border p-3.5">
             <Text className="text-steel-900 font-heading text-[13px] uppercase tracking-[1.2px]">
@@ -295,8 +256,7 @@ export default function More() {
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/teams')}
           />
-          {/* Resolves once the account has claimed a player. Until then the
-              player list is where you go to say which one you are. */}
+          {/* Link to claimed player profile if available. */}
           {playerId ? (
             <Row
               label="My career"
@@ -314,12 +274,7 @@ export default function More() {
         </Group>
 
         <Group title="Scoring">
-          {/*
-            Every scorecard is already public and permanent — that is the whole
-            share loop — so this is a statement of fact, not a switch. Turning
-            it off would mean private matches, which is a feature nobody has
-            asked for and which would break every link already sent.
-          */}
+          {/* Scorecards are always public by design. */}
           <Row label="Live match links" value="Always on" />
           <ToggleRow
             label="Keep screen awake"
@@ -328,8 +283,7 @@ export default function More() {
             onChange={(next) => set('keepAwakeWhileScoring', next)}
           />
           <Row label="Sound on each ball" disabledNote="Not built yet" value="Off" />
-          {/* Export is per match, not per account — a scorebook is a match.
-              The action lives on that match's card. */}
+          {/* Export lives on the match card. */}
           <Row label="Export scorebook" value="CSV, JSON" onPress={() => router.push('/matches')} />
         </Group>
 
@@ -342,12 +296,7 @@ export default function More() {
           <Row label={isGuest ? 'Leave guest mode' : 'Sign out'} onPress={() => void signOut()} />
         </Group>
 
-        {/*
-          Below everything, outside every group, and only for a real account.
-          Google Play requires deletion to be reachable in-app; putting it in a
-          settings group beside "Sound on each ball" would satisfy the rule and
-          miss the point.
-        */}
+        {/* Account deletion for signed-in users. */}
         {user && !isGuest && token ? (
           <DeleteAccount token={token} email={user.email} onDeleted={() => void signOut()} />
         ) : null}

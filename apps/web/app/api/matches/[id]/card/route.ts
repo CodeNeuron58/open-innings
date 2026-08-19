@@ -1,14 +1,6 @@
 /**
- * GET /api/matches/[id]/card — the full record: both innings, both tables,
- * and every delivery.
- *
- * Separate from `/summary`, which is the handful of facts that fit on a share
- * card. This is the heavy one — it ships the whole ball log — and the card
- * screen calls it once and then switches between the scorecard and the
- * over-by-over feed without going back to the network.
- *
- * Public, like `/summary` and the share cards. It is the same information a
- * paper scorecard carries.
+ * GET /api/matches/[id]/card
+ * The full match record: innings, tables, and every delivery.
  */
 import { NextResponse } from 'next/server';
 import { HTTP } from '@open-innings/shared';

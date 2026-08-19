@@ -13,8 +13,7 @@ import { requireUserId } from '@/lib/auth/local';
 export const GET = handle(async () => {
   const matches = await listMatches();
 
-  // One grouped query for the whole list rather than one per row. Matches
-  // nobody is watching are absent from the map, so they default to zero.
+  // Grouped query for the whole list. Default to zero if absent.
   const watching = await countWatchingFor(matches.map((m) => m.id));
 
   return NextResponse.json(

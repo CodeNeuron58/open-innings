@@ -1,30 +1,6 @@
 /**
  * Confirming your email with a six-digit code.
- *
- * ## Why this lives in `(app)` and not `(auth)`
- *
- * It was built for phone sign-in and sat in the auth group, whose layout
- * redirects anyone signed in straight to `/matches`. That made it unreachable
- * at precisely the moment email confirmation happens — after signing up, with
- * a session. Moving it is the whole reason it works at all.
- *
- * ## Why a code and not a link
- *
- * This is a phone, seconds after signing up, on the screen somebody wants to
- * start scoring from. A link sends them out to a mail client and hopes they
- * come back. A code is read off a notification without opening anything —
- * which is why the server puts it in the subject line too.
- *
- * The keypad is drawn rather than using the system keyboard. On a screen whose
- * only input is six digits, the OS keyboard covers half the display and offers
- * letters nobody can use; a fixed pad keeps the boxes, the resend timer and
- * the button visible at once.
- *
- * ## Nothing here is a gate
- *
- * Confirming unlocks a password reset being able to reach you. It does not
- * unlock the app, and this screen can be left at any time — which is why the
- * back arrow is a real back arrow and there is a plain "Do this later".
+ * Non-blocking screen (can be skipped) that enables password resets.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -36,14 +12,7 @@ import { Button, ErrorBanner } from '../../components/ui';
 
 const CODE_LENGTH = 6;
 
-/**
- * How long before "resend" is offered again.
- *
- * The server allows three sends an hour, so this is manners rather than
- * enforcement: it stops somebody tapping resend four times while the first
- * message is still in flight and then wondering which of four codes is live.
- * (Only the newest ever is — issuing one retires the last.)
- */
+/** Resend cooldown to prevent rate-limiting and confusion over active codes. */
 const RESEND_SECONDS = 30;
 
 /** The drawn keypad. `⌫` sits under the 0, where a thumb expects it. */
@@ -91,9 +60,7 @@ export default function VerifyEmail() {
       await refreshSession();
       router.back();
     } catch (err) {
-      // The server's own message: it knows whether the code was wrong, how
-      // many tries remain, or whether it expired, and each has a different
-      // next step. Anything written here would be vaguer than all three.
+      // Forward the specific server error message directly.
       setError(err instanceof ApiError ? err.message : 'That did not go through. Try again.');
       setCode('');
     } finally {

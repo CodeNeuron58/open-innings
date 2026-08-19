@@ -1,15 +1,6 @@
 /**
- * The two messages this app sends.
- *
- * Both are deliberately plain. A transactional email from a domain with no
- * sending reputation — which this one has, on day one — lands in spam far more
- * often when it carries images, tracking pixels, webfonts and a table layout.
- * The HTML here is a handful of inline styles and one link, and it is not a
- * design decision so much as a deliverability one.
- *
- * Every message states **why it arrived** and **what to do if you did not ask
- * for it**. That is the difference between a confirmation and a phishing mail,
- * from the point of view of somebody who has just received one unexpectedly.
+ * Plain, low-spam-score mail templates.
+ * Every message explains why it arrived and what to do if unrequested.
  */
 import type { Mail } from './send';
 
@@ -32,21 +23,11 @@ function shell(heading: string, body: string, action: { href: string; label: str
 </body></html>`;
 }
 
-/**
- * The confirmation code.
- *
- * No link at all, which also removes the whole class of problem links in mail
- * have: scanners that follow them, clients that rewrite them, and a recipient
- * asked to trust a URL that arrived unasked. There is nothing here to click.
- *
- * The digits are spaced in the HTML so they can be read off a lock screen
- * without opening the message — which is how most people will use this.
- */
+/** The confirmation code (no links for better deliverability). */
 export function verifyCode(code: string, minutes: number): Omit<Mail, 'to'> {
   const body = `Type this into the app to confirm your address. It works for ${minutes} minutes.`;
   return {
-    // The code is in the subject on purpose: a notification preview is often
-    // all somebody looks at, and it saves opening the message at all.
+    // Code in subject allows reading from notification preview.
     subject: `${code} is your Open Innings code`,
     text: [
       `Your confirmation code`,
@@ -83,9 +64,7 @@ export function resetPassword(link: string, minutes: number): Omit<Mail, 'to'> {
       ``,
       link,
       ``,
-      // The reassurance that matters on a reset mail specifically: an
-      // unrequested one is alarming, and the useful thing to say is that
-      // ignoring it is safe and sufficient.
+      // Reassurance that ignoring unrequested resets is safe.
       `If this was not you, ignore this email. Your password has not changed and the link expires on its own.`,
     ].join('\n'),
     html: shell(

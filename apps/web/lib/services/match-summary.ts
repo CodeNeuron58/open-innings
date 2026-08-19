@@ -1,14 +1,6 @@
 /**
- * A match reduced to the handful of facts worth putting on a share card.
- *
- * The public scorecard at /m/[matchId] is the full record. This is what a
- * person actually recounts afterwards: the result, who made the runs, who took
- * the wickets, and who won it. One small object, so the card renderer and
- * anything else that summarises a match agree on what "top scorer" means.
- *
- * Everything is replayed from `ball_events` through the scoring engine —
- * never read from a stored aggregate — for the same reason career stats are:
- * correcting a ball must correct everything downstream of it.
+ * A match reduced to summary facts for a share card.
+ * Replayed entirely from `ball_events` to ensure correctness after corrections.
  */
 import 'server-only';
 import {

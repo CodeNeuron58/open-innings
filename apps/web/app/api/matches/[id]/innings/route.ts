@@ -1,13 +1,6 @@
 /**
- * POST /api/matches/[id]/innings — open the next innings.
- *
- * The chase, or a super over once the scores are level. Which one it is comes
- * from what has already been played rather than from the request, so a client
- * cannot ask for a super over in a match that somebody won.
- *
- * Idempotent: a double submit returns the innings that already exists rather
- * than creating a second one. The innings break and the result screen are both
- * places a nervous second tap happens.
+ * POST /api/matches/[id]/innings
+ * Opens the next innings. Idempotent.
  */
 import { NextResponse } from 'next/server';
 import { startNextInningsSchema, HTTP } from '@open-innings/shared';

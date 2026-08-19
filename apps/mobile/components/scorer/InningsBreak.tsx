@@ -1,14 +1,6 @@
 /**
- * C4 — innings break.
- *
- * Two steps in one screen. The first is the only moment in a match where
- * everyone stops and looks at the phone, so it leads with the target and what
- * the innings actually was — top scorers with how they went, and who bowled
- * well — rather than going straight to a form. The second is that form.
- *
- * Splitting it this way also means the summary is worth sharing, which is the
- * point: an innings break is halfway through, and a link sent now brings
- * people to a match still being played.
+ * Innings break screen.
+ * Shows innings summary, target, and the form to start the next innings.
  */
 import { useState } from 'react';
 import { Pressable, ScrollView, Share, Text, View } from 'react-native';

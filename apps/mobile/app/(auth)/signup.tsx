@@ -41,8 +41,7 @@ export default function Signup() {
     try {
       await signUp(parsed.data.email, parsed.data.password, parsed.data.displayName);
     } catch (err) {
-      // The server returns 409 with the field set for a duplicate email —
-      // put that under the input it belongs to, not in a banner.
+      // Map server 409s to the specific input field instead of the global banner.
       if (err instanceof ApiError && err.field) {
         setErrors({ [err.field]: err.message });
       } else if (err instanceof NetworkError || err instanceof ApiError) {

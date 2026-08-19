@@ -1,14 +1,6 @@
 /**
- * What can still be changed about a match, and how to end one that should not
- * have been started.
- *
- * Everything here was unreachable from the app until now. A match was
- * permanent the moment it was created: a typo in the title stayed, and a
- * mistaken match sat on the list forever — deletion refuses while a match is
- * live, and there was no way to make it not live.
- *
- * Reached by holding a match on the list rather than by a visible button,
- * because these are corrections. The common path is tapping the row to score.
+ * Match settings modal.
+ * Allows updating details, abandoning, or deleting a match.
  */
 import { useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';

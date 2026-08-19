@@ -1,22 +1,7 @@
 /**
  * A3 — Sign in with a phone number.
- *
- * ⚠️ NOT WIRED. The UI is complete; the backend behind it does not exist.
- *
- * This app authenticates with email and password (argon2, server-side
- * sessions — see apps/web/lib/auth/local.ts). Phone + OTP is a different
- * system, and standing it up needs:
- *
- *   - a `phone` column on users, and a decision about whether email stays
- *   - an OTP store with expiry and attempt limiting
- *   - an SMS provider, billed per message
- *   - DLT registration with TRAI before any transactional SMS can be sent to
- *     an Indian number — an external approval queue, not an afternoon's work
- *
- * "Send code" therefore navigates to the verify screen without sending
- * anything. That is deliberate: a button that silently pretends to have sent
- * an SMS is worse than one that visibly does not, because it reaches testers
- * as a bug report instead of a known gap.
+ * ⚠️ NOT WIRED. The backend for phone + OTP is pending DLT registration.
+ * Button is visibly disabled rather than failing silently.
  */
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -62,10 +47,7 @@ export default function PhoneSignIn() {
   const [number, setNumber] = useState('');
   const [notify, setNotify] = useState(true);
 
-  // No derived state left. "Send code" is unconditionally disabled until DLT
-  // registration with TRAI clears, so a complete ten-digit number no longer
-  // enables anything — and computing whether it would was the misleading half
-  // of this screen. The field still limits itself to ten digits on input.
+  // "Send code" is disabled until DLT registration clears.
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -94,9 +76,7 @@ export default function PhoneSignIn() {
             Mobile number
           </Text>
           <View className="mt-1.5 flex-row gap-2">
-            {/* The country code is fixed rather than a picker: this is an
-                India-first product, and a picker here is a decision nobody
-                wants to make on their first screen. */}
+            {/* Fixed country code for India-first launch. */}
             <View className="border-input h-12 w-[62px] items-center justify-center border bg-neutral-100">
               <Text className="text-foreground font-heading text-[15px]">+91</Text>
             </View>
@@ -120,16 +100,7 @@ export default function PhoneSignIn() {
         </View>
 
         <View className="mt-6">
-          {/*
-            Inert, and visibly so.
-
-            This used to push to `/verify`, which was a matching stub. That
-            screen is now real email confirmation living in the app group, so
-            sending somebody there after typing a phone number would show them
-            a form about their inbox. A disabled button with the reason on it
-            is the convention used everywhere else in this app for something
-            built but not wired.
-          */}
+          {/* Button is disabled with inline explanation for missing SMS backend. */}
           <Button label="Send code" disabled onPress={() => undefined} />
           <Text className="text-foreground/60 mt-2 text-center text-[12px] leading-[17px]">
             Phone sign-in is not built yet — it needs DLT registration with TRAI before any SMS can
@@ -145,8 +116,7 @@ export default function PhoneSignIn() {
           <View className="bg-border h-px flex-1" />
         </View>
 
-        {/* Real, unlike the rest of this screen: a guest can read every
-            public surface. They cannot score — that needs an account. */}
+        {/* Guest access allows reading public surfaces, scoring requires an account. */}
         <Button
           label="Look around first"
           variant="secondary"

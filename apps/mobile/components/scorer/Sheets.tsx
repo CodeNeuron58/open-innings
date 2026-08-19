@@ -1,13 +1,6 @@
 /**
  * The scorer's modal sheets.
- *
- * One of these is *mandatory* — after a wicket the engine cannot validate the
- * next delivery until it knows who is on strike, and guessing corrupts the
- * scorecard silently. That sheet has no dismiss button on purpose, and offers
- * "Undo last ball" instead, because the usual reason a scorer is stuck there
- * is that the previous ball was recorded wrongly.
- *
- * End-of-over lives in EndOfOver.tsx — it outgrew a sheet.
+ * Mandatory sheets (e.g., wicket) have no dismiss button to prevent invalid state.
  */
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';

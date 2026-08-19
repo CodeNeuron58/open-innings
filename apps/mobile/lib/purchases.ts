@@ -1,41 +1,14 @@
 /**
- * Supporter — the one paid thing, and what it does not buy.
- *
- * The product removes advertising. It removes nothing else, and it withholds
- * nothing: every feature in the app is free forever, the whole thing is
- * AGPL-3.0, and a club that would rather self-host pays nothing at all. That
- * is not a marketing position, it is the licence — so the paywall screen can
- * say it plainly and the checklist of free things is longer than the paid one.
- *
- * ## Why this file degrades instead of throwing
- *
- * Three things have to be true before a rupee can change hands: the SDK needs
- * a RevenueCat API key, RevenueCat needs products that exist in Play Console
- * with real pricing, and the app has to be a signed build on a device with
- * Play Billing. Under Metro none of that holds.
- *
- * So every function here answers honestly when it cannot work, and the paywall
- * renders the plan with the purchase button visibly unavailable rather than
- * throwing, hanging, or — worst — appearing to take money it cannot take.
+ * Supporter purchases via RevenueCat.
+ * Degrades gracefully if purchases are not configured or available in the current environment.
  */
 import { useCallback, useEffect, useState } from 'react';
 import Purchases, { LOG_LEVEL, type PurchasesPackage } from 'react-native-purchases';
 
-/**
- * The entitlement id configured in the RevenueCat dashboard.
- *
- * If this string and the dashboard ever disagree, purchases succeed and the
- * app never notices — the single most confusing failure in this integration,
- * because everything looks fine on both sides.
- */
+/** The entitlement id configured in the RevenueCat dashboard. */
 export const ENTITLEMENT_ID = 'supporter';
 
-/**
- * The public SDK key. Public by design — it identifies the app to RevenueCat
- * and authorises nothing on its own, which is why it is safe in an
- * EXPO_PUBLIC_ variable compiled into the bundle. The *secret* key is a
- * different string and must never appear here.
- */
+/** The public SDK key for RevenueCat. */
 const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';
 
 export const purchasesConfigured = API_KEY.length > 0;
@@ -62,10 +35,7 @@ export type SupporterState = {
   priceString: string | null;
   /** Still asking the store. */
   isLoading: boolean;
-  /**
-   * Why buying is impossible, when it is. Rendered to the user, so it says
-   * what is actually wrong rather than "an error occurred".
-   */
+  /** Why buying is impossible, when it is. */
   unavailable: string | null;
   purchase: () => Promise<{ ok: boolean; message: string | null }>;
   restore: () => Promise<{ ok: boolean; message: string | null }>;
@@ -139,12 +109,7 @@ export function useSupporter(): SupporterState {
     }
   }, [offering, unavailable]);
 
-  /**
-   * Restore.
-   *
-   * Required by both stores, and genuinely needed: someone who paid, changed
-   * phone, and reinstalled has bought this already.
-   */
+  /** Restore previous purchases. */
   const restore = useCallback(async () => {
     if (!purchasesConfigured) return { ok: false, message: 'Purchases are not configured.' };
     try {

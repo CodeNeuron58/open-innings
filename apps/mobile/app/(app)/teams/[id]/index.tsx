@@ -1,15 +1,6 @@
 /**
  * E2 — a club's home.
- *
- * The permanent URL a club puts in a WhatsApp group description or an
- * Instagram bio. Reads the same service as `/c/[teamId]` on the web, so the
- * page someone opens from a link and the screen a member sees in the app are
- * the same page.
- *
- * The leaders are **career** figures, not club-only ones. That is on the label
- * rather than hidden, because attributing a run to a club means knowing which
- * side a player turned out for in each innings — and club cricketers turn out
- * for more than one.
+ * Shows club details, recent results, and career figures for squad members.
  */
 import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,13 +14,7 @@ import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../componen
 
 type Result = ClubPageResponse['results'][number];
 
-/**
- * Won, lost, tied, or still going.
- *
- * Read off the server's own result line rather than recomputed from scores —
- * the summary is what was written when the match completed, and a second
- * implementation of "who won" is a second thing that can be wrong about a tie.
- */
+/** Derives outcome (W/L/T/·) from the server's summary line. */
 function outcomeFor(r: Result, clubName: string): { mark: string; tone: string } {
   if (r.status !== 'completed' || !r.summary) return { mark: '·', tone: 'text-foreground/40' };
   if (r.summary.toLowerCase().startsWith(clubName.toLowerCase()))
@@ -45,27 +30,12 @@ export default function ClubPage() {
 
   const query = usePublicQuery<ClubPageResponse>((t, signal) => api.club(t, id, signal), [id]);
 
-  /*
-   * Only the owner can hand out the armband.
-   *
-   * A club page is public — most people opening one followed a link from a
-   * WhatsApp group — so ownership is worked out from the teams this account
-   * owns rather than asked for. `useApiQuery` returns nothing without a token,
-   * so a guest simply never sees the option.
-   */
+  // Ownership checked via teams list. Required to edit squad roles.
   const myTeams = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal), []);
   const isOwner = myTeams.data?.teams.some((t) => t.id === id) ?? false;
   const mutation = useApiMutation();
 
-  /**
-   * Captaincy and keeping, which are properties of the squad rather than of
-   * the person — somebody captains one club and bats at six for another.
-   *
-   * Both columns have existed since the first migration and nothing could ever
-   * write them, so every squad in the app has had no captain and no keeper.
-   * The keeper is not decoration: they are who takes the byes and the
-   * stumpings, and the obvious fielder on a caught-behind.
-   */
+  /** Updates squad-specific roles (captain/keeper). */
   function editRole(player: {
     id: string;
     fullName: string;

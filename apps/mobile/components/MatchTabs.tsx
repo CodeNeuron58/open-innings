@@ -1,15 +1,6 @@
 /**
- * The bottom bar: Matches · Score · Card · More.
- *
- * A presentational strip that navigates, not an Expo Router `<Tabs>` layout.
- * Two of the four destinations are *match-scoped* — Score and Card only mean
- * anything with a match id — while Matches is global. A real tab navigator
- * would have to hold a match id in layout state and decide what its tabs point
- * at when there is no match, which is a routing problem invented to satisfy a
- * visual one.
- *
- * So: this renders the design, each item pushes, and the active tab is passed
- * in by the screen that knows which one it is.
+ * Custom bottom tab bar for match navigation.
+ * Renders the design and handles routing directly.
  */
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';

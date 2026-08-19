@@ -1,16 +1,6 @@
 /**
- * B1 — Matches.
- *
- * The home screen. In-progress matches first, because the only reason to open
- * this app mid-afternoon is to get back to the one you are scoring; finished
- * ones below as a record.
- *
- * The design's "synced" timestamp is not drawn: there is no offline queue, so
- * every ball is already on the server and a sync time would report on a thing
- * that does not exist.
- *
- * Its follower count is drawn as a **watching** count, which is the true
- * version — people reading the public scorecard right now, not subscribers.
+ * B1 — Matches home screen.
+ * Shows live matches first, then finished.
  */
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
@@ -29,7 +19,7 @@ function isLive(m: MatchRow): boolean {
   return m.status === 'live' || m.status === 'in_progress';
 }
 
-/** "8 Aug" — short, because the year is only interesting for old matches. */
+/** Format date as "8 Aug" */
 function shortDate(value: string | Date | null | undefined): string {
   if (!value) return '';
   const d = new Date(value);
@@ -60,12 +50,7 @@ function LiveMatch({
         <Text className="text-steel-700 font-heading text-[10px] uppercase tracking-[1.5px]">
           Live
         </Text>
-        {/*
-          "Watching", not "following" — this counts people reading the public
-          scorecard right now, and nobody subscribes to anything. Hidden below
-          two, because "1 watching" is usually the scorer's own second device
-          and "0 watching" is discouraging on a match nobody has shared yet.
-        */}
+        {/* Shows active watchers, hidden if < 2. */}
         {match.watching >= 2 ? (
           <Text className="text-foreground/55 font-heading ml-auto text-[10px] uppercase tracking-[1.3px]">
             {match.watching} watching
@@ -131,14 +116,7 @@ export default function Matches() {
   const router = useRouter();
   const query = useApiQuery<MatchListResponse>((t, signal) => api.matches(t, signal), []);
 
-  /*
-   * Corrections live behind a hold, not a visible button.
-   *
-   * The common thing to do with a row is tap it and score. Editing the title,
-   * abandoning a rained-off game and deleting one started by mistake are all
-   * things you do once — and until now none of them was possible from the app
-   * at all, which is why a mistaken match was permanent.
-   */
+  // Corrections and settings are accessed via long press.
   const [settingsFor, setSettingsFor] = useState<MatchRow | null>(null);
 
   if (query.isLoading) return <LoadingScreen />;
@@ -154,12 +132,7 @@ export default function Matches() {
       <View className="px-5 pb-3 pt-4">
         <View className="flex-row items-baseline justify-between">
           <Text className="text-foreground font-heading text-[26px] uppercase">Matches</Text>
-          {/*
-            The design shows "SYNCED 15:41" here. Omitted: there is no offline
-            queue, so every ball is already on the server and a sync time would
-            be reporting on a thing that does not exist. Comes back with
-            offline-first — see docs/wiring.md.
-          */}
+          {/* Sync status omitted as all balls sync immediately. */}
         </View>
 
         <View className="mt-4">
@@ -224,8 +197,7 @@ export default function Matches() {
         )}
       />
 
-      {/* No MatchTabs here: Score and Card need a match id and this screen is
-          the list of all of them. See docs/wiring.md. */}
+      {/* No MatchTabs on global matches list. */}
       <View className="border-border flex-row gap-2 border-t px-5 py-3">
         <View className="flex-1">
           <Button label="Players" variant="secondary" onPress={() => router.push('/players')} />

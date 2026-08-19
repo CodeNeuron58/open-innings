@@ -1,13 +1,6 @@
 /**
- * A1 — Splash.
- *
- * Also the launch route: it decides where you land. The session provider is
- * still verifying the stored token against the server when this first mounts,
- * so rather than flashing a login form at someone already signed in, it holds
- * this screen until the answer arrives.
- *
- * Reversed steel field — the same one the score plate uses — so the first
- * thing anyone sees is the app's one heavy object.
+ * Splash and launch route.
+ * Holds the screen until session provider verifies the stored token.
  */
 import { useEffect, useState } from 'react';
 import { Animated, Text, View } from 'react-native';
@@ -19,15 +12,8 @@ import { useSession } from '../lib/session';
 export default function Index() {
   const { user, isGuest, isLoading } = useSession();
 
-  // A determinate-looking sweep rather than a spinner. It is honest about
-  // being indeterminate — it never claims a percentage — but it reads as
-  // progress instead of a stall.
-  //
-  // `useState` with a lazy initialiser rather than the more familiar
-  // `useRef(new Animated.Value(0)).current`. Both construct the value exactly
-  // once, but reading `.current` during render is what that idiom does, and a
-  // ref is not guaranteed to be stable across a render that React discards.
-  // The interpolations below are read during render, so this has to be state.
+  // A determinate-looking sweep animation for indeterminate progress.
+  // Uses lazy useState rather than useRef to ensure stability during render.
   const [sweep] = useState(() => new Animated.Value(0));
 
   useEffect(() => {

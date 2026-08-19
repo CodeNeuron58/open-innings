@@ -1,12 +1,7 @@
 /**
- * Open Innings — session management.
- *
- * Sessions are server-side: a random opaque token lives in a Postgres table,
- * bound to a user. The cookie stores the raw token; the DB stores SHA-256(token)
- * so a leaked DB dump doesn't yield usable credentials.
- *
- * Sessions expire after 30 days of inactivity. Refreshing on each request
- * (via middleware) gives a sliding window without forcing re-login.
+ * Server-side session management.
+ * 
+ * DB stores SHA-256(token) bound to a user with a 30-day sliding window expiry.
  */
 import { createHash, randomBytes } from 'node:crypto';
 import { eq, lt } from 'drizzle-orm';
@@ -17,16 +12,8 @@ export const SESSION_COOKIE = 'oi_session';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /**
- * How far the expiry must have drifted before a read bothers to extend it.
- *
- * The sliding window used to be refreshed on *every* lookup, which made every
- * authenticated read a write. The ownership scoping in lib/db/queries calls
- * `getUserId()` per query, so one dashboard render issued three UPDATEs
- * against the same row — concurrently, so they contended on its lock too. A
- * mobile client polling a live match would do that every few seconds.
- *
- * A day of granularity is invisible against a 30-day window: the session still
- * slides, it just stops rewriting a row to move an expiry by milliseconds.
+ * How far the expiry must have drifted before extending it.
+ * Prevents every read from becoming a write, avoiding lock contention.
  */
 const SESSION_REFRESH_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 1 day
 
@@ -40,13 +27,7 @@ export function generateSessionToken(): string {
 
 /**
  * Pull the session token out of an `Authorization: Bearer <token>` header.
- *
- * Native clients can't use cookies, so they send the same opaque token this
- * module already issues — there is no second credential type, just a second
- * transport. Returns undefined if the header is absent or malformed.
- *
- * Takes anything header-shaped so it works with both a `Request.headers` and
- * the `headers()` object from `next/headers`.
+ * Works with both `Request.headers` and `headers()` from `next/headers`.
  */
 export function readBearerToken(headers: { get(name: string): string | null }): string | undefined {
   const header = headers.get('authorization');
@@ -79,13 +60,8 @@ export async function createSession(
     expiresAt,
   });
 
-  // Opportunistic sweep. Expired rows are otherwise only removed when someone
-  // happens to present one, so a user who signs in on a new device every month
-  // and never returns to the old one leaves those rows forever.
-  //
-  // Hooked to session creation rather than a cron because it needs no
-  // infrastructure and logins are rare enough that an indexed DELETE here is
-  // free. Deliberately not awaited — a slow sweep must never delay a sign-in.
+  // Opportunistic sweep hooked to session creation.
+  // Deliberately not awaited — a slow sweep must never delay a sign-in.
   void purgeExpiredSessions();
 
   return { token, expiresAt };

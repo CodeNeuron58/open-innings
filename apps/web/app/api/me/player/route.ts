@@ -1,19 +1,6 @@
 /**
- * Which player on the field is this account?
- *
- * `players.user_id` has existed since the first schema and nothing ever set
- * it, which is why "my career" had nowhere to point, A5's profile fields had
- * nowhere to save, and E3's invite-by-number had nothing to invite someone
- * into.
- *
- * The distinction is real and worth keeping: an **account** is whoever is
- * doing the scoring, and a **player** is somebody who batted. Most scorers
- * are both, some are neither — a parent scoring their kid's match is an
- * account with no player, and every opponent is a player with no account.
- * Joining them is a claim someone makes, not a fact the system assumes.
- *
- * PUT   — claim a player as yourself.
- * DELETE — stop being that player.
+ * PUT    /api/me/player — claim a player profile as yourself.
+ * DELETE /api/me/player — release the claimed profile.
  */
 import { NextResponse } from 'next/server';
 import { and, eq, isNull, or } from 'drizzle-orm';
@@ -31,22 +18,9 @@ export const PUT = handle(async (request: Request) => {
   const userId = await requireUserId('Sign in to claim a player');
   const { playerId } = await readJson(request, bodySchema);
 
-  /*
-   * One transaction, because it is two writes that must not half-happen:
-   * release whatever this account currently claims, then claim the new one.
-   * Interrupted between them, an account would point at nobody.
-   */
+  // Transaction: release current claim and set new claim atomically.
   await db.transaction(async (tx) => {
-    /*
-     * Only a player you created, and only one nobody else has claimed.
-     *
-     * Without the first condition anyone could claim any player in the
-     * database and inherit their career. Without the second, two accounts
-     * could both insist they are the same person and the last write would
-     * win silently.
-     *
-     * Re-claiming your own player is allowed so a double tap is a no-op.
-     */
+    // You can only claim a player you created that nobody else has claimed.
     const [target] = await tx
       .select({ id: players.id })
       .from(players)
@@ -60,14 +34,11 @@ export const PUT = handle(async (request: Request) => {
       .limit(1);
 
     if (!target) {
-      // One message for "does not exist", "not yours" and "already someone
-      // else's". Distinguishing them would let anyone probe which player ids
-      // are already claimed.
+      // Generic message prevents probing claimed player IDs.
       throw invalid('That player cannot be claimed.', 'playerId');
     }
 
-    // At most one player per account: claiming a second releases the first,
-    // rather than leaving an account pointing at two careers.
+    // Release existing claim before setting the new one.
     await tx
       .update(players)
       .set({ userId: null, updatedAt: new Date() })

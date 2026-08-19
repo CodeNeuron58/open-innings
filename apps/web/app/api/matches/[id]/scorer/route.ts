@@ -1,15 +1,7 @@
 /**
- * GET /api/matches/[id]/scorer — everything the scorer screen needs, in one call.
- *
- * The native scorer needs the replayed `MatchState`, both squads, and team
- * names. Fetching those separately would be three round trips before a scorer
- * can record a ball, on a phone at a ground on mobile data.
- *
- * The state is replayed server-side rather than shipping raw ball events for
- * the client to fold, even though the client has the same engine. The two
- * would agree — that's the point of sharing the engine — but the ball endpoint
- * already returns replayed state after every delivery, so returning it here
- * too means the screen has exactly one shape of truth to render.
+ * GET /api/matches/[id]/scorer
+ * Returns complete MatchState, squads, and team names in one call.
+ * State is replayed server-side to provide a single source of truth.
  */
 import { NextResponse } from 'next/server';
 import { replayInnings, asInningsId, asPlayerId, type BallEventInput } from '@open-innings/scoring';
@@ -69,10 +61,7 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
       bowlerId: inning.openingBowlerId ?? '',
       maxWickets: inning.maxWickets,
       target: inning.target ?? undefined,
-      // Null in the row means the match set no limit; the engine reads
-      // undefined as unenforced. Replay must see the same condition the
-      // delivery was validated under, or a lawfully-scored innings stops
-      // replaying.
+      // Replay must see the same conditions the delivery was validated under.
       maxOversPerBowler: match.maxOversPerBowler ?? undefined,
     },
     events,

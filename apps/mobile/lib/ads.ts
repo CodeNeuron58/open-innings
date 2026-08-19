@@ -1,18 +1,6 @@
 /**
- * Ad unit IDs, in one place, so a real one can never reach a dev build.
- *
- * Tapping your own live ad is the single fastest way to get an AdMob account
- * terminated, and Google does not reverse it. The only reliable defence is to
- * never have a real unit ID loaded on a machine a developer is holding — so
- * every ID in the app resolves through `adUnit()`, which hands back Google's
- * public test unit unless this is a release build.
- *
- * ⚠️ `__DEV__` is false in `preview` and `production` EAS builds and true under
- * Metro, which is the line we want: testers on a preview APK see real ads,
- * whoever is running `expo start` never does.
- *
- * The App ID (the `~` one) is separate and lives in app.json — it's compiled
- * into the manifest, is not a secret, and is the same in every build.
+ * Ad unit IDs. Always resolve through adUnit() to avoid using live
+ * ads during development and risking AdMob account termination.
  */
 import { TestIds } from 'react-native-google-mobile-ads';
 
@@ -39,23 +27,8 @@ const TEST_UNITS: Record<Placement, string> = {
 };
 
 /**
- * The unit ID to request for a placement.
- *
- * Returns null when there is nothing safe to show — an unconfigured placement
- * in a release build — so callers render nothing rather than an error. An
- * empty slot is a missing few pixels; a wrong slot is a policy strike.
- */
-/**
- * Live ads are **opt-in**, and that direction is the whole point.
- *
- * `__DEV__` alone was not enough: it is false in a `preview` build too, so a
- * build made purely to hand to testers was serving real ads against the real
- * publisher id. Testers tap things — that is what testing is — and clicks on
- * your own inventory are what gets an AdMob account suspended.
- *
- * So the default is test units, and only a build that explicitly says
- * `EXPO_PUBLIC_ADS_MODE=live` gets the real ones. Forgetting to set it costs
- * nothing; forgetting to unset the opposite arrangement costs the account.
+ * Returns the unit ID for a placement, or null if none is safe to show.
+ * Live ads are opt-in via EXPO_PUBLIC_ADS_MODE=live to protect the account.
  */
 const LIVE_ADS_ENABLED = process.env.EXPO_PUBLIC_ADS_MODE === 'live';
 

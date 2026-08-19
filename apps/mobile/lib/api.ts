@@ -1,14 +1,6 @@
 /**
  * The API client.
- *
- * Every request authenticates with `Authorization: Bearer <token>` — never a
- * cookie. The server accepts both transports, but a native client has no
- * cookie jar, and being explicit means a request that forgets the token fails
- * loudly rather than silently succeeding off ambient state.
- *
- * Request and response shapes come from @open-innings/shared, so a field
- * renamed on the server breaks compilation here rather than at runtime on
- * someone's phone.
+ * Requests use Bearer tokens. Request/response types are shared from @open-innings/shared.
  */
 import {
   isApiError,
@@ -147,29 +139,14 @@ export const api = {
 
   logout: (token: string) => apiFetch<unknown>('/api/auth/logout', { method: 'POST', token }),
 
-  /**
-   * Send (or resend) the confirmation link for the signed-in account.
-   *
-   * `mailConfigured` comes back so the caller can tell "we sent it" from
-   * "this build has no mail provider" — the second reads as a bug to whoever
-   * is waiting on an inbox, and saying "check your email" when nothing left
-   * the building is the worst available answer.
-   */
+  /** Send or resend the confirmation link for the signed-in account. */
   sendVerification: (token: string) =>
     apiFetch<{ sent: boolean; mailConfigured: boolean }>('/api/auth/verify', {
       method: 'POST',
       token,
     }),
 
-  /**
-   * Check the six digits from the confirmation email.
-   *
-   * Authenticated, unlike the link flow it replaces, and that is what makes a
-   * short code safe: the server looks the code up by *this* account, so a
-   * guesser has to already be signed in as the person whose address they are
-   * trying to prove, and their five attempts are counted against that one
-   * account rather than sprayed across every account at once.
-   */
+  /** Check the verification code from the confirmation email. */
   confirmEmail: (token: string, code: string) =>
     apiFetch<{ verified: boolean; alreadyVerified: boolean }>('/api/auth/verify', {
       method: 'PUT',
@@ -177,29 +154,11 @@ export const api = {
       token,
     }),
 
-  /**
-   * Ask for a password-reset link.
-   *
-   * Unauthenticated, necessarily — somebody who could sign in would not be
-   * asking. The response never says whether the address has an account, so
-   * there is nothing here to branch on and the server's own sentence is what
-   * should be shown.
-   */
+  /** Ask for a password-reset link. */
   requestPasswordReset: (email: string) =>
     apiFetch<{ message: string }>('/api/auth/reset', { method: 'POST', body: { email } }),
 
-  /**
-   * Delete your own account.
-   *
-   * The password goes with it, on a DELETE, which is unusual and right here:
-   * a session proves who signed in, not who is holding the phone now, and
-   * this is the one action in the app that cannot be undone.
-   *
-   * What comes back is what *survived* — matches, squads, the released player
-   * claim — because that is the half people need to understand. A screen that
-   * says only "account deleted" leaves somebody wondering what happened to
-   * their club's season.
-   */
+  /** Delete the signed-in account. Password required for confirmation. */
   deleteAccount: (token: string, password: string) =>
     apiFetch<{
       deleted: boolean;

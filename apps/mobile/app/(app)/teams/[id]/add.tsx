@@ -1,27 +1,7 @@
 /**
  * E3 — add a player to a squad.
- *
- * Search runs against players who are **already on Open Innings**, and that is
- * the whole point of the screen. A club that types "S. Kurien" fresh every
- * season gives him a new empty record every season; finding the existing S.
- * Kurien means his career follows him between clubs, which is the thing this
- * app is for.
- *
- * So the existing-player list comes first and creating one is the fallback,
- * under a heading that says "not found?" — the opposite order to how most
- * add-a-thing screens are built, and deliberate.
- *
- * ## The search became real on 2026-08-18
- *
- * Until then this filtered `GET /api/players`, which the server scoped to
- * players *you* created. So the screen searched your own list while telling
- * people it searched Open Innings, and the promise above was false: two clubs
- * scoring the same cricketer built two half-careers that nothing could join.
- *
- * It now asks the server, across every account. The rows carry matches, runs,
- * wickets and recent clubs because a global search returns namesakes, and
- * "Arun Kumar, Rovers, 340 runs" is how a scorer tells two of them apart —
- * none of which is newly disclosed: every career page is already public.
+ * Global search prioritizes existing players to maintain unified career records,
+ * falling back to creation if not found.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';

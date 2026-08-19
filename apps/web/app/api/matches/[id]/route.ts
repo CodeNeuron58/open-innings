@@ -27,13 +27,8 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
 });
 
 /**
- * A match was permanent the moment it was created. The title and the venue are
- * cosmetic; `oversPerInnings` is not — set it wrong at the toss and the innings
- * ends at the wrong point, with no way back short of deleting the match.
- *
- * The teams and the toss stay fixed. Every recorded ball names players from
- * the squads that were picked, and the innings rows already carry the answer
- * the toss produced.
+ * Updates match metadata. Title and venue can be updated.
+ * Teams and toss are fixed after creation.
  */
 export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
   const { id } = await ctx.params;
