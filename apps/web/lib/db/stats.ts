@@ -196,7 +196,40 @@ export async function fieldingTotalsFor(playerId: string): Promise<FieldingTotal
 // Many players at once
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Matches each player appeared in, counting any role (batter, bowler, fielder, non-striker). */
+/**
+ * Matches each player appeared in, counting any role.
+ *
+ * ## Why this is five queries stapled together and not one `unnest`
+ *
+ * It used to read, roughly:
+ *
+ *     from (select unnest(array[batsman_id, …, wicket_player_id]) as player_id,
+ *                  i.match_id
+ *           from ball_events be join innings i on i.id = be.innings_id) roles
+ *     where roles.player_id in (…)
+ *
+ * which is clearer, and was a sequential scan of the entire ball log on every
+ * call. The `where` sits outside the subquery, and Postgres cannot push a
+ * predicate through `unnest` in a target list — so the inner query has to
+ * materialise five rows for **every ball ever recorded**, joined to `innings`,
+ * before the filter is applied. The cost is set by the size of the database,
+ * not by how many players were asked about.
+ *
+ * That matters because of who calls it. `careerBriefsFor` calls it
+ * unconditionally, and that backs the player-search box on the add-player
+ * screen — so typing a name scanned the whole ball log, per keystroke, on a
+ * shared-CPU dyno against a ten-connection pool, quite possibly while somebody
+ * was in the middle of an over.
+ *
+ * One filtered leg per role instead. Each `where` is a single indexed column,
+ * so each leg is an index scan whose cost tracks the answer rather than the
+ * archive. All five columns have an index as of migration 0014 — before it,
+ * three of them did not, which is why this shape would not have helped much.
+ *
+ * `union all` rather than `union`: deduplication is the outer
+ * `count(distinct match_id)`'s job, and it has to happen there anyway, since a
+ * player who batted *and* bowled in one match has appeared once.
+ */
 export async function appearancesFor(playerIds: string[]): Promise<Map<string, number>> {
   if (playerIds.length === 0) return new Map();
 
@@ -205,19 +238,23 @@ export async function appearancesFor(playerIds: string[]): Promise<Map<string, n
     sql`, `,
   );
 
+  // Nullable columns (fielder, wicket player) need no special handling: `in`
+  // never matches NULL, which is exactly the behaviour the old filter had.
+  const leg = (column: string) => sql`
+    select be.${sql.raw(column)} as player_id, i.match_id
+    from ball_events be
+    join innings i on i.id = be.innings_id
+    where be.${sql.raw(column)} in (${ids})
+  `;
+
+  const roles = sql.join(
+    ['batsman_id', 'non_striker_id', 'bowler_id', 'fielder_id', 'wicket_player_id'].map(leg),
+    sql` union all `,
+  );
+
   const rows = await db.execute<{ player_id: string; matches: number }>(sql`
     select roles.player_id, count(distinct roles.match_id)::int as matches
-    from (
-      select
-        unnest(array[
-          be.batsman_id, be.non_striker_id, be.bowler_id,
-          be.fielder_id, be.wicket_player_id
-        ]) as player_id,
-        i.match_id
-      from ball_events be
-      join innings i on i.id = be.innings_id
-    ) roles
-    where roles.player_id in (${ids})
+    from (${roles}) roles
     group by roles.player_id
   `);
 

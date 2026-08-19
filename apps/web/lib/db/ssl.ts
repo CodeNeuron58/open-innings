@@ -18,7 +18,7 @@
  * first time that happens, and the app stops connecting for reasons nobody
  * remembers. Deciding here means the rule survives rotation.
  */
-export type SslSetting = 'require' | false;
+export type SslSetting = 'require' | false | { rejectUnauthorized: true };
 
 /** Hosts that are this machine, where TLS is neither available nor useful. */
 const LOCAL = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
@@ -65,6 +65,27 @@ export function sslFor(connectionString: string): SslSetting {
   // against a remote host meant it, and someone who wrote `sslmode=require`
   // does not need this to agree.
   if (/[?&]sslmode=disable\b/i.test(connectionString)) return false;
+
+  /*
+   * `verify-ca` and `verify-full` mean verify, and now do.
+   *
+   * Every `sslmode` other than `disable` used to collapse to postgres.js's
+   * `'require'`, which negotiates TLS and does **not** check the certificate
+   * chain — the equivalent of `rejectUnauthorized: false`. So a connection
+   * string ending `?sslmode=verify-full`, the strictest setting there is and
+   * about as deliberate an act as exists in this file, silently got an
+   * unverified connection. Nothing logged it, and the difference is invisible
+   * until somebody is between you and the database.
+   *
+   * These two now fail closed: a self-signed certificate is refused rather
+   * than accepted quietly. That is the point of asking for them, and anyone
+   * who wants encryption without verification can still write
+   * `sslmode=require`, which is what it means.
+   */
+  if (/[?&]sslmode=verify-(ca|full)\b/i.test(connectionString)) {
+    return { rejectUnauthorized: true };
+  }
+
   if (/[?&]sslmode=/i.test(connectionString)) return 'require';
 
   try {

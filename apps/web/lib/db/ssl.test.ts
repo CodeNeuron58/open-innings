@@ -37,25 +37,39 @@ describe('sslFor', () => {
   });
 
   /*
-   * ⚠️ Documents a real weakness rather than endorsing it.
+   * `verify-ca` and `verify-full` now verify.
    *
-   * Every sslmode other than `disable` collapses to postgres.js's 'require',
-   * which negotiates TLS and does NOT verify the certificate chain. So a
-   * connection string that explicitly asks for `verify-full` — the strictest
-   * setting there is, and a deliberate act — silently gets an unverified
-   * connection instead.
+   * This test previously pinned the opposite, with a comment calling the
+   * behaviour "known, and not obviously right": every sslmode other than
+   * `disable` collapsed to postgres.js's 'require', which negotiates TLS and
+   * does NOT check the certificate chain. So the strictest setting there is —
+   * about as deliberate an act as this file sees — silently produced an
+   * unverified connection, and nothing said so.
    *
-   * That is defensible for a provider-managed database on a private network,
-   * which is what the module's own comment argues and what this deployment
-   * is. It is wrong for anything reached over the open internet, and someone
-   * writing verify-full has said which of those they think they have.
-   *
-   * Pinned so the downgrade is a visible, deliberate line in a test rather
-   * than an accident nobody has read.
+   * The old argument for it was that a provider-managed database on a private
+   * network presents a self-signed certificate, so verification fails and the
+   * choice is unverified-or-nothing. That holds, and it is still the default
+   * for a bare host and for a plain `sslmode=require`. What it does not
+   * justify is overriding somebody who asked for verification by name.
    */
-  it('downgrades verify-full to unverified TLS — known, and not obviously right', () => {
-    expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-full')).toBe('require');
-    expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-ca')).toBe('require');
+  it('verify-ca and verify-full ask for a checked certificate chain', () => {
+    expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-full')).toEqual({
+      rejectUnauthorized: true,
+    });
+    expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=verify-ca')).toEqual({
+      rejectUnauthorized: true,
+    });
+  });
+
+  it('still negotiates unverified TLS for a plain sslmode=require', () => {
+    // Unchanged, and the escape hatch for a self-signed provider certificate.
+    expect(sslFor('postgresql://u:p@db.example.com:5432/app?sslmode=require')).toBe('require');
+  });
+
+  it('a bare remote host still defaults to unverified TLS', () => {
+    // The Heroku case. Nobody stated a preference, so the module picks the one
+    // that connects.
+    expect(sslFor('postgresql://u:p@db.example.com:5432/app')).toBe('require');
   });
 });
 

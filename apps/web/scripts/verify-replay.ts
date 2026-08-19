@@ -30,7 +30,7 @@
  *
  * Exits non-zero when anything is reported, so CI can run it too.
  */
-import { asc, eq } from 'drizzle-orm';
+import { asc, inArray } from 'drizzle-orm';
 import { replayInnings, type BallViolation } from '@open-innings/scoring';
 import { db } from '../lib/db/client';
 import { matches, innings as inningsTable, ballEvents } from '../lib/db/schema';
@@ -50,102 +50,151 @@ async function main() {
   let inningsChecked = 0;
   let ballsChecked = 0;
 
-  for (const match of allMatches) {
-    const allInnings = await db
+  /*
+   * Batched, because this used to be one query per match and one per innings.
+   *
+   * At 500 matches that was 1 + 500 + 1000 = 1501 round trips, and this is the
+   * script meant to run against production before a deploy — so it got slower
+   * than anyone would tolerate long before it got run. Three queries per batch
+   * of fifty makes the same 500 matches about 31.
+   *
+   * Fifty rather than all of them: loading every ball in the database at once
+   * is the other way to make this unusable, and the point of the script is to
+   * be run.
+   */
+  const BATCH = 50;
+
+  for (let offset = 0; offset < allMatches.length; offset += BATCH) {
+    const batch = allMatches.slice(offset, offset + BATCH);
+
+    const inningsRows = await db
       .select()
       .from(inningsTable)
-      .where(eq(inningsTable.matchId, match.id))
+      .where(
+        inArray(
+          inningsTable.matchId,
+          batch.map((m) => m.id),
+        ),
+      )
       .orderBy(asc(inningsTable.inningsNumber));
 
-    for (const inn of allInnings) {
-      const balls = await db
-        .select()
-        .from(ballEvents)
-        .where(eq(ballEvents.inningsId, inn.id))
-        .orderBy(asc(ballEvents.ballNumber));
+    const ballRows = inningsRows.length
+      ? await db
+          .select()
+          .from(ballEvents)
+          .where(
+            inArray(
+              ballEvents.inningsId,
+              inningsRows.map((i) => i.id),
+            ),
+          )
+          .orderBy(asc(ballEvents.ballNumber))
+      : [];
 
-      inningsChecked += 1;
-      ballsChecked += balls.length;
+    // Grouping preserves the order the queries applied, so each innings still
+    // sees its deliveries in ball order — which replay depends on.
+    const inningsByMatch = new Map<string, typeof inningsRows>();
+    for (const inn of inningsRows) {
+      const list = inningsByMatch.get(inn.matchId) ?? [];
+      list.push(inn);
+      inningsByMatch.set(inn.matchId, list);
+    }
+    const ballsByInnings = new Map<string, typeof ballRows>();
+    for (const ball of ballRows) {
+      const list = ballsByInnings.get(ball.inningsId) ?? [];
+      list.push(ball);
+      ballsByInnings.set(ball.inningsId, list);
+    }
 
-      /*
-       * The same seed the application builds, including the playing
-       * conditions. Replaying under different conditions than the deliveries
-       * were validated against would invent violations that do not exist.
-       */
-      let state;
-      try {
-        state = replayInnings(
-          {
-            matchId: match.id,
-            oversPerInnings: match.oversPerInnings,
-            teamAId: match.teamAId,
-            teamBId: match.teamBId,
-            battingTeamId: inn.battingTeamId,
-            bowlingTeamId: inn.bowlingTeamId,
-            inningsId: inn.id,
-            inningsNumber: inn.inningsNumber as 1 | 2 | 3 | 4,
-            strikerId: inn.openingStrikerId ?? '',
-            nonStrikerId: inn.openingNonStrikerId ?? '',
-            bowlerId: inn.openingBowlerId ?? '',
-            maxWickets: inn.maxWickets,
-            target: inn.target ?? undefined,
-            maxOversPerBowler: match.maxOversPerBowler ?? undefined,
-          },
-          balls.map((b) => ({
-            ...b,
-            inningsId: b.inningsId as never,
-            batsmanId: b.batsmanId as never,
-            nonStrikerId: b.nonStrikerId as never,
-            bowlerId: b.bowlerId as never,
-            wicketPlayerId: (b.wicketPlayerId ?? undefined) as never,
-            fielderId: (b.fielderId ?? undefined) as never,
-            wicketType: b.wicketType ?? undefined,
-            commentary: b.commentary ?? undefined,
-          })),
-        );
-      } catch (error) {
+    for (const match of batch) {
+      const allInnings = inningsByMatch.get(match.id) ?? [];
+
+      for (const inn of allInnings) {
+        const balls = ballsByInnings.get(inn.id) ?? [];
+
+        inningsChecked += 1;
+        ballsChecked += balls.length;
+
         /*
-         * Replay mode should make this unreachable — it is here because an
-         * unreachable failure that takes down every scorecard is exactly the
-         * thing this script exists to find out about early.
+         * The same seed the application builds, including the playing
+         * conditions. Replaying under different conditions than the deliveries
+         * were validated against would invent violations that do not exist.
          */
-        console.error(
-          `✗ ${match.title ?? match.id} innings ${inn.inningsNumber} — replay THREW, which replay mode should prevent:`,
-        );
-        console.error(`  ${error instanceof Error ? error.message : String(error)}`);
-        process.exitCode = 1;
-        continue;
-      }
+        let state;
+        try {
+          state = replayInnings(
+            {
+              matchId: match.id,
+              oversPerInnings: match.oversPerInnings,
+              teamAId: match.teamAId,
+              teamBId: match.teamBId,
+              battingTeamId: inn.battingTeamId,
+              bowlingTeamId: inn.bowlingTeamId,
+              inningsId: inn.id,
+              inningsNumber: inn.inningsNumber as 1 | 2 | 3 | 4,
+              strikerId: inn.openingStrikerId ?? '',
+              nonStrikerId: inn.openingNonStrikerId ?? '',
+              bowlerId: inn.openingBowlerId ?? '',
+              maxWickets: inn.maxWickets,
+              target: inn.target ?? undefined,
+              maxOversPerBowler: match.maxOversPerBowler ?? undefined,
+            },
+            balls.map((b) => ({
+              ...b,
+              inningsId: b.inningsId as never,
+              batsmanId: b.batsmanId as never,
+              nonStrikerId: b.nonStrikerId as never,
+              bowlerId: b.bowlerId as never,
+              wicketPlayerId: (b.wicketPlayerId ?? undefined) as never,
+              fielderId: (b.fielderId ?? undefined) as never,
+              wicketType: b.wicketType ?? undefined,
+              commentary: b.commentary ?? undefined,
+            })),
+          );
+        } catch (error) {
+          /*
+           * Replay mode should make this unreachable — it is here because an
+           * unreachable failure that takes down every scorecard is exactly the
+           * thing this script exists to find out about early.
+           */
+          console.error(
+            `✗ ${match.title ?? match.id} innings ${inn.inningsNumber} — replay THREW, which replay mode should prevent:`,
+          );
+          console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+          process.exitCode = 1;
+          continue;
+        }
 
-      if (state.violations.length > 0) {
-        reports.push({
-          matchId: match.id,
-          title: match.title,
-          inningsNumber: inn.inningsNumber,
-          violations: state.violations,
-        });
-      }
+        if (state.violations.length > 0) {
+          reports.push({
+            matchId: match.id,
+            title: match.title,
+            inningsNumber: inn.inningsNumber,
+            violations: state.violations,
+          });
+        }
 
-      // The cached columns should agree with what the deliveries say. They are
-      // rewritten on every scoring write, so a mismatch means something wrote
-      // one without the other — which is what the transactions added in
-      // recordBall and removeLastBall are there to prevent.
-      const drift: string[] = [];
-      if (state.currentInnings.runs !== inn.runs) {
-        drift.push(`runs: cached ${inn.runs}, replayed ${state.currentInnings.runs}`);
-      }
-      if (state.currentInnings.wickets !== inn.wickets) {
-        drift.push(`wickets: cached ${inn.wickets}, replayed ${state.currentInnings.wickets}`);
-      }
-      if (state.currentInnings.ballsBowled !== inn.ballsBowled) {
-        drift.push(
-          `balls: cached ${inn.ballsBowled}, replayed ${state.currentInnings.ballsBowled}`,
-        );
-      }
-      if (drift.length > 0) {
-        console.error(`⚠ ${match.title ?? match.id} innings ${inn.inningsNumber} — cache drift:`);
-        for (const d of drift) console.error(`    ${d}`);
-        process.exitCode = 1;
+        // The cached columns should agree with what the deliveries say. They are
+        // rewritten on every scoring write, so a mismatch means something wrote
+        // one without the other — which is what the transactions added in
+        // recordBall and removeLastBall are there to prevent.
+        const drift: string[] = [];
+        if (state.currentInnings.runs !== inn.runs) {
+          drift.push(`runs: cached ${inn.runs}, replayed ${state.currentInnings.runs}`);
+        }
+        if (state.currentInnings.wickets !== inn.wickets) {
+          drift.push(`wickets: cached ${inn.wickets}, replayed ${state.currentInnings.wickets}`);
+        }
+        if (state.currentInnings.ballsBowled !== inn.ballsBowled) {
+          drift.push(
+            `balls: cached ${inn.ballsBowled}, replayed ${state.currentInnings.ballsBowled}`,
+          );
+        }
+        if (drift.length > 0) {
+          console.error(`⚠ ${match.title ?? match.id} innings ${inn.inningsNumber} — cache drift:`);
+          for (const d of drift) console.error(`    ${d}`);
+          process.exitCode = 1;
+        }
       }
     }
   }
