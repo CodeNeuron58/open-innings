@@ -1,20 +1,34 @@
 /**
- * POST /api/auth/verify — send (or resend) a confirmation link.
- * PUT  /api/auth/verify — spend one.
+ * POST /api/auth/verify — send (or resend) a six-digit confirmation code.
+ * PUT  /api/auth/verify — check one.
  *
- * Two verbs on one path rather than two paths, because they are two halves of
- * one thing and the pairing is easier to hold in your head than
- * `/verify/send` and `/verify/confirm`.
+ * ## Both need a session, and that is the point
  *
- * POST needs a session: it confirms *your* address, and the address comes from
- * the account rather than the body, so there is nothing to send it to
- * otherwise. PUT does not: whoever holds the link is the person being proven,
- * and requiring them to be signed in first would break the case the flow
- * exists for — opening the mail on a different device.
+ * The link version of this had an unauthenticated confirm step: whoever held
+ * the token was the person being proven, so no session was needed. A code
+ * cannot work that way. Six digits is a million possibilities, and a
+ * confirm endpoint that took `{ email, code }` would let anybody guess
+ * against any address, spreading attempts across every account at once.
+ *
+ * Looking the code up by **the signed-in user** instead means a guesser must
+ * already be that user, and their five attempts are counted against that one
+ * account. That is what makes a short code safe here.
+ *
+ * ## Why a code rather than a link
+ *
+ * This happens on a phone, seconds after signing up, on the screen somebody
+ * wants to start scoring from. A link sends them out to a mail client and
+ * hopes they come back. A code is read off a notification without opening
+ * anything — which is why it is in the subject line too.
  */
 import { NextResponse } from 'next/server';
 import { confirmEmailSchema, HTTP } from '@open-innings/shared';
-import { confirmEmail, sendVerificationEmail, canSendMail } from '@/lib/services/account';
+import {
+  confirmEmailCode,
+  sendVerificationEmail,
+  canSendMail,
+  MAX_CODE_ATTEMPTS,
+} from '@/lib/services/account';
 import { readJson, handle } from '@/lib/api/respond';
 import { requireUserId } from '@/lib/auth/local';
 import { enforceRateLimit } from '@/lib/api/request-meta';
@@ -26,10 +40,10 @@ export const POST = handle(async (request: Request) => {
   /*
    * Keyed on the account, and tight.
    *
-   * Each of these sends a real email, and a loop here is a way to use this
-   * app's sending reputation to flood somebody's inbox. Three an hour is
-   * generous for a person who did not receive the first one and mean for
-   * anything automated.
+   * Each of these sends a real email, so a loop here is a way to use this
+   * app's sending reputation to flood somebody's inbox. It is also the only
+   * way to reset the attempt counter on a code, so throttling it is half of
+   * what stops five guesses becoming unlimited guesses.
    */
   enforceRateLimit(request, 'verify-send', { max: 3, windowMs: 60 * 60_000, identity: userId });
 
@@ -47,25 +61,46 @@ export const POST = handle(async (request: Request) => {
 });
 
 export const PUT = handle(async (request: Request) => {
-  // Unauthenticated by design — see above. Rate limited by IP because there is
-  // no account to key on, and a token is 32 random bytes so this is a
-  // formality rather than a real defence.
-  enforceRateLimit(request, 'verify-confirm', { max: 20, windowMs: 60 * 60_000 });
+  const userId = await requireUserId('Sign in to confirm your email');
 
-  const { token } = await readJson(request, confirmEmailSchema);
-  const outcome = await confirmEmail(token);
+  /*
+   * A second limit, above the per-code one.
+   *
+   * The five attempts on a row are the real defence, but they reset whenever
+   * a new code is issued. This caps the whole loop — request, guess five
+   * times, request again — at something no person doing this by hand will
+   * ever reach.
+   */
+  enforceRateLimit(request, 'verify-confirm', { max: 20, windowMs: 60 * 60_000, identity: userId });
 
-  if (outcome === 'expired' || outcome === 'invalid') {
-    throw new ServiceError(
-      outcome === 'expired'
-        ? 'That confirmation link has expired. Sign in and ask for a new one.'
-        : 'That confirmation link is not valid.',
-      HTTP.badRequest,
-      'token',
-    );
+  const { code } = await readJson(request, confirmEmailSchema);
+  const outcome = await confirmEmailCode(userId, code);
+
+  switch (outcome.kind) {
+    case 'verified':
+      return NextResponse.json({ verified: true, alreadyVerified: false });
+
+    // Not a failure. Somebody re-entering an old code, or tapping confirm
+    // twice, has done what was asked of them.
+    case 'already':
+      return NextResponse.json({ verified: true, alreadyVerified: true });
+
+    case 'none':
+      throw new ServiceError(
+        'That code has expired, or there is no code waiting. Ask for a new one.',
+        HTTP.badRequest,
+        'code',
+      );
+
+    default:
+      throw new ServiceError(
+        outcome.attemptsLeft > 0
+          ? `That code is not right. ${outcome.attemptsLeft} ${
+              outcome.attemptsLeft === 1 ? 'try' : 'tries'
+            } left.`
+          : `That code is not right, and you have used all ${MAX_CODE_ATTEMPTS} tries. Ask for a new one.`,
+        HTTP.badRequest,
+        'code',
+      );
   }
-
-  // 'already' is a success: the person following a link twice — or whose mail
-  // client scanned it first — has done what was asked.
-  return NextResponse.json({ verified: true, alreadyVerified: outcome === 'already' });
 });

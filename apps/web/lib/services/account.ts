@@ -19,15 +19,18 @@ import { db } from '@/lib/db/client';
 import { users } from '@/lib/db/schema';
 import { hashPassword, newSalt } from '@/lib/auth/password';
 import {
+  MAX_CODE_ATTEMPTS,
   TTL,
   applyPasswordReset,
+  consumeCode,
   consumeToken,
+  issueCode,
   issueToken,
   markEmailVerified,
   purgeStaleTokens,
 } from '@/lib/auth/verification';
 import { send, mailConfigured } from '@/lib/mail/send';
-import { resetPassword, verifyEmail } from '@/lib/mail/templates';
+import { resetPassword, verifyCode } from '@/lib/mail/templates';
 import { invalid } from './errors';
 
 /**
@@ -67,32 +70,48 @@ export async function sendVerificationEmail(userId: string): Promise<boolean> {
 
   void purgeStaleTokens();
 
-  const token = await issueToken(user.id, 'email_verify', user.email);
-  const link = `${appUrl()}/verify?token=${encodeURIComponent(token)}`;
+  const code = await issueCode(user.id, 'email_verify', user.email);
   const result = await send({
     to: user.email,
-    ...verifyEmail(link, TTL.email_verify / 3_600_000),
+    ...verifyCode(code, TTL.email_verify / 60_000),
   });
   return result.ok;
 }
 
-export type VerifyOutcome = 'verified' | 'already' | 'expired' | 'invalid';
+export type VerifyOutcome =
+  | { kind: 'verified' }
+  | { kind: 'already' }
+  /** No live code — never asked, expired, or burnt through its attempts. */
+  | { kind: 'none' }
+  | { kind: 'wrong'; attemptsLeft: number };
 
-/** Spend a confirmation link. */
-export async function confirmEmail(token: string): Promise<VerifyOutcome> {
-  const result = await consumeToken(token, 'email_verify');
-  if (!result.ok) {
-    // "Used" is reported as success. The person following a link a second
-    // time — or whose mail client scanned it first — has done the thing being
-    // asked of them, and telling them it failed would be both wrong and
-    // alarming.
-    if (result.reason === 'used') return 'already';
-    return result.reason === 'expired' ? 'expired' : 'invalid';
+/**
+ * Check the six digits somebody typed.
+ *
+ * Scoped to the signed-in account rather than looked up by the code, which is
+ * what keeps six digits safe: a guesser has to already be signed in as the
+ * person whose address they are trying to prove, and their five attempts are
+ * counted against that one account.
+ *
+ * An account that is already verified short-circuits. Somebody re-entering an
+ * old code has done nothing wrong and should not be told they failed.
+ */
+export async function confirmEmailCode(userId: string, code: string): Promise<VerifyOutcome> {
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (!user) return { kind: 'none' };
+  if (user.emailVerifiedAt) return { kind: 'already' };
+
+  const result = await consumeCode(userId, 'email_verify', code);
+  if (result.ok) {
+    await markEmailVerified(userId, result.sentTo);
+    return { kind: 'verified' };
   }
 
-  await markEmailVerified(result.userId, result.sentTo);
-  return 'verified';
+  if (result.reason === 'none') return { kind: 'none' };
+  return { kind: 'wrong', attemptsLeft: result.attemptsLeft };
 }
+
+export { MAX_CODE_ATTEMPTS };
 
 /**
  * Ask for a reset link.

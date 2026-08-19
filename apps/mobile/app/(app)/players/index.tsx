@@ -22,7 +22,7 @@ export default function Players() {
   );
 
   const mutation = useApiMutation();
-  const { playerId, refreshPlayer } = useSession();
+  const { playerId, refreshSession } = useSession();
   const [adding, setAdding] = useState(false);
   const [fullName, setFullName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function Players() {
     const done = await mutation.run<{ playerId: string | null }>((token) =>
       mine ? api.releasePlayer(token) : api.claimPlayer(token, player.id),
     );
-    if (done !== null) await refreshPlayer();
+    if (done !== null) await refreshSession();
   }
 
   if (isLoading) return <LoadingScreen />;

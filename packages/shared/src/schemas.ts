@@ -534,8 +534,21 @@ export const confirmResetSchema = z.object({
 });
 export type ConfirmResetInput = z.infer<typeof confirmResetSchema>;
 
-/** Spend a confirmation link. */
+/**
+ * Confirm an address with the six-digit code from the message.
+ *
+ * A code rather than a link because this happens on a phone, seconds after
+ * signing up, on the screen somebody wants to start scoring from. A link
+ * sends them out to a mail client and hopes they come back.
+ *
+ * Exactly six digits, and nothing else accepted. Trimmed because people paste
+ * with a trailing space out of a notification; not otherwise cleaned, since
+ * `1 2 3 4 5 6` is a paste that went wrong rather than a code.
+ */
 export const confirmEmailSchema = z.object({
-  token: z.string().trim().min(1),
+  code: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{6}$/, 'Enter the six digits from the email'),
 });
 export type ConfirmEmailInput = z.infer<typeof confirmEmailSchema>;

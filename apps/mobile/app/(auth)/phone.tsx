@@ -62,8 +62,10 @@ export default function PhoneSignIn() {
   const [number, setNumber] = useState('');
   const [notify, setNotify] = useState(true);
 
-  const digits = number.replace(/\D/g, '');
-  const canSend = digits.length === LOCAL_NUMBER_LENGTH;
+  // No derived state left. "Send code" is unconditionally disabled until DLT
+  // registration with TRAI clears, so a complete ten-digit number no longer
+  // enables anything — and computing whether it would was the misleading half
+  // of this screen. The field still limits itself to ten digits on input.
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -118,7 +120,21 @@ export default function PhoneSignIn() {
         </View>
 
         <View className="mt-6">
-          <Button label="Send code" disabled={!canSend} onPress={() => router.push('/verify')} />
+          {/*
+            Inert, and visibly so.
+
+            This used to push to `/verify`, which was a matching stub. That
+            screen is now real email confirmation living in the app group, so
+            sending somebody there after typing a phone number would show them
+            a form about their inbox. A disabled button with the reason on it
+            is the convention used everywhere else in this app for something
+            built but not wired.
+          */}
+          <Button label="Send code" disabled onPress={() => undefined} />
+          <Text className="text-foreground/60 mt-2 text-center text-[12px] leading-[17px]">
+            Phone sign-in is not built yet — it needs DLT registration with TRAI before any SMS can
+            reach an Indian number. Use email for now.
+          </Text>
         </View>
 
         <View className="my-5 flex-row items-center gap-3">

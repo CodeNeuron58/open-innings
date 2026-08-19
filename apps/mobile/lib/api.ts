@@ -162,6 +162,22 @@ export const api = {
     }),
 
   /**
+   * Check the six digits from the confirmation email.
+   *
+   * Authenticated, unlike the link flow it replaces, and that is what makes a
+   * short code safe: the server looks the code up by *this* account, so a
+   * guesser has to already be signed in as the person whose address they are
+   * trying to prove, and their five attempts are counted against that one
+   * account rather than sprayed across every account at once.
+   */
+  confirmEmail: (token: string, code: string) =>
+    apiFetch<{ verified: boolean; alreadyVerified: boolean }>('/api/auth/verify', {
+      method: 'PUT',
+      body: { code },
+      token,
+    }),
+
+  /**
    * Ask for a password-reset link.
    *
    * Unauthenticated, necessarily — somebody who could sign in would not be

@@ -90,6 +90,12 @@ const COLLECTED: { no: string; what: string; why: string; kept: string }[] = [
     why: 'To tell you when the thing you asked about is ready. Nothing else is ever sent to it.',
     kept: 'Until you ask for it to be removed.',
   },
+  {
+    no: '09',
+    what: 'A short-lived code or link, when you confirm your address or reset your password',
+    why: 'Stored hashed, never in a form we could read back, alongside the address it was sent to and the time it expires. It proves the person holding it can read that inbox, and nothing else.',
+    kept: 'Minutes to a day, then deleted.',
+  },
 ];
 
 const NOT_COLLECTED: string[] = [
@@ -221,10 +227,20 @@ export default function PrivacyPage() {
           <div>
             <span className="oi-kick">Who else is involved</span>
             <hr className="oi-rule" />
-            <h2 className="oi-h2 oi-h2-md">Three companies, and what each one sees</h2>
+            <h2 className="oi-h2 oi-h2-md">Four companies, and what each one sees</h2>
             <p className="oi-body oi-dim-strong">
               <strong>Heroku and Amazon Web Services</strong> host the servers and the database, in
               Europe. They store what is listed above on our behalf and do nothing else with it.
+            </p>
+            <p className="oi-body oi-dim-strong">
+              <strong>Resend</strong> delivers the two emails this app sends — confirm your address,
+              and reset your password — from servers in Ireland. It sees the address the message
+              goes to and the message itself.{' '}
+              <strong>Click and open tracking are switched off</strong>, which is not the default:
+              with them on, every link in a message is rewritten to run through a third party first,
+              and an invisible pixel reports when you opened it. Neither belongs in a mail you did
+              not ask for, and the promise above that nothing here tracks you would not survive
+              either of them.
             </p>
             <p className="oi-body oi-dim-strong">
               <strong>Google AdMob</strong> serves the banner on the scorecard and share screens. It

@@ -32,24 +32,43 @@ function shell(heading: string, body: string, action: { href: string; label: str
 </body></html>`;
 }
 
-export function verifyEmail(link: string, hours: number): Omit<Mail, 'to'> {
-  const body = `Confirm this address so you can reset your password if you ever lose it. The link works for ${hours} hours.`;
+/**
+ * The confirmation code.
+ *
+ * No link at all, which also removes the whole class of problem links in mail
+ * have: scanners that follow them, clients that rewrite them, and a recipient
+ * asked to trust a URL that arrived unasked. There is nothing here to click.
+ *
+ * The digits are spaced in the HTML so they can be read off a lock screen
+ * without opening the message — which is how most people will use this.
+ */
+export function verifyCode(code: string, minutes: number): Omit<Mail, 'to'> {
+  const body = `Type this into the app to confirm your address. It works for ${minutes} minutes.`;
   return {
-    subject: `Confirm your email — ${BRAND}`,
+    // The code is in the subject on purpose: a notification preview is often
+    // all somebody looks at, and it saves opening the message at all.
+    subject: `${code} is your Open Innings code`,
     text: [
-      `Confirm your email`,
+      `Your confirmation code`,
+      ``,
+      code,
       ``,
       body,
       ``,
-      link,
-      ``,
       `If you did not create an ${BRAND} account, ignore this — nothing was set up with your address, and no further mail will be sent to it.`,
     ].join('\n'),
-    html: shell(
-      'Confirm your email',
-      `${body} If you did not create an ${BRAND} account, ignore this — nothing was set up with your address.`,
-      { href: link, label: 'Confirm email' },
-    ),
+    html: `<!doctype html>
+<html><body style="margin:0;padding:24px;background:#f2f2f3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1a1a">
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #d8d8da;padding:28px">
+    <div style="font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#5980a6">${BRAND}</div>
+    <h1 style="font-size:21px;line-height:1.25;margin:14px 0 12px;font-weight:600">Your confirmation code</h1>
+    <div style="font-size:34px;letter-spacing:9px;font-weight:600;margin:18px 0;color:#1a1a1a">${code}</div>
+    <p style="font-size:15px;line-height:1.55;margin:0 0 8px;color:#3a3a3c">${body}</p>
+    <p style="font-size:12.5px;line-height:1.5;margin:18px 0 0;color:#6b6b70">
+      If you did not create an ${BRAND} account, ignore this — nothing was set up with your address.
+    </p>
+  </div>
+</body></html>`,
   };
 }
 

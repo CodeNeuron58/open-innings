@@ -50,8 +50,15 @@ type SessionState = {
    * match never will, and that is a legitimate way to use this app.
    */
   playerId: string | null;
-  /** Refresh it after claiming or releasing, without a full sign-in. */
-  refreshPlayer: () => Promise<void>;
+  /**
+   * Re-read the session from the server, without a full sign-in.
+   *
+   * Both the claimed player and the user's own record come back, which is
+   * what lets confirming an email make the prompt disappear: the banner reads
+   * `user.emailVerifiedAt`, and nothing else would update it short of signing
+   * out and back in.
+   */
+  refreshSession: () => Promise<void>;
   /** True until the stored token has been checked against the server. */
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
@@ -127,12 +134,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  const refreshPlayer = useCallback(async () => {
+  const refreshSession = useCallback(async () => {
     if (!token) return;
     try {
-      setPlayerId((await api.session(token)).playerId);
+      const fresh = await api.session(token);
+      setPlayerId(fresh.playerId);
+      // The user too, not just the player. This used to set only `playerId`,
+      // which was fine while claiming a player was the only thing that could
+      // change mid-session — and stopped being fine the moment confirming an
+      // email had to clear a prompt that reads `user.emailVerifiedAt`.
+      if (fresh.user) setUser(fresh.user);
     } catch {
-      /* best effort — the claim already succeeded server-side */
+      /* best effort — whatever prompted this already succeeded server-side */
     }
   }, [token]);
 
@@ -182,7 +195,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       token,
       isGuest,
       playerId,
-      refreshPlayer,
+      refreshSession,
       isLoading,
       signIn,
       signUp,
@@ -194,7 +207,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       token,
       isGuest,
       playerId,
-      refreshPlayer,
+      refreshSession,
       isLoading,
       signIn,
       signUp,

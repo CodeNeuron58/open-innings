@@ -231,6 +231,16 @@ export const verificationTokens = pgTable(
      * email" is the obvious next feature that would break if this were derived.
      */
     sentTo: text('sent_to').notNull(),
+    /*
+     * Argon2 salt, set only for short numeric codes.
+     *
+     * A 32-byte link token is unguessable, so SHA-256 stores it safely — an
+     * attacker holding the hash has nothing to try. A six-digit code has a
+     * million possibilities, which against a fast hash is a lookup table
+     * rather than a search. Codes therefore get Argon2, the same function as
+     * passwords, and Argon2 needs its salt.
+     */
+    codeSalt: text('code_salt'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     /** Set the moment it is spent, so a forwarded or link-scanned URL cannot replay. */
     usedAt: timestamp('used_at', { withTimezone: true }),

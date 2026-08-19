@@ -148,10 +148,18 @@ export default function More() {
     setVerifyState('sending');
     try {
       const result = await api.sendVerification(token);
-      // "Sent" and "this build cannot send" are different things, and telling
-      // somebody to check an inbox nothing was sent to is the worse of the
-      // two mistakes.
-      setVerifyState(result.mailConfigured ? 'sent' : 'unavailable');
+      if (!result.mailConfigured) {
+        // "Sent" and "this build cannot send" are different things, and
+        // telling somebody to check an inbox nothing was sent to is the worse
+        // of the two mistakes.
+        setVerifyState('unavailable');
+        return;
+      }
+      setVerifyState('idle');
+      // Straight to the keypad. The code is already in flight, and making
+      // somebody find a second button to type it into is the step that loses
+      // people.
+      router.push('/verify');
     } catch {
       setVerifyState('idle');
     }
@@ -253,7 +261,7 @@ export default function More() {
             </Text>
             <Text className="text-foreground/75 mt-1.5 text-[13px] leading-[19px]">
               {verifyState === 'sent'
-                ? `Sent to ${user.email}. The link lasts 24 hours — check spam if it is not there.`
+                ? `Sent to ${user.email}.`
                 : verifyState === 'unavailable'
                   ? 'This build has no mail provider configured, so nothing was sent. That is a setup gap, not a fault with your account.'
                   : `We have not confirmed ${user.email}. Nothing is locked — it is what lets us get you back in if you ever lose your password.`}
@@ -266,7 +274,7 @@ export default function More() {
                 className="border-steel-400 mt-3 self-start border px-3 py-2 active:opacity-70"
               >
                 <Text className="text-steel-900 font-heading text-[10px] uppercase tracking-[1.3px]">
-                  {verifyState === 'sending' ? 'Sending' : 'Send the link'}
+                  {verifyState === 'sending' ? 'Sending' : 'Send the code'}
                 </Text>
               </Pressable>
             )}

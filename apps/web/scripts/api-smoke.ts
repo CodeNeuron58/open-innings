@@ -151,27 +151,76 @@ async function main() {
     const anonResend = await call('POST', '/api/auth/verify', undefined, false);
     ok(anonResend.status === 401, 'resending without a session → 401', anonResend);
 
-    const badVerifyToken = await call('PUT', '/api/auth/verify', { token: 'not-a-real-token' });
-    ok(badVerifyToken.status === 400, 'confirming with a bogus token → 400', badVerifyToken);
+    const shortCode = await call('PUT', '/api/auth/verify', { code: '12345' });
+    ok(shortCode.status === 400, 'a five-digit code → 400', shortCode);
 
-    // The real token is only ever in the message, so the flow is exercised
-    // through the database rather than by reading a log.
+    const lettersCode = await call('PUT', '/api/auth/verify', { code: 'abcdef' });
+    ok(lettersCode.status === 400, 'a non-numeric code → 400', lettersCode);
+
+    const anonConfirm = await call('PUT', '/api/auth/verify', { code: '123456' }, false);
+    ok(
+      anonConfirm.status === 401,
+      'confirming without a session → 401 — a code is scoped to an account, so there is nothing to check against',
+      anonConfirm,
+    );
+
+    // The real code is only ever in the message, so the row is inspected
+    // instead. What matters is *how* it is stored.
     const [issued] = await db
       .select()
       .from(verificationTokens)
       .where(eq(verificationTokens.purpose, 'email_verify'))
       .orderBy(desc(verificationTokens.createdAt))
       .limit(1);
-    ok(Boolean(issued), 'a token row was written', issued);
+    ok(Boolean(issued), 'a code row was written', issued);
     ok(
-      Boolean(issued) && issued!.tokenHash.length === 64 && !('token' in (issued as object)),
-      'stored as a SHA-256 hash, never the token itself',
-      issued && { tokenHash: issued.tokenHash.slice(0, 12) + '…' },
+      Boolean(issued) && issued!.tokenHash.startsWith('$argon2'),
+      'hashed with Argon2, not a fast hash — six digits is a million possibilities, which SHA-256 gives up instantly from a leaked row',
+      issued && issued.tokenHash.slice(0, 20),
     );
     ok(
-      Boolean(issued) && issued!.expiresAt.getTime() > Date.now(),
-      'and it expires in the future',
-      issued?.expiresAt,
+      Boolean(issued) && Boolean(issued!.codeSalt),
+      'and carries its salt',
+      issued && Boolean(issued.codeSalt),
+    );
+    ok(
+      Boolean(issued) && !/[0-9]{6}/.test(issued!.tokenHash.replace(/[$]/g, '')),
+      'the code itself is not recoverable from the row',
+    );
+    ok(
+      Boolean(issued) && issued!.expiresAt.getTime() - issued!.createdAt.getTime() <= 15 * 60_000,
+      'and expires in minutes, not a day — a guessable secret must not sit open',
+      issued && Math.round((issued.expiresAt.getTime() - issued.createdAt.getTime()) / 60_000),
+    );
+
+    /*
+     * Five wrong guesses spend the code.
+     *
+     * This is the whole reason a six-digit secret is safe here. Without it a
+     * million guesses is an afternoon; with it, it is five guesses per email
+     * actually delivered to the address being proven.
+     */
+    let lastWrong = { status: 0, json: {} as Json };
+    for (let i = 0; i < 5; i += 1) {
+      lastWrong = await call('PUT', '/api/auth/verify', { code: '000000' });
+      ok(lastWrong.status === 400, `wrong code attempt ${i + 1} → 400`, lastWrong.status);
+    }
+    ok(
+      typeof lastWrong.json.error === 'string' && lastWrong.json.error.includes('all 5 tries'),
+      'the fifth says the code is spent, not merely wrong',
+      lastWrong.json,
+    );
+
+    const [burnt] = await db
+      .select()
+      .from(verificationTokens)
+      .where(eq(verificationTokens.purpose, 'email_verify'))
+      .orderBy(desc(verificationTokens.createdAt))
+      .limit(1);
+    ok(
+      Boolean(burnt) && burnt!.usedAt !== null,
+      'and the row is spent — not locked for a while, spent, so the only way on is a new message',
+      burnt && { attempts: burnt.attempts, usedAt: burnt.usedAt },
     );
 
     console.log('password reset');

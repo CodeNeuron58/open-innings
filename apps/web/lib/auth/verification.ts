@@ -25,9 +25,10 @@
  * alive would make the reset theatre.
  */
 import 'server-only';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { and, eq, isNull, lt, sql } from 'drizzle-orm';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { and, desc, eq, gt, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
+import { hashPassword, newSalt, verifyPassword } from '@/lib/auth/password';
 import { sessions, users, verificationTokens } from '@/lib/db/schema';
 
 /**
@@ -43,9 +44,34 @@ import { sessions, users, verificationTokens } from '@/lib/db/schema';
  * morning.
  */
 export const TTL = {
-  email_verify: 24 * 60 * 60 * 1000, // 24 hours
+  /*
+   * Ten minutes, not twenty-four hours, because this is now a **code**.
+   *
+   * A 32-byte link could live for a day safely: it is unguessable, so time
+   * buys an attacker nothing. Six digits is a million possibilities, and the
+   * only thing standing between a guesser and an account is how long the
+   * window stays open and how many tries fit inside it. Both are now small.
+   */
+  email_verify: 10 * 60 * 1000, // 10 minutes
   password_reset: 60 * 60 * 1000, // 60 minutes
 } as const;
+
+/**
+ * Wrong guesses before a code is destroyed.
+ *
+ * Five, and then it is spent — not locked for a while, spent, so the only way
+ * forward is a fresh code sent to the address being proven. That turns a
+ * million-guess search into five guesses per email delivered, which is a
+ * different problem entirely.
+ *
+ * The counter lives on the row rather than in memory because the rate limiter
+ * does not survive a dyno restart, and a limit that a restart resets is not a
+ * limit.
+ */
+export const MAX_CODE_ATTEMPTS = 5;
+
+/** Six digits, from the CSPRNG. */
+const CODE_DIGITS = 6;
 
 export type Purpose = keyof typeof TTL;
 
@@ -101,6 +127,131 @@ export async function issueToken(
   });
 
   return token;
+}
+
+/**
+ * Issue a six-digit code and return it — the only time it exists in the clear.
+ *
+ * `randomInt` and not `Math.random`. The latter is seeded, predictable, and
+ * has no business generating anything anybody has to guess; it is the single
+ * most common way a code like this turns out to be worthless.
+ *
+ * Hashed with Argon2 rather than SHA-256. Six digits is a million
+ * possibilities, which a fast hash gives up instantly to a leaked row — see
+ * migration 0012. Argon2 makes that million about a day's work against a code
+ * that lives ten minutes.
+ */
+export async function issueCode(userId: string, purpose: Purpose, sentTo: string): Promise<string> {
+  // 0..999999 padded, so `007421` is as likely as `907421`. Slicing a random
+  // string or taking a modulus of a larger range are the two ways this
+  // usually ends up non-uniform.
+  const code = String(randomInt(0, 10 ** CODE_DIGITS)).padStart(CODE_DIGITS, '0');
+  const salt = newSalt();
+  const codeHash = await hashPassword(code, salt);
+  const expiresAt = new Date(Date.now() + TTL[purpose]);
+
+  await db.transaction(async (tx) => {
+    // A new code retires the old one. Two live codes means two ways in, and
+    // the person is looking at the newest message anyway.
+    await tx
+      .update(verificationTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(verificationTokens.userId, userId),
+          eq(verificationTokens.purpose, purpose),
+          isNull(verificationTokens.usedAt),
+        ),
+      );
+
+    await tx.insert(verificationTokens).values({
+      userId,
+      purpose,
+      tokenHash: codeHash,
+      codeSalt: salt,
+      sentTo,
+      expiresAt,
+    });
+  });
+
+  return code;
+}
+
+export type CodeResult =
+  | { ok: true; sentTo: string }
+  | { ok: false; reason: 'invalid' | 'expired' | 'none'; attemptsLeft: number };
+
+/**
+ * Check a code against the live one for this account.
+ *
+ * Looked up by **user and purpose**, not by the code — which is the whole
+ * reason this endpoint needs a session where the link flow did not. It means
+ * a guesser must already be signed in as the person whose address they are
+ * trying to prove, and their five attempts are counted against that one
+ * account rather than sprayed across every account at once.
+ *
+ * A wrong guess costs an attempt. The fifth spends the code outright, so
+ * recovering needs a new message delivered to the address in question — which
+ * is the thing being proven in the first place.
+ */
+export async function consumeCode(
+  userId: string,
+  purpose: Purpose,
+  code: string,
+): Promise<CodeResult> {
+  const row = await db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(verificationTokens)
+      .where(
+        and(
+          eq(verificationTokens.userId, userId),
+          eq(verificationTokens.purpose, purpose),
+          isNull(verificationTokens.usedAt),
+          gt(verificationTokens.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(verificationTokens.createdAt))
+      .limit(1)
+      .for('update');
+
+    const found = rows[0];
+    if (!found) return null;
+
+    // Counted before the comparison, and committed either way. Incrementing
+    // afterwards would let an attacker abandon the request the moment a guess
+    // looked slow and never pay for it.
+    await tx
+      .update(verificationTokens)
+      .set({ attempts: found.attempts + 1 })
+      .where(eq(verificationTokens.id, found.id));
+
+    return { ...found, attempts: found.attempts + 1 };
+  });
+
+  if (!row) return { ok: false, reason: 'none', attemptsLeft: 0 };
+
+  const correct =
+    row.codeSalt !== null && (await verifyPassword(code, row.codeSalt, row.tokenHash));
+
+  if (correct) {
+    await db
+      .update(verificationTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(verificationTokens.id, row.id));
+    return { ok: true, sentTo: row.sentTo };
+  }
+
+  const attemptsLeft = Math.max(0, MAX_CODE_ATTEMPTS - row.attempts);
+  if (attemptsLeft === 0) {
+    // Spent, not merely refused. The next step has to be a fresh message.
+    await db
+      .update(verificationTokens)
+      .set({ usedAt: new Date() })
+      .where(eq(verificationTokens.id, row.id));
+  }
+
+  return { ok: false, reason: 'invalid', attemptsLeft };
 }
 
 export type ConsumeResult =

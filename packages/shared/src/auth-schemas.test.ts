@@ -64,10 +64,32 @@ describe('requesting a reset', () => {
   });
 });
 
-describe('spending a link', () => {
+describe('the confirmation code', () => {
+  it('takes exactly six digits', () => {
+    for (const code of ['123456', '000000', '007421']) {
+      expect(confirmEmailSchema.safeParse({ code }).success, code).toBe(true);
+    }
+  });
+
+  it('refuses anything that is not six digits', () => {
+    // Five and seven are the two a person actually produces — a dropped
+    // keypress and a double one — and both must fail rather than being
+    // silently padded or truncated into somebody else's code.
+    for (const code of ['', '12345', '1234567', 'abcdef', '12 34 56', '12-3456']) {
+      expect(confirmEmailSchema.safeParse({ code }).success, JSON.stringify(code)).toBe(false);
+    }
+  });
+
+  it('tolerates a trailing space from a paste', () => {
+    // Copying out of a notification picks one up more often than not.
+    const parsed = confirmEmailSchema.safeParse({ code: ' 123456 ' });
+    expect(parsed.success && parsed.data.code).toBe('123456');
+  });
+});
+
+describe('spending a reset link', () => {
   it('refuses an empty or whitespace token', () => {
     for (const token of ['', '   ']) {
-      expect(confirmEmailSchema.safeParse({ token }).success, JSON.stringify(token)).toBe(false);
       expect(confirmResetSchema.safeParse({ token, password: '12345678' }).success).toBe(false);
     }
   });
@@ -77,7 +99,7 @@ describe('spending a link', () => {
     // `-` and `_` and must survive parsing byte for byte — a schema that
     // trimmed or normalised it would produce a hash that matches nothing.
     const token = 'VNy-TsbQAEUVZuIh542PG4W6YTKduOe58eUshLrvR4Y';
-    const parsed = confirmEmailSchema.safeParse({ token });
+    const parsed = confirmResetSchema.safeParse({ token, password: '12345678' });
     expect(parsed.success && parsed.data.token).toBe(token);
   });
 });
