@@ -1,8 +1,31 @@
 /**
  * Supporter purchases via RevenueCat.
- * Degrades gracefully if purchases are not configured or available in the current environment.
+ *
+ * A provider rather than a bare hook, and the difference is not tidiness.
+ * `useSupporter` used to hold its own state, so every component that called it
+ * ran its own `getCustomerInfo()` and `getOfferings()` on mount. `AdBar` is on
+ * three screens and `more.tsx` calls it too, so moving between the card, share
+ * and cards tabs meant six network round trips to RevenueCat for an answer
+ * that cannot change while the app is open — and a visible flicker each time,
+ * because `isLoading` renders nothing and then the ad appears underneath the
+ * content the reader had already started on.
+ *
+ * One fetch at launch, shared by everyone, matching `session.tsx` and
+ * `settings.tsx`.
+ *
+ * Degrades gracefully if purchases are not configured or unavailable in this
+ * environment — which today is every build, since `eas.json` does not set the
+ * key.
  */
-import { useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import Purchases, { LOG_LEVEL, type PurchasesPackage } from 'react-native-purchases';
 
 /** The entitlement id configured in the RevenueCat dashboard. */
@@ -41,7 +64,9 @@ export type SupporterState = {
   restore: () => Promise<{ ok: boolean; message: string | null }>;
 };
 
-export function useSupporter(): SupporterState {
+const SupporterContext = createContext<SupporterState | null>(null);
+
+export function SupporterProvider({ children }: { children: ReactNode }) {
   const [isSupporter, setIsSupporter] = useState(false);
   const [offering, setOffering] = useState<PurchasesPackage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,13 +153,24 @@ export function useSupporter(): SupporterState {
     }
   }, []);
 
-  return {
-    isSupporter,
-    offering,
-    priceString: offering?.product.priceString ?? null,
-    isLoading,
-    unavailable,
-    purchase,
-    restore,
-  };
+  const value = useMemo<SupporterState>(
+    () => ({
+      isSupporter,
+      offering,
+      priceString: offering?.product.priceString ?? null,
+      isLoading,
+      unavailable,
+      purchase,
+      restore,
+    }),
+    [isSupporter, offering, isLoading, unavailable, purchase, restore],
+  );
+
+  return <SupporterContext.Provider value={value}>{children}</SupporterContext.Provider>;
+}
+
+export function useSupporter(): SupporterState {
+  const context = useContext(SupporterContext);
+  if (!context) throw new Error('useSupporter must be used inside SupporterProvider');
+  return context;
 }

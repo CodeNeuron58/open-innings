@@ -189,7 +189,7 @@ export default function MatchCard() {
         </View>
       </View>
 
-      <AdBar />
+      <AdBar owned={card.isMine} />
       <MatchTabs matchId={id} active="card" />
     </SafeAreaView>
   );

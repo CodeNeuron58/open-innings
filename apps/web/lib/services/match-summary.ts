@@ -18,6 +18,26 @@ import {
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
 import { notFound } from './errors';
+import { getUserId } from '@/lib/auth/local';
+
+/**
+ * Whether the caller is the person who scored this match.
+ *
+ * These two endpoints are public — anyone with the link gets the card — but
+ * the mobile client sends its token anyway, so a signed-in scorer is
+ * identifiable and an anonymous viewer resolves to `false`. That is the whole
+ * distinction the ad policy rests on: `lib/ads.ts` and `FEATURES.md` both say
+ * the person who did the work never sees an ad, and until now nothing in the
+ * response let the client tell who that was.
+ *
+ * Not authorization. Nothing is withheld on the strength of it, so a wrong
+ * answer costs an ad impression, not a leak.
+ */
+async function isScorer(createdBy: string | null): Promise<boolean> {
+  if (!createdBy) return false;
+  const userId = await getUserId();
+  return userId !== null && userId === createdBy;
+}
 
 export type Performer = {
   playerId: string;
@@ -70,6 +90,8 @@ export type MatchSummary = {
    * button at all.
    */
   canStartSuperOver: boolean;
+  /** True when the caller scored this match. Drives ad suppression, nothing else. */
+  isMine: boolean;
 };
 
 function oversOf(balls: number): string {
@@ -275,6 +297,7 @@ export async function matchSummaryFor(matchId: string): Promise<MatchSummary> {
     // Only after a completed second innings: innings 3 and 4 are the super
     // over itself, and a tie there needs another one, which is not supported.
     canStartSuperOver: match.result === 'tie' && allInnings.length === 2,
+    isMine: await isScorer(match.createdBy),
   };
 }
 
@@ -439,6 +462,8 @@ export type MatchCard = {
   status: string;
   result: string | null;
   innings: CardInnings[];
+  /** True when the caller scored this match. Drives ad suppression, nothing else. */
+  isMine: boolean;
 };
 
 export async function matchCardFor(matchId: string): Promise<MatchCard> {
@@ -533,5 +558,6 @@ export async function matchCardFor(matchId: string): Promise<MatchCard> {
     status: match.status,
     result: match.summary,
     innings,
+    isMine: await isScorer(match.createdBy),
   };
 }

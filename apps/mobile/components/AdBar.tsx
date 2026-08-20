@@ -8,10 +8,33 @@ import { useRouter } from 'expo-router';
 import { adUnit, type Placement } from '../lib/ads';
 import { useSupporter } from '../lib/purchases';
 
-export function AdBar({ placement = 'scorecard_banner' }: { placement?: Placement }) {
+export function AdBar({
+  placement = 'scorecard_banner',
+  /**
+   * True when the person looking at this scored the match.
+   *
+   * The thesis, stated in `lib/ads.ts` and in FEATURES.md's placement map as
+   * "any scorer screen: none, ever", was only half implemented: no ad ever
+   * appeared on the scoring console, which is the easy half. But the card and
+   * share screens carried one, and those are exactly where a scorer lands
+   * after three hours and 240 taps — so the person the promise is about was
+   * the one seeing the ad, at the worst possible moment.
+   *
+   * The screens themselves are public, so this cannot be decided by which
+   * route it is. It has to be decided by who is asking, which is why the card
+   * and summary responses now carry `isMine`.
+   */
+  owned = false,
+}: {
+  placement?: Placement;
+  owned?: boolean;
+}) {
   const router = useRouter();
   const { isSupporter, isLoading } = useSupporter();
   const unitId = adUnit(placement);
+
+  // They did the work. No ad, no pitch, regardless of anything below.
+  if (owned) return null;
 
   // Paid for. This is the entire product, so it has to be the first check.
   if (isSupporter) return null;
@@ -43,14 +66,24 @@ export function AdBar({ placement = 'scorecard_banner' }: { placement?: Placemen
         />
       </View>
 
+      {/*
+        No price here.
+
+        This said "Remove ₹99" in the label and the accessibility name, which
+        is a figure the store owns and this component has no way to read. If
+        the Play Console product is priced differently — or regionally, which
+        it will be — the pitch is wrong everywhere it appears, and it appears
+        on three screens. The supporter screen shows the real localised price
+        one tap away, from the store itself.
+      */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Remove ads for ₹99"
+        accessibilityLabel="Remove ads"
         onPress={() => router.push('/supporter')}
         className="shrink-0 px-1 py-1 active:opacity-60"
       >
         <Text className="text-steel-700 font-heading text-[9px] uppercase tracking-[1.2px]">
-          Remove ₹99
+          Remove
         </Text>
       </Pressable>
     </View>

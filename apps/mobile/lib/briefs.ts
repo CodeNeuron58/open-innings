@@ -10,22 +10,47 @@ import { useSession } from './session';
  * Briefs for a squad, keyed by player id.
  * Fetched once per list. Returns an empty map on failure so pickers still work.
  */
-export function usePlayerBriefs(playerIds: string[]): Map<string, PlayerBrief> {
+/**
+ * One shared empty map, not a fresh one per render.
+ *
+ * This is returned whenever there is nothing to look up, and a new `Map()`
+ * each time would be a new identity each time — so every consumer's memo would
+ * miss and every list would re-render for a value that never changed.
+ */
+const NONE: ReadonlyMap<string, PlayerBrief> = new Map();
+
+export function usePlayerBriefs(playerIds: string[]): ReadonlyMap<string, PlayerBrief> {
   const { token } = useSession();
-  const [briefs, setBriefs] = useState<Map<string, PlayerBrief>>(new Map());
 
   // A stable key, so a re-render that produces an equal array doesn't refetch.
   const key = [...playerIds].sort().join(',');
 
+  /*
+   * The briefs are stored **with the key they belong to**, which is what makes
+   * the empty case derivable rather than stored.
+   *
+   * This used to clear state from inside the effect body — the previous
+   * comment admitted it cost a second render and called the fix "the empty
+   * case could be derived rather than stored". It is now: a key change resets
+   * during render, so React re-renders before committing instead of painting
+   * the last squad's careers beside this squad's names.
+   *
+   * That stale frame was the real cost, not the extra render. A picker showing
+   * the wrong career line next to a name is not obviously wrong to look at.
+   */
+  const [state, setState] = useState<{ key: string; briefs: ReadonlyMap<string, PlayerBrief> }>({
+    key,
+    briefs: NONE,
+  });
+
+  if (state.key !== key) {
+    setState({ key, briefs: NONE });
+  }
+
   useEffect(() => {
-    if (!token || key.length === 0) {
-      // Known and not yet fixed: clearing state inside the effect body costs a
-      // second render. The empty case could be derived rather than stored.
-      // Harmless today — it only fires when there are no players to look up.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- known: cascading render, needs a verified refactor
-      setBriefs(new Map());
-      return;
-    }
+    // Nothing to fetch. State is already NONE for this key — set during
+    // render above — so there is nothing to clear here either.
+    if (!token || key.length === 0) return;
 
     const controller = new AbortController();
     let cancelled = false;
@@ -34,10 +59,10 @@ export function usePlayerBriefs(playerIds: string[]): Map<string, PlayerBrief> {
       .playerBriefs(token, key.split(','), controller.signal)
       .then((res: PlayerBriefsResponse) => {
         if (cancelled) return;
-        setBriefs(new Map(res.briefs.map((b) => [b.playerId, b])));
+        setState({ key, briefs: new Map(res.briefs.map((b) => [b.playerId, b])) });
       })
       .catch(() => {
-        // Deliberately silent — see the note above.
+        // Deliberately silent — a picker without career lines still picks.
       });
 
     return () => {
@@ -46,7 +71,8 @@ export function usePlayerBriefs(playerIds: string[]): Map<string, PlayerBrief> {
     };
   }, [token, key]);
 
-  return briefs;
+  // Guard against a resolved response for a key we have since moved off.
+  return state.key === key ? state.briefs : NONE;
 }
 
 /** Generates batting summary (e.g., "812 runs · 33 matches · SR 128"). Omits empty stats. */

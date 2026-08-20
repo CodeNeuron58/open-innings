@@ -284,6 +284,16 @@ export type MatchResultResponse = {
    * button that offers something the API will reject is worse than no button.
    */
   canStartSuperOver: boolean;
+  /**
+   * True when the caller scored this match.
+   *
+   * These endpoints are public and the mobile client sends its token anyway,
+   * so an anonymous viewer gets `false`. It exists so the app can keep the
+   * promise `lib/ads.ts` and FEATURES.md both make — that the person who did
+   * the scoring never sees an ad — which nothing in the response previously
+   * allowed the client to work out.
+   */
+  isMine: boolean;
 };
 
 /** One delivery, with names already resolved so the client renders no ids. */
@@ -352,6 +362,16 @@ export type MatchCardResponse = {
   status: string;
   result: string | null;
   innings: CardInnings[];
+  /**
+   * True when the caller scored this match.
+   *
+   * These endpoints are public and the mobile client sends its token anyway,
+   * so an anonymous viewer gets `false`. It exists so the app can keep the
+   * promise `lib/ads.ts` and FEATURES.md both make — that the person who did
+   * the scoring never sees an ad — which nothing in the response previously
+   * allowed the client to work out.
+   */
+  isMine: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

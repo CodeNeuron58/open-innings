@@ -109,7 +109,7 @@ export default function ShareMatch() {
         </View>
       </ScrollView>
 
-      <AdBar />
+      <AdBar owned={m?.isMine ?? false} />
       <MatchTabs matchId={id} active="card" />
     </SafeAreaView>
   );

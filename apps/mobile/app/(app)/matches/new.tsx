@@ -615,7 +615,8 @@ function PlayerPicker({
   value: string | null;
   onChange: (id: string) => void;
   excludeId?: string | null;
-  briefs: Map<string, PlayerBrief>;
+  /** Read-only: the hook returns a shared empty map when there is nothing to show. */
+  briefs: ReadonlyMap<string, PlayerBrief>;
   kind: 'batting' | 'bowling';
 }) {
   return (

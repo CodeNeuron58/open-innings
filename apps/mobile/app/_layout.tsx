@@ -14,7 +14,7 @@ import {
 import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed';
 import { SessionProvider } from '../lib/session';
 import { SettingsProvider } from '../lib/settings';
-import { initPurchases } from '../lib/purchases';
+import { SupporterProvider, initPurchases } from '../lib/purchases';
 
 /**
  * Global font pairing (Barlow & Barlow Condensed).
@@ -44,8 +44,15 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <SessionProvider>
         <SettingsProvider>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }} />
+          {/*
+            Inside the session provider: entitlement state is per-device, not
+            per-account, but a logout that unmounts the tree should take this
+            with it rather than leave a stale answer behind.
+          */}
+          <SupporterProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+          </SupporterProvider>
         </SettingsProvider>
       </SessionProvider>
     </SafeAreaProvider>

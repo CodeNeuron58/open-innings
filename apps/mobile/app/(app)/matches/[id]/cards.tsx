@@ -166,7 +166,7 @@ export default function PlayerCards() {
         </ScrollView>
       )}
 
-      <AdBar />
+      <AdBar owned={query.data.isMine} />
       <MatchTabs matchId={id} active="card" />
     </SafeAreaView>
   );

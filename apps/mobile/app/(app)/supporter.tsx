@@ -64,12 +64,25 @@ export default function Supporter() {
             Open Innings Pro
           </Text>
 
+          {/*
+            The store's price, or no price at all.
+
+            This read `priceString ?? '₹99'`, two lines under a comment in
+            `purchases.ts` saying never to hardcode one. The fallback is not a
+            harmless default: while RevenueCat is unconfigured, `priceString`
+            is always null, so ₹99 is the *only* figure anyone sees — and if
+            the product created in Play Console is priced differently, the app
+            has quietly advertised a price that does not exist.
+
+            A dash is worse to look at and cannot be wrong. The sentence under
+            `unavailable` already explains why there is no number.
+          */}
           <View className="mt-2 flex-row items-baseline gap-2">
             <Text className="text-scoreboard-text font-heading shrink-0 text-[42px] leading-[42px]">
-              {priceString ?? '₹99'}
+              {priceString ?? '—'}
             </Text>
             <Text className="text-scoreboard-muted font-heading shrink-0 text-[10px] uppercase tracking-[1.4px]">
-              per month
+              {priceString ? 'per month' : 'price from the store'}
             </Text>
           </View>
 
@@ -102,16 +115,21 @@ export default function Supporter() {
 
             {unavailable ? (
               <Text className="text-foreground/55 mt-2 text-center text-[11.5px] leading-4">
-                {unavailable} The plan below is what it will be.
+                {unavailable} Everything below stays free either way.
               </Text>
-            ) : (
-              // The annual is the better deal and saying so costs nothing.
-              // Shown as arithmetic, not as a second button, because there is
-              // one product and this is the honest framing of it.
-              <Text className="text-foreground/55 mt-2 text-center text-[11.5px]">
-                ₹899 a year works out at ₹75 a month
-              </Text>
-            )}
+            ) : null}
+            {/*
+              An annual plan was advertised here — "₹899 a year works out at
+              ₹75 a month" — and no such thing is purchasable. `useSupporter`
+              reads `availablePackages[0]` and nothing else, so there is one
+              product and the second price was a claim the app could not honour
+              if anyone tapped through expecting it.
+
+              Removed rather than fixed, because fixing it means creating a
+              second product in Play Console and building a real selector, and
+              a plan that does not exist should not be advertised in the
+              meantime. Put it back with the selector, not before.
+            */}
           </>
         )}
 
