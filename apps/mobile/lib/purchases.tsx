@@ -26,7 +26,12 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import Purchases, { LOG_LEVEL, type PurchasesPackage } from 'react-native-purchases';
+import Purchases, {
+  LOG_LEVEL,
+  PACKAGE_TYPE,
+  type PurchasesOffering,
+  type PurchasesPackage,
+} from 'react-native-purchases';
 import { useSession } from './session';
 
 /** The entitlement id configured in the RevenueCat dashboard. */
@@ -50,18 +55,123 @@ export function initPurchases(): void {
   Purchases.configure({ apiKey: API_KEY });
 }
 
+/** One buyable plan, with everything the paywall needs to render it. */
+export type SupporterPlan = {
+  id: string;
+  package: PurchasesPackage;
+  term: 'annual' | 'monthly' | 'other';
+  /** The store's own localised price. Never construct one. */
+  priceString: string;
+  /**
+   * Percent saved against paying monthly for a year, when both plans exist.
+   * Derived from the store's numbers rather than written into the copy, so it
+   * cannot drift from what Play actually charges.
+   */
+  savingPercent: number | null;
+};
+
+/**
+ * Find a package by term.
+ *
+ * Three levels, because the dashboard can be set up more than one way and a
+ * silently-null plan is worse than a slightly ugly lookup:
+ *
+ *   1. `offering.annual` / `.monthly` — RevenueCat's typed accessors, which
+ *      work when the package uses the reserved `$rc_annual` / `$rc_monthly`
+ *      identifiers.
+ *   2. `packageType`, for the same thing by another route.
+ *   3. The product identifier, which is all a **custom** package leaves —
+ *      and custom identifiers are what you get if the packages were created
+ *      by hand rather than from the standard set.
+ *
+ * This replaces `availablePackages[0]`, which read whichever package happened
+ * to be first. With more than one plan in the offering that is an arbitrary
+ * choice of what to charge somebody, which is not a decision to leave to
+ * array order.
+ */
+function findPackage(
+  offering: PurchasesOffering,
+  term: 'annual' | 'monthly',
+): PurchasesPackage | null {
+  const typed = term === 'annual' ? offering.annual : offering.monthly;
+  if (typed) return typed;
+
+  const wanted = term === 'annual' ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.MONTHLY;
+  const byType = offering.availablePackages.find((p) => p.packageType === wanted);
+  if (byType) return byType;
+
+  const pattern = term === 'annual' ? /year|annual/i : /month/i;
+  return (
+    offering.availablePackages.find(
+      (p) => pattern.test(p.product.identifier) || pattern.test(p.identifier),
+    ) ?? null
+  );
+}
+
+/** Turn an offering into the plans the paywall shows, best value first. */
+function plansFrom(offering: PurchasesOffering | null): SupporterPlan[] {
+  if (!offering) return [];
+
+  const annual = findPackage(offering, 'annual');
+  const monthly = findPackage(offering, 'monthly');
+
+  /*
+   * Anything in the offering that is neither, kept rather than dropped. If a
+   * plan is being sold it should be visible — silently hiding one is how a
+   * dashboard change becomes a bug nobody can see.
+   */
+  const named = new Set([annual?.identifier, monthly?.identifier].filter(Boolean));
+  const others = offering.availablePackages.filter((p) => !named.has(p.identifier));
+
+  const monthlyPrice = monthly?.product.price ?? 0;
+  const savingOn = (pkg: PurchasesPackage, months: number): number | null => {
+    if (!monthly || monthlyPrice <= 0 || months <= 0) return null;
+    const perMonth = pkg.product.price / months;
+    const saved = Math.round((1 - perMonth / monthlyPrice) * 100);
+    return saved > 0 ? saved : null;
+  };
+
+  const plans: SupporterPlan[] = [];
+  if (annual) {
+    plans.push({
+      id: annual.identifier,
+      package: annual,
+      term: 'annual',
+      priceString: annual.product.priceString,
+      savingPercent: savingOn(annual, 12),
+    });
+  }
+  if (monthly) {
+    plans.push({
+      id: monthly.identifier,
+      package: monthly,
+      term: 'monthly',
+      priceString: monthly.product.priceString,
+      savingPercent: null,
+    });
+  }
+  for (const pkg of others) {
+    plans.push({
+      id: pkg.identifier,
+      package: pkg,
+      term: 'other',
+      priceString: pkg.product.priceString,
+      savingPercent: null,
+    });
+  }
+  return plans;
+}
+
 export type SupporterState = {
   /** True when the entitlement is active. Ads come down when it is. */
   isSupporter: boolean;
-  /** The package to buy, or null when nothing is purchasable here. */
-  offering: PurchasesPackage | null;
-  /** The store's own localised price string — "₹99", "$1.99". Never hardcode. */
-  priceString: string | null;
+  /** Everything buyable, best value first. Empty when nothing is. */
+  plans: SupporterPlan[];
   /** Still asking the store. */
   isLoading: boolean;
   /** Why buying is impossible, when it is. */
   unavailable: string | null;
-  purchase: () => Promise<{ ok: boolean; message: string | null }>;
+  purchase: (plan: SupporterPlan) => Promise<{ ok: boolean; message: string | null }>;
   restore: () => Promise<{ ok: boolean; message: string | null }>;
 };
 
@@ -72,7 +182,7 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
   const userId = user?.id ?? null;
 
   const [isSupporter, setIsSupporter] = useState(false);
-  const [offering, setOffering] = useState<PurchasesPackage | null>(null);
+  const [plans, setPlans] = useState<SupporterPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unavailable, setUnavailable] = useState<string | null>(null);
 
@@ -116,16 +226,16 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
 
         const info = await Purchases.getCustomerInfo();
         const offerings = await Purchases.getOfferings();
-        const pkg = offerings.current?.availablePackages?.[0] ?? null;
+        const found = plansFrom(offerings.current ?? null);
 
         if (cancelled) return;
 
         setIsSupporter(info.entitlements.active[ENTITLEMENT_ID] !== undefined);
-        setOffering(pkg);
-        // An offering with no packages means the products have not been
-        // created in Play Console and linked back — the usual state before a
-        // first release, and worth saying so rather than showing a dead button.
-        setUnavailable(pkg ? null : 'No plan is available from the store yet.');
+        setPlans(found);
+        // No plans means the offering is not marked current, or has no
+        // packages in it — the usual state before a first release, and worth
+        // saying so rather than showing a dead button.
+        setUnavailable(found.length > 0 ? null : 'No plan is available from the store yet.');
       } catch (err) {
         if (!cancelled) {
           setUnavailable(err instanceof Error ? err.message : 'Could not reach the store.');
@@ -142,10 +252,9 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
     // Re-runs on sign-in and sign-out, so the entitlement follows the account.
   }, [userId]);
 
-  const purchase = useCallback(async () => {
-    if (!offering) return { ok: false, message: unavailable ?? 'Nothing to buy yet.' };
+  const purchase = useCallback(async (plan: SupporterPlan) => {
     try {
-      const { customerInfo } = await Purchases.purchasePackage(offering);
+      const { customerInfo } = await Purchases.purchasePackage(plan.package);
       const active = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
       setIsSupporter(active);
       return { ok: active, message: active ? null : 'The purchase did not complete.' };
@@ -160,7 +269,7 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
         message: err instanceof Error ? err.message : 'The purchase failed.',
       };
     }
-  }, [offering, unavailable]);
+  }, []);
 
   /** Restore previous purchases. */
   const restore = useCallback(async () => {
@@ -182,16 +291,8 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<SupporterState>(
-    () => ({
-      isSupporter,
-      offering,
-      priceString: offering?.product.priceString ?? null,
-      isLoading,
-      unavailable,
-      purchase,
-      restore,
-    }),
-    [isSupporter, offering, isLoading, unavailable, purchase, restore],
+    () => ({ isSupporter, plans, isLoading, unavailable, purchase, restore }),
+    [isSupporter, plans, isLoading, unavailable, purchase, restore],
   );
 
   return <SupporterContext.Provider value={value}>{children}</SupporterContext.Provider>;

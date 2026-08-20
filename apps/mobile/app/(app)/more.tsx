@@ -185,12 +185,12 @@ export default function More() {
         {!isSupporter ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Remove ads for ₹99 — see the plan"
+            accessibilityLabel="Remove ads — see the plans"
             onPress={() => router.push('/supporter')}
             className="border-steel-300 bg-steel-100 mt-3 flex-row items-center gap-3 border p-3.5 active:opacity-70"
           >
             <View className="min-w-0 flex-1">
-              <Text className="text-steel-900 font-heading text-[15px]">Remove ads ₹99</Text>
+              <Text className="text-steel-900 font-heading text-[15px]">Remove ads</Text>
               <Text className="text-steel-800/75 mt-0.5 text-[12px]">
                 Everything else stays free
               </Text>
