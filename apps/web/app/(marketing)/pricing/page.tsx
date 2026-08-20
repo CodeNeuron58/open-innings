@@ -4,7 +4,7 @@ import { Blueprint, BlueprintLink, BlueprintButton } from '@/components/marketin
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Free with ads, ₹99/month without, or self-host for nothing. There is no pro tier of cricket — the subscription buys quiet and changes nothing else.',
+    'Free with ads, ₹199 a year without, or self-host for nothing. There is no pro tier of cricket — the subscription buys quiet and changes nothing else.',
 };
 
 /** Ported from design_new/"Pricing.dc.html". */
@@ -97,13 +97,14 @@ export default function PricingPage() {
           <Blueprint className="oi-plan oi-plan-dark">
             <span className="oi-kick oi-plan-kicker oi-plan-kicker-dark">Ad-free</span>
             <div className="oi-plan-price">
-              <span className="num oi-plan-amount">₹99</span>
-              <span className="oi-plan-unit oi-plan-unit-dark">per month</span>
+              <span className="num oi-plan-amount">₹199</span>
+              <span className="oi-plan-unit oi-plan-unit-dark">a year</span>
             </div>
             <div className="oi-plan-lines">
               <div>Everything in Free</div>
               <div>No ads on any screen</div>
               <div>Covers every device you sign in on</div>
+              <div>Or ₹49 a month, if you would rather not commit</div>
               <div className="oi-plan-muted-dark">Cancel any time; runs to the end of the term</div>
             </div>
             <BlueprintButton type="button" className="btn btn-primary oi-plan-cta oi-plan-cta-dark">
@@ -139,7 +140,7 @@ export default function PricingPage() {
                 <tr>
                   <th>What you get</th>
                   <th className="oi-cmp-col">Free</th>
-                  <th className="oi-cmp-col oi-cmp-col-pro">₹99/mo</th>
+                  <th className="oi-cmp-col oi-cmp-col-pro">₹199/yr</th>
                   <th className="oi-cmp-col oi-cmp-hide">Self-hosted</th>
                 </tr>
               </thead>
@@ -172,7 +173,7 @@ export default function PricingPage() {
             </h2>
             <p className="oi-panel-body">
               The ad never appears while you are scoring — only on the scorecard and share screens,
-              where you are reading rather than tapping. If that bothers you, ₹99 removes it. If
+              where you are reading rather than tapping. If that bothers you, ₹199 a year removes it. If
               money is the problem, self-host and pay nothing at all.
             </p>
             <div className="oi-cta-row">

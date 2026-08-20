@@ -22,7 +22,7 @@ const GROUPS = [
     items: [
       {
         q: 'Is it actually free?',
-        a: 'Yes. Every format, every screen, unlimited matches, and the live match link are in the free app. It is paid for by a banner ad on the scorecard and share screens. If you would rather not see it, ₹99 a month removes it.',
+        a: 'Yes. Every format, every screen, unlimited matches, and the live match link are in the free app. It is paid for by a banner ad on the scorecard and share screens. If you would rather not see it, ₹199 a year — or ₹49 a month — removes it.',
       },
       {
         q: 'Are there ads while I am scoring?',
@@ -166,7 +166,7 @@ export default function FaqPage() {
             <div className="oi-faq-aside-rule" />
             <span className="oi-kick oi-faq-aside-kick">One line summary</span>
             <p className="oi-faq-aside-body oi-faq-aside-last">
-              Free app, ads only on the screens where you are reading, ₹99 a month to remove them,
+              Free app, ads only on the screens where you are reading, ₹199 a year to remove them,
               source in the open.
             </p>
           </Blueprint>

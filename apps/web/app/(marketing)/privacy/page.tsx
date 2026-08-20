@@ -251,7 +251,7 @@ export default function PrivacyPage() {
               none at all. AdMob’s own policy governs what it collects.
             </p>
             <p className="oi-body oi-dim-strong">
-              <strong>RevenueCat and Google Play Billing</strong> handle the optional ₹99/month
+              <strong>RevenueCat and Google Play Billing</strong> handle the optional
               supporter subscription. They see the purchase; we never see your card. If you never
               subscribe, neither is contacted.
             </p>

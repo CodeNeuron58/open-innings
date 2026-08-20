@@ -9,7 +9,7 @@ export function SiteFooter() {
     <footer className="oi-footer">
       <div className="oi-footer-in">
         <span className="oi-footer-brand">OPEN INNINGS</span>
-        <span>Open source. Free with ads, ₹99/month without.</span>
+        <span>Open source. Free with ads, ₹199 a year without.</span>
         <span className="oi-footer-links">
           {[...MARKETING_LINKS, ...FOOTER_ONLY_LINKS].map((link) => (
             <Link key={link.href} href={link.href} className="oi-fl">

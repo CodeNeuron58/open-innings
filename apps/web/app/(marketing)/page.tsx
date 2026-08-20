@@ -42,7 +42,7 @@ const SPEC_SHEET = [
   {
     no: '04',
     prop: 'To remove them',
-    val: '₹99/mo',
+    val: '₹199/yr',
     rem: 'Cancel any time; nothing else is gated',
   },
   {
@@ -79,7 +79,7 @@ const SECTIONS = [
   {
     href: '/pricing',
     kicker: 'Pricing',
-    title: 'Free, or ₹99 for quiet',
+    title: 'Free, or ₹199 a year for quiet',
     body: 'Nothing about cricket is behind the paywall. The subscription removes ads, and that is all it does.',
     cta: 'Compare plans ›',
   },
@@ -119,7 +119,7 @@ export default function HomePage() {
             </div>
             <div className="oi-tag-row">
               <span className="tag tag-outline">Free with ads</span>
-              <span className="tag tag-accent">₹99/mo ad-free</span>
+              <span className="tag tag-accent">₹199/yr ad-free</span>
               {/* No iOS claim. AGPL-3.0 conflicts with the App Store's
                   terms — the reason VLC and GNU Go were pulled — so "iOS
                   next" was a promise this licence cannot keep. Self-hosting
