@@ -27,6 +27,7 @@ import {
   type ReactNode,
 } from 'react';
 import Purchases, { LOG_LEVEL, type PurchasesPackage } from 'react-native-purchases';
+import { useSession } from './session';
 
 /** The entitlement id configured in the RevenueCat dashboard. */
 export const ENTITLEMENT_ID = 'supporter';
@@ -67,6 +68,9 @@ export type SupporterState = {
 const SupporterContext = createContext<SupporterState | null>(null);
 
 export function SupporterProvider({ children }: { children: ReactNode }) {
+  const { user } = useSession();
+  const userId = user?.id ?? null;
+
   const [isSupporter, setIsSupporter] = useState(false);
   const [offering, setOffering] = useState<PurchasesPackage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +90,29 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
 
       try {
         initPurchases();
+
+        /*
+         * Tell RevenueCat who this is.
+         *
+         * `configure` was called with an api key and nothing else, so every
+         * install got a fresh anonymous app user id and an entitlement was
+         * bound to the device rather than to the account. Meanwhile
+         * `/pricing` promised "works on every device you sign in on" and the
+         * paywall said "covers every device you sign in on" — neither of
+         * which was true: a second phone, or a reinstall, saw nothing until
+         * the user found Restore.
+         *
+         * `logIn` aliases the anonymous id to the account id, so a purchase
+         * made on one device is already active on the next one the moment
+         * they sign in. Which is what the copy always said.
+         *
+         * Guests and signed-out users stay anonymous, deliberately — there is
+         * no account to attach anything to, and Restore still works off the
+         * Play account.
+         */
+        if (userId) {
+          await Purchases.logIn(userId);
+        }
 
         const info = await Purchases.getCustomerInfo();
         const offerings = await Purchases.getOfferings();
@@ -112,7 +139,8 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // Re-runs on sign-in and sign-out, so the entitlement follows the account.
+  }, [userId]);
 
   const purchase = useCallback(async () => {
     if (!offering) return { ok: false, message: unavailable ?? 'Nothing to buy yet.' };

@@ -49,7 +49,6 @@ const COMPARISON = [
   { f: 'Share card and scorebook export', free: Y, pro: Y, self: Y },
   { f: 'Ads while scoring', free: N, pro: N, self: N },
   { f: 'Ads on the card and share screens', free: Y, pro: N, self: N },
-  { f: 'Open Innings footer on shared images', free: Y, pro: N, self: 'Optional' },
   { f: 'Works on every device you sign in on', free: Y, pro: Y, self: Y },
   { f: 'Your data on your own host', free: N, pro: N, self: Y },
   { f: 'Support', free: 'Community', pro: 'Email', self: 'Community' },
@@ -104,7 +103,6 @@ export default function PricingPage() {
             <div className="oi-plan-lines">
               <div>Everything in Free</div>
               <div>No ads on any screen</div>
-              <div>No Open Innings footer on shared cards</div>
               <div>Covers every device you sign in on</div>
               <div className="oi-plan-muted-dark">Cancel any time; runs to the end of the term</div>
             </div>

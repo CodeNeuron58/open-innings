@@ -87,8 +87,8 @@ export default function Supporter() {
           </View>
 
           <Text className="text-scoreboard-text/85 mt-3 text-[13px] leading-[19px]">
-            No ads on any screen, and no footer on shared cards. Cancel any time. Everything else
-            stays free and open source, forever.
+            No ads on any screen, on every device you sign in on. Cancel any time. Everything
+            else stays free and open source, forever.
           </Text>
         </View>
 

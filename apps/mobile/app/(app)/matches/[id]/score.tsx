@@ -2,7 +2,7 @@
  * The ball-by-ball scorer. Server owns state, mandatory sheets block scoring,
  * and no ads are shown here.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ import type {
 } from '@open-innings/shared';
 import { EXTRA_LABELS, splitExtra } from '../../../../lib/deliveries';
 import { api } from '../../../../lib/api';
+import { requestIdFor, type PendingDelivery } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
 import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
@@ -103,6 +104,33 @@ export default function Scorer() {
   // This flag must be stored on the delivery itself for replay validation.
   const [midOverBowlerId, setMidOverBowlerId] = useState<string | null>(null);
   const [pickingMidOverBowler, setPickingMidOverBowler] = useState(false);
+
+  /*
+   * The delivery that has been sent and whose outcome we do not know.
+   *
+   * Migration 0013 gave the server a way to recognise a resent delivery, and
+   * this is the half that makes it mean anything: the id has to survive a
+   * failed attempt, or every retry looks like a new ball and the server has
+   * nothing to match on. Until now the client minted a fresh one per call, so
+   * a lost response still recorded the delivery twice — the exact ground-side
+   * case 0013 was written for.
+   *
+   * The id is keyed on the delivery itself rather than held blindly, and that
+   * distinction is the whole correctness argument:
+   *
+   *   Same delivery resent. A failed send never calls `applyState`, so the
+   *   striker, non-striker and bowler are unchanged and tapping 4 again
+   *   composes a byte-identical ball. Same signature, same id — and if the
+   *   first attempt had in fact committed, the server answers with the
+   *   success whose response was lost, which is precisely right.
+   *
+   *   A different delivery. New signature, new id. Reusing one here would be
+   *   the dangerous failure: the server would recognise the old id and return
+   *   the earlier ball's state, silently swallowing the new delivery.
+   *
+   * Success clears it, so two identical dot balls in a row are two balls.
+   */
+  const pending = useRef<PendingDelivery | null>(null);
 
   const applyState = useCallback((next: MatchState) => {
     setLive(next);
@@ -215,9 +243,16 @@ export default function Scorer() {
 
   const completed = inn.status === 'completed';
 
-  async function send(ball: BallEventInput) {
-    const next = await mutation.run((t) => api.postBall(t, id, ball));
-    if (next) applyState(next);
+  async function send(ball: BallEventInput): Promise<MatchState | null> {
+    pending.current = requestIdFor(pending.current, JSON.stringify(ball));
+    const { requestId } = pending.current;
+
+    const next = await mutation.run((t) => api.postBall(t, id, ball, requestId));
+    if (next) {
+      pending.current = null;
+      applyState(next);
+    }
+    return next;
   }
 
   async function undo() {
@@ -302,24 +337,23 @@ export default function Scorer() {
     nextBatterId?: string,
   ) {
     setShowWicket(false);
-    const next = await mutation.run((t) =>
-      api.postBall(t, id, {
-        inningsId: inn.id,
-        eventType: 'wicket',
-        runsOffBat: 0,
-        extraRuns: 0,
-        totalRuns: 0,
-        batsmanId: effStriker,
-        nonStrikerId: effNonStriker,
-        bowlerId: effBowler,
-        bowlerReplacedMidOver: midOverBowlerId !== null,
-        wicketType: type,
-        wicketPlayerId: asPlayerId(outBatterId),
-        fielderId: fielderId ? asPlayerId(fielderId) : undefined,
-      }),
-    );
+    // Through `send`, so a wicket gets the same retry protection every other
+    // delivery has — it was the one path that bypassed it.
+    const next = await send({
+      inningsId: inn.id,
+      eventType: 'wicket',
+      runsOffBat: 0,
+      extraRuns: 0,
+      totalRuns: 0,
+      batsmanId: effStriker,
+      nonStrikerId: effNonStriker,
+      bowlerId: effBowler,
+      bowlerReplacedMidOver: midOverBowlerId !== null,
+      wicketType: type,
+      wicketPlayerId: asPlayerId(outBatterId),
+      fielderId: fielderId ? asPlayerId(fielderId) : undefined,
+    });
     if (!next) return;
-    applyState(next);
 
     // The replacement was named in the same sheet as the dismissal, so the
     // mandatory batter sheet never has to appear. Set *after* applyState,

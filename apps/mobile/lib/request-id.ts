@@ -42,3 +42,28 @@ export function newRequestId(): string {
   const hex = Array.from(b, (n) => n.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+/** A delivery that has been sent and whose outcome is not yet known. */
+export type PendingDelivery = {
+  /** The delivery's content, so "is this the same ball" is answerable. */
+  signature: string;
+  requestId: string;
+};
+
+/**
+ * The id to send for a delivery: the pending one if this is the same delivery
+ * being resent, a new one otherwise.
+ *
+ * Keyed on content rather than held blindly, and that is the whole correctness
+ * argument. Reusing an id for a *different* delivery is the dangerous
+ * direction — the server would recognise it, answer with the earlier ball's
+ * state, and silently swallow the new one. Minting a fresh id for the *same*
+ * delivery is merely the old bug: it records twice.
+ *
+ * The caller clears its pending slot on success, so two identical deliveries
+ * in a row are two balls.
+ */
+export function requestIdFor(pending: PendingDelivery | null, signature: string): PendingDelivery {
+  if (pending && pending.signature === signature) return pending;
+  return { signature, requestId: newRequestId() };
+}
