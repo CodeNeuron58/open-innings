@@ -36,7 +36,8 @@ function getClient() {
   }
 
   // Matches .env.example's default local setup — keep these in sync.
-  const connectionString = configured ?? 'postgresql://postgres:postgres@localhost:5432/open_innings';
+  const connectionString =
+    configured ?? 'postgresql://postgres:postgres@localhost:5432/open_innings';
 
   const options = {
     /*

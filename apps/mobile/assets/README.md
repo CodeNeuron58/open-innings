@@ -27,10 +27,10 @@ merge into a slab, thinner and the outer stumps vanish below 24px.
 
 From the Industry system in `tailwind.config.js`. Two colours only:
 
-| Role | Token | Hex |
-| --- | --- | --- |
+| Role   | Token                | Hex       |
+| ------ | -------------------- | --------- |
 | Ground | `scoreboard.DEFAULT` | `#1d2d3d` |
-| Mark | `background` | `#f2f2f3` |
+| Mark   | `background`         | `#f2f2f3` |
 
 The ground is the same deep steel as the score plate — the one reversed field
 the design system permits. A dark icon is also the rarer thing in a Play Store
@@ -42,15 +42,15 @@ grid, where most tiles are white.
 
 ## Files
 
-| File | Size | Used by |
-| --- | --- | --- |
-| `icon.png` | 1024² | `app.json` → `expo.icon`. Full bleed, mark at ~61%. |
-| `adaptive-icon.png` | 1024² | `app.json` → `android.adaptiveIcon.foregroundImage`. Transparent; every corner sits inside the 66% safe circle (max corner radius 326 of 341) so a circular mask cannot clip it. |
-| `splash-icon.png` | 1024² | `app.json` → `expo-splash-screen`. Transparent, rendered at 180pt on the steel ground. |
-| `favicon.png` | 48² | `app.json` → `web.favicon`. Rendered at a heavier scale so the strokes hold. |
-| `play-icon-512.png` | 512² | Play Console listing icon. |
-| `play-feature-graphic.png` | 1024×500 | Play Console feature graphic. Type is measured and shrunk to fit, not sized by eye. |
-| `wicket.svg` | — | Master. Inherits `currentColor`, so it drops into a component. |
+| File                       | Size     | Used by                                                                                                                                                                          |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `icon.png`                 | 1024²    | `app.json` → `expo.icon`. Full bleed, mark at ~61%.                                                                                                                              |
+| `adaptive-icon.png`        | 1024²    | `app.json` → `android.adaptiveIcon.foregroundImage`. Transparent; every corner sits inside the 66% safe circle (max corner radius 326 of 341) so a circular mask cannot clip it. |
+| `splash-icon.png`          | 1024²    | `app.json` → `expo-splash-screen`. Transparent, rendered at 180pt on the steel ground.                                                                                           |
+| `favicon.png`              | 48²      | `app.json` → `web.favicon`. Rendered at a heavier scale so the strokes hold.                                                                                                     |
+| `play-icon-512.png`        | 512²     | Play Console listing icon.                                                                                                                                                       |
+| `play-feature-graphic.png` | 1024×500 | Play Console feature graphic. Type is measured and shrunk to fit, not sized by eye.                                                                                              |
+| `wicket.svg`               | —        | Master. Inherits `currentColor`, so it drops into a component.                                                                                                                   |
 
 The web app's favicon and apple-touch icon are the same mark, written to
 `apps/web/app/icon.png` and `apps/web/app/apple-icon.png`, where the Next.js

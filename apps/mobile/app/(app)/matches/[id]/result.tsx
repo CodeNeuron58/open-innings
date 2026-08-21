@@ -118,7 +118,7 @@ export default function Result() {
               <Text className="text-steel-700 font-heading mt-0.5 text-[15px]">
                 {m.playerOfTheMatch.line}
               </Text>
-<Text className="text-foreground/50 mt-2 text-[11.5px] leading-4">
+              <Text className="text-foreground/50 mt-2 text-[11.5px] leading-4">
                 Computed from the ball log — runs plus twenty a wicket. Nobody voted.
               </Text>
             </Card>

@@ -1,7 +1,7 @@
 /**
  * POST /api/matches/[id]/ball — record a ball event.
  * Replays state, applies event, persists, and updates cache columns.
- * 
+ *
  * DELETE /api/matches/[id]/ball — undo the last ball.
  * Deletes the last event and recomputes state.
  */

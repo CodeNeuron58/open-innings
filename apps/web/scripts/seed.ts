@@ -37,8 +37,16 @@ if (process.env.NODE_ENV === 'production') {
 const seedUrl = process.env.DATABASE_URL;
 if (seedUrl && !isLocalConnection(seedUrl) && !process.env.OI_SEED_REMOTE) {
   console.error('✗ Refusing to seed a non-local database.');
-  console.error(`  host = ${(() => { try { return new URL(seedUrl).hostname; } catch { return '(unparseable)'; } })()}`);
-  console.error("  This would create dev@local with a password published in this repo.");
+  console.error(
+    `  host = ${(() => {
+      try {
+        return new URL(seedUrl).hostname;
+      } catch {
+        return '(unparseable)';
+      }
+    })()}`,
+  );
+  console.error('  This would create dev@local with a password published in this repo.');
   console.error('  If you genuinely mean to, re-run with OI_SEED_REMOTE=1.');
   process.exit(1);
 }

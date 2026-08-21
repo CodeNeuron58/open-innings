@@ -174,7 +174,8 @@ function listArchive(
     child.on('error', (e) => {
       // pg_restore is shipped alongside pg_dump, so reaching here at all is
       // odd. Not a reason to condemn a dump that pg_dump reported as fine.
-      const detail = (e as NodeJS.ErrnoException).code === 'ENOENT' ? 'pg_restore is not on PATH' : e.message;
+      const detail =
+        (e as NodeJS.ErrnoException).code === 'ENOENT' ? 'pg_restore is not on PATH' : e.message;
       console.warn(`\n! Could not verify the archive: ${detail}`);
       console.warn('  The dump was written but has not been opened. Check it by hand.');
       done({ ok: true, tables: -1 });

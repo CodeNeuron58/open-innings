@@ -53,7 +53,7 @@ type QueryState<T> = {
   isRefreshing: boolean;
 };
 
-const fresh = <T,>(): QueryState<T> => ({
+const fresh = <T>(): QueryState<T> => ({
   data: null,
   error: null,
   isLoading: true,

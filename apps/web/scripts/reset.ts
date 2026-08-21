@@ -43,7 +43,15 @@ if (process.env.NODE_ENV === 'production') {
  */
 if (!isLocalConnection(url)) {
   console.error('✗ Refusing to reset a non-local database. Aborting.');
-  console.error(`  host = ${(() => { try { return new URL(url).hostname; } catch { return '(unparseable)'; } })()}`);
+  console.error(
+    `  host = ${(() => {
+      try {
+        return new URL(url).hostname;
+      } catch {
+        return '(unparseable)';
+      }
+    })()}`,
+  );
   process.exit(1);
 }
 

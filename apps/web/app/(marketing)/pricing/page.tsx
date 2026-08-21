@@ -173,8 +173,8 @@ export default function PricingPage() {
             </h2>
             <p className="oi-panel-body">
               The ad never appears while you are scoring — only on the scorecard and share screens,
-              where you are reading rather than tapping. If that bothers you, ₹199 a year removes it. If
-              money is the problem, self-host and pay nothing at all.
+              where you are reading rather than tapping. If that bothers you, ₹199 a year removes
+              it. If money is the problem, self-host and pay nothing at all.
             </p>
             <div className="oi-cta-row">
               <BlueprintLink href="/app" className="btn btn-primary oi-btn-md">

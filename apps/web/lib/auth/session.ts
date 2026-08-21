@@ -1,6 +1,6 @@
 /**
  * Server-side session management.
- * 
+ *
  * DB stores SHA-256(token) bound to a user with a 30-day sliding window expiry.
  */
 import { createHash, randomBytes } from 'node:crypto';
