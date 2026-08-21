@@ -159,17 +159,17 @@ You'll land on the dashboard. Navigate to **Matches** → click **Score** on the
 
 ## Useful commands
 
-| Command                                   | What it does                                 |
-| ----------------------------------------- | -------------------------------------------- |
-| `pnpm dev`                                | Start the Next.js dev server with hot reload |
-| `pnpm build`                              | Production build                             |
-| `pnpm lint`                               | ESLint                                       |
-| `pnpm typecheck`                          | TypeScript validation (no emit)              |
-| `pnpm test`                               | Run all tests (Vitest)                       |
-| `pnpm db:migrate`                         | Apply pending SQL migrations                 |
-| `pnpm db:seed`                            | Populate the database with dev data          |
-| `pnpm db:studio`                          | Open Drizzle Studio (visual DB browser)      |
-| `pnpm tsx apps/web/scripts/auth-smoke.ts` | Run the auth round-trip smoke test           |
+| Command           | What it does                                 |
+| ----------------- | -------------------------------------------- |
+| `pnpm dev`        | Start the Next.js dev server with hot reload |
+| `pnpm build`      | Production build                             |
+| `pnpm lint`       | ESLint                                       |
+| `pnpm typecheck`  | TypeScript validation (no emit)              |
+| `pnpm test`       | Run all tests (Vitest)                       |
+| `pnpm db:migrate` | Apply pending SQL migrations                 |
+| `pnpm db:seed`    | Populate the database with dev data          |
+| `pnpm db:studio`  | Open Drizzle Studio (visual DB browser)      |
+| `pnpm smoke:auth` | Run the auth round-trip smoke test           |
 
 ---
 

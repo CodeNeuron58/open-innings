@@ -19,7 +19,8 @@
     "db:reset": "tsx scripts/reset.ts",
     "db:studio": "drizzle-kit studio",
     "smoke:api": "tsx scripts/api-smoke.ts",
-    "db:verify": "tsx scripts/verify-replay.ts"
+    "db:verify": "tsx scripts/verify-replay.ts",
+    "smoke:auth": "tsx scripts/auth-smoke.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
