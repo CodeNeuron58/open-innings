@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Blueprint } from '@/components/marketing/blueprint';
 import { careerFor, type PlayerCareer } from '@/lib/services/stats';
 import { ServiceError } from '@/lib/services/errors';
+import { isId } from '@open-innings/shared';
 
 /**
  * A player's permanent public page — the cricket CV.
@@ -20,6 +21,20 @@ import { ServiceError } from '@/lib/services/errors';
 type Params = { params: Promise<{ playerId: string }> };
 
 async function load(playerId: string): Promise<PlayerCareer> {
+  /*
+   * A malformed id is not found, not a fault.
+   *
+   * The catch below only converts a ServiceError 404. Anything else rethrows —
+   * and an id that is not a uuid reaches Postgres as one, raises `22P02
+   * invalid input syntax for type uuid`, and became a 500 on a URL built to
+   * be shared. A truncated or mistyped link showed "something broke" instead
+   * of "not found", and logged a fault that was not one.
+   *
+   * Checked here rather than caught: catching everything would also turn a
+   * real outage into "not found", which is a worse answer than a 500.
+   */
+  if (!isId(playerId)) notFound();
+
   try {
     return await careerFor(playerId);
   } catch (err) {

@@ -42,10 +42,30 @@ export async function loadFont(
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; rv:1.0) Gecko/20100101 Firefox/1.0',
       },
+      /*
+       * Two round trips to fonts.googleapis.com stand between a shared link
+       * and its preview, and neither had a bound. A slow or hanging Google
+       * held the card render open for as long as it liked — on the request a
+       * WhatsApp or Twitter crawler makes, which gives up long before we do
+       * and shows no preview at all.
+       *
+       * Ten seconds matches the ceiling `lib/mail/send.ts` already puts on
+       * its third party. On timeout the catch below returns null and the card
+       * draws in a fallback face, which is the whole point of failing soft
+       * here: a card in the wrong typeface still says the score.
+       */
+      signal: AbortSignal.timeout(10_000),
+      // Fonts for a given glyph subset never change. Without this every render
+      // re-fetched both faces; a share card is hit repeatedly by crawlers and
+      // re-shares, and none of them needed a fresh copy.
+      next: { revalidate: 60 * 60 * 24 },
     }).then((r) => r.text());
     const href = /src: url\((.+?)\) format\('(?:opentype|truetype)'\)/.exec(css)?.[1];
     if (!href) return null;
-    return await fetch(href).then((r) => r.arrayBuffer());
+    return await fetch(href, {
+      signal: AbortSignal.timeout(10_000),
+      next: { revalidate: 60 * 60 * 24 },
+    }).then((r) => r.arrayBuffer());
   } catch {
     // A card without its font still renders in a fallback face. A card that
     // throws renders nothing at all, and the link was already shared.

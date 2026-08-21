@@ -52,6 +52,23 @@ export const emailSchema = z
  */
 const idSchema = z.string().trim().uuid('Not a valid id');
 
+/**
+ * Is this string shaped like one of our ids?
+ *
+ * Exported because a **page** needs the same answer a route body does, and
+ * getting it a different way is how the two drift. `/m/[matchId]` happened to
+ * survive a malformed id because it catches everything and calls `notFound`;
+ * `/p/[playerId]` and `/c/[teamId]` only convert a ServiceError 404, so a
+ * Postgres `22P02 invalid input syntax for type uuid` rethrew and became a
+ * 500 — on the two public URLs that get shared most.
+ *
+ * Checking the shape beats catching everything: a catch-all would also turn a
+ * real database outage into "not found", which is a worse lie than a 500.
+ */
+export function isId(value: string): boolean {
+  return idSchema.safeParse(value).success;
+}
+
 /** Optional free text: blank strings collapse to undefined so the DB stores NULL. */
 const optionalText = (max: number) =>
   z
