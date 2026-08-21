@@ -67,6 +67,37 @@ export default function Scorer() {
 
   const query = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
 
+  // The server's state supersedes the loaded one after every ball.
+  const [live, setLive] = useState<MatchState | null>(null);
+
+  /*
+   * Re-read from the server, and stop preferring the copy we already had.
+   *
+   * `state` is `live ?? data.state`, so once a ball has been scored `live`
+   * shadows every later fetch — permanently, because nothing cleared it.
+   * Refreshing therefore fetched newer state and kept showing the older one.
+   *
+   * The visible cost was the second innings. Innings 1 ends, `live` holds its
+   * completed state, the break opens (it reads `data`, not `state`, so that
+   * part worked), the scorer starts innings 2 — and the screen falls back to
+   * `live`, sees `status: 'completed'`, and renders "Innings complete" again,
+   * with a Refresh button that could not help because it did not clear `live`
+   * either. The only way out was leaving the screen and coming back, which
+   * remounts and resets it.
+   *
+   * Clearing is always safe: `live` is never an optimistic guess, it is the
+   * server's own reply to the last ball. A fresher read supersedes it by
+   * definition.
+   *
+   * Declared here, above `useApiMutation`, because `onConflict` calls it —
+   * and the React Compiler will not compile a component that reaches forward
+   * to a binding declared later.
+   */
+  const reload = async () => {
+    setLive(null);
+    await query.refresh();
+  };
+
   // A conflict means the server already recorded this ball.
   // Reload the state instead of failing.
   const [conflictNote, setConflictNote] = useState<string | null>(null);
@@ -77,13 +108,9 @@ export default function Scorer() {
           ? 'That ball was already undone. Reloaded.'
           : 'That ball was already recorded. Reloaded.',
       );
-      setLive(null);
-      void query.refresh();
+      void reload();
     },
   });
-
-  // The server's state supersedes the loaded one after every ball.
-  const [live, setLive] = useState<MatchState | null>(null);
 
   const [showWicket, setShowWicket] = useState(false);
   // State for correcting a previous delivery.
@@ -132,6 +159,25 @@ export default function Scorer() {
    */
   const pending = useRef<PendingDelivery | null>(null);
 
+  /*
+   * Re-read from the server, and stop preferring the copy we already had.
+   *
+   * `state` is `live ?? data.state`, so once a ball has been scored `live`
+   * shadows every later fetch — permanently, because nothing cleared it.
+   * Refreshing therefore fetched newer state and kept showing the older one.
+   *
+   * The visible cost was the second innings. Innings 1 ends, `live` holds its
+   * completed state, the break opens (it reads `data`, not `state`, so that
+   * part worked), the scorer starts innings 2 — and the screen falls back to
+   * `live`, sees `status: 'completed'`, and renders "Innings complete" again.
+   * With a Refresh button that could not help, because it did not clear
+   * `live` either. The only way out was leaving the screen and coming back,
+   * which remounts and resets it.
+   *
+   * Clearing is always safe: `live` is never an optimistic guess, it is the
+   * server's own reply to the last ball. A fresher read supersedes it by
+   * definition.
+   */
   const applyState = useCallback((next: MatchState) => {
     setLive(next);
     setPendingBatterId(null);
@@ -197,11 +243,11 @@ export default function Scorer() {
         // and is rendered, rather than becoming an unhandled rejection.
         onStart={async (openers) => {
           const started = await mutation.run((t) => api.startNextInnings(t, id, openers));
-          if (started !== null) await query.refresh();
+          if (started !== null) await reload();
         }}
         onUndo={async () => {
           const next = await mutation.run((t) => api.undoBall(t, id));
-          if (next) await query.refresh();
+          if (next) await reload();
         }}
         busy={mutation.busy}
         error={mutation.error}
@@ -586,7 +632,7 @@ export default function Scorer() {
               <Text className="text-steel-700 mt-1 text-base">{data.matchSummary}</Text>
             ) : null}
             <View className="mt-4 gap-2">
-              <Button label="Refresh" variant="secondary" onPress={() => void query.refresh()} />
+              <Button label="Refresh" variant="secondary" onPress={() => void reload()} />
               <Button
                 label="See the result"
                 variant="secondary"
@@ -725,7 +771,7 @@ export default function Scorer() {
           onUndo={() => void undo()}
           onEndInnings={async () => {
             const done = await mutation.run((t) => api.endInnings(t, id));
-            if (done !== null) await query.refresh();
+            if (done !== null) await reload();
           }}
         />
       ) : null}
