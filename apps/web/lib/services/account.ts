@@ -128,32 +128,36 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // it would have said anyway.
   if (!user || user.anonymisedAt) return;
 
-  // Everything past the lookup runs off the response path, and that is the
-  // point rather than a performance note.
-  //
-  // The body was already constant for both outcomes. The *timing* was not:
-  // an unknown address cost one SELECT, and a known one cost a SELECT plus a
-  // write transaction plus an awaited HTTPS round trip to Resend. Hundreds of
-  // milliseconds is a far louder signal than the ~50ms Argon2 gap that
-  // `authenticateUser` goes to the trouble of closing with a fixed salt, and
-  // it turned this endpoint into a way to test whether an address has an
-  // account here.
-  //
-  // Detached, both branches are one SELECT and a return.
-  const emailTo = user.email;
-  const userId = user.id;
-  void (async () => {
-    try {
-      void purgeStaleTokens();
-      const token = await issueToken(userId, 'password_reset', emailTo);
-      const link = `${appUrl()}/reset?token=${encodeURIComponent(token)}`;
-      await send({ to: emailTo, ...resetPassword(link, TTL.password_reset / 60_000) });
-    } catch (error) {
-      // Nobody is waiting on this any more, so a failure has to be logged
-      // here or it is lost. The caller has already been told nothing.
-      console.error('[reset] could not issue a reset token', error);
-    }
-  })();
+  void purgeStaleTokens();
+
+  /*
+   * The token is issued synchronously; only the mail is detached.
+   *
+   * The body was already constant for both outcomes. The *timing* was not: an
+   * unknown address cost one SELECT, a known one cost a SELECT plus a write
+   * transaction plus an **awaited HTTPS round trip to Resend**. That last term
+   * is the whole oracle — hundreds of milliseconds against the ~50ms Argon2
+   * gap `authenticateUser` goes out of its way to close with a fixed salt.
+   *
+   * Detaching the *whole* tail closed it completely and bought a race: the row
+   * did not exist when this returned, so anything reading straight back saw
+   * nothing. The smoke suite does exactly that and started failing
+   * intermittently — passing on one run and not the next, which is worse than
+   * a clean break because CI would have blamed something else.
+   *
+   * So the write is awaited and the network call is not. What remains is one
+   * SELECT versus a SELECT plus a local write — single-digit milliseconds,
+   * smaller than the Argon2 gap this codebase already accepts, and without a
+   * remote round trip standing on top of it.
+   */
+  const token = await issueToken(user.id, 'password_reset', user.email);
+  const link = `${appUrl()}/reset?token=${encodeURIComponent(token)}`;
+
+  // `send` is documented never to throw; the catch is here so a change to that
+  // cannot become an unhandled rejection nobody sees.
+  void send({ to: user.email, ...resetPassword(link, TTL.password_reset / 60_000) }).catch(
+    (error: unknown) => console.error('[reset] could not send the reset mail', error),
+  );
 }
 
 /**

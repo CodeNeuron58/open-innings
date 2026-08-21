@@ -509,3 +509,50 @@ describe('a stored delivery is never un-bowled by a rule added later', () => {
     expect(s.violations.some((v) => v.code === 'BATSMAN_ALREADY_OUT')).toBe(true);
   });
 });
+
+describe('a batter who leaves the field must be replaced before the next delivery', () => {
+  const out = (state: MatchState) =>
+    ball(state, {
+      eventType: 'wicket',
+      wicketType: 'bowled',
+      wicketPlayerId: state.currentInnings.strikerId,
+    });
+
+  it('refuses the next ball when the pair is simply repeated', () => {
+    // The engine leaves the dismissed batter in their slot so the next event
+    // can name who came in. Repeating the pair used to be accepted, and the
+    // batter who was out faced the next ball.
+    const s = applyBall(seedWith(), out(seedWith()));
+    expect(codeFor(() => bowl(s))).toBe('BATSMAN_NOT_REPLACED');
+  });
+
+  it('so a dismissed batter cannot go on scoring', () => {
+    // Bowled for 4 off 2, then — without a replacement — 14 off 4, still
+    // marked out, with the fall of wicket recorded at 4. A scorecard that
+    // contradicts itself, and an innings that can pass its final wicket with
+    // somebody still at the crease.
+    let s = bowl(seedWith(), { eventType: '4', runsOffBat: 4 });
+    s = applyBall(s, out(s));
+    expect(s.batting['b1']!.runs).toBe(4);
+    expect(codeFor(() => bowl(s, { eventType: '6', runsOffBat: 6 }))).toBe('BATSMAN_NOT_REPLACED');
+    expect(s.batting['b1']!.runs).toBe(4);
+  });
+
+  it('accepts the next ball once a replacement is named', () => {
+    const s = applyBall(seedWith(), out(seedWith()));
+    const next = bowl(s, { batsmanId: asPlayerId('b3') });
+    expect(next.balls).toHaveLength(2);
+  });
+
+  it('applies to a retirement too — they walked off just the same', () => {
+    const s = applyBall(
+      seedWith(),
+      ball(seedWith(), {
+        eventType: 'wicket',
+        wicketType: 'retired_hurt',
+        wicketPlayerId: asPlayerId('b1'),
+      }),
+    );
+    expect(codeFor(() => bowl(s))).toBe('BATSMAN_NOT_REPLACED');
+  });
+});

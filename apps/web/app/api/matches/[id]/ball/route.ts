@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
     const newBall = nextState.balls[nextState.balls.length - 1]!;
     const updated = nextState.currentInnings;
 
-    await recordBall(
+    const persisted = await recordBall(
       {
         inningsId: currentInnings.id,
         overNumber: newBall.overNumber,
@@ -160,6 +160,33 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       balls.length,
     );
 
+    /*
+     * Give the client the row's id, not the engine's placeholder.
+     *
+     * `applyBall` mints a uuid for a delivery that arrives without one, and
+     * Postgres mints its own on insert. They are different values, and until
+     * now the response carried the engine's — an id that exists nowhere.
+     *
+     * That broke correcting the ball you just scored, which is exactly when a
+     * scorer wants to. The app takes ball ids straight from this response and
+     * sends one back to `PATCH /ball/[ballId]`, where `correctBall` looks it up
+     * in the stored log, fails to find it, and answers `BALL_NOT_FOUND` — "that
+     * delivery is not in this innings", about a delivery bowled seconds ago.
+     *
+     * It survived the smoke tests because they re-read `/scorer` before
+     * correcting, which replays from the database and therefore has real ids.
+     * The app does not re-read; it applies this state directly.
+     */
+    const responseState =
+      persisted === null
+        ? nextState
+        : {
+            ...nextState,
+            balls: nextState.balls.map((b, i) =>
+              i === nextState.balls.length - 1 ? { ...b, id: persisted.id } : b,
+            ),
+          };
+
     // Chase innings just finished → the match has a result.
     if (
       updated.status === 'completed' &&
@@ -194,7 +221,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       }
     }
 
-    return NextResponse.json({ state: nextState });
+    return NextResponse.json({ state: responseState });
   } catch (err) {
     // Shared mapper so a rate-limit rejection surfaces as 429 rather than
     // being flattened into a 500 alongside genuine faults.

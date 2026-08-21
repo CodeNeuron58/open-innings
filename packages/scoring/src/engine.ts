@@ -439,7 +439,6 @@ function validateBatters(state: MatchState, event: BallEvent): void {
 
   const strikerChanged = event.batsmanId !== inn.strikerId;
   const nonStrikerChanged = event.nonStrikerId !== inn.nonStrikerId;
-  if (!strikerChanged && !nonStrikerChanged) return;
 
   const mismatch = () =>
     new ScoringError(
@@ -454,6 +453,34 @@ function validateBatters(state: MatchState, event: BallEvent): void {
     lastBall?.wicketType && lastBall.wicketPlayerId && BATTER_LEAVES_FIELD.has(lastBall.wicketType)
       ? lastBall.wicketPlayerId
       : undefined;
+
+  /*
+   * A vacancy has to be filled before the next delivery.
+   *
+   * The engine leaves a departed batter in their slot so the next event can
+   * name who replaced them — but "the pair is unchanged" used to return here
+   * without checking whether one of them had just walked off. So repeating the
+   * previous pair after a wicket was accepted, and the dismissed batter faced
+   * the next ball.
+   *
+   * They then went on scoring. A batter bowled for 4 off 2 who is never
+   * replaced reaches 14 off 4 with `isOut: true` and a fall of wicket recorded
+   * at 4 — a scorecard that contradicts itself, and an innings that can pass
+   * its last wicket with somebody still at the crease.
+   *
+   * The app never does this: a mandatory sheet blocks scoring until a
+   * replacement is named. `POST /api/matches/[id]/ball` has no such sheet, so
+   * the rule belongs here, where the engine is the authority.
+   */
+  if (!strikerChanged && !nonStrikerChanged) {
+    if (departed === undefined) return;
+    throw new ScoringError(
+      'BATSMAN_NOT_REPLACED',
+      `${playerIdKey(departed)} left the field on the previous delivery and must be replaced ` +
+        `before the next one`,
+    );
+  }
+
   if (departed === undefined) throw mismatch();
 
   // One vacancy, one replacement.

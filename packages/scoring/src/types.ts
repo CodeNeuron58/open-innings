@@ -291,6 +291,7 @@ export type ScoringErrorCode =
   | 'WICKET_PLAYER_NOT_AT_CREASE'
   /** Somebody already out was sent back in to bat. */
   | 'BATSMAN_ALREADY_DISMISSED'
+  | 'BATSMAN_NOT_REPLACED'
   /** A batter cannot bowl to themselves, or field their own dismissal. */
   | 'PLAYER_IN_TWO_ROLES'
   | 'NEGATIVE_RUNS'

@@ -1429,10 +1429,48 @@ async function main() {
       });
 
     // Four dots. Every one of them is the striker's.
+    let lastPostedBallId = '';
     for (let i = 0; i < 4; i += 1) {
       const b = await deliver();
       ok(b.status === 200, `dot ${i + 1} recorded`, b);
+      const posted = (b.json.state?.balls ?? []) as Json[];
+      lastPostedBallId = posted[posted.length - 1]?.id as string;
     }
+
+    /*
+     * The id POST /ball hands back must be the id the row actually has.
+     *
+     * This is the app's path and it was broken: `applyBall` mints a uuid for a
+     * delivery that arrives without one, Postgres mints its own on insert, and
+     * the response carried the engine's. So correcting the ball you had just
+     * scored answered "that delivery is not in this innings" — about a
+     * delivery bowled seconds ago.
+     *
+     * The tests below missed it because they re-read /scorer first, which
+     * replays from the database and therefore sees real ids. The app applies
+     * the POST response directly and never re-reads, so it did not. Asserting
+     * on the posted id rather than a re-read one is the whole point.
+     */
+    const freshCorrection = await call('PATCH', `/api/matches/${fixId}/ball/${lastPostedBallId}`, {
+      eventType: '1',
+      runsOffBat: 1,
+      extraRuns: 0,
+      bowlerId: fixBowler,
+    });
+    ok(
+      freshCorrection.status === 200,
+      'a ball can be corrected using the id POST /ball returned',
+      freshCorrection,
+    );
+
+    // Put it back, so the assertions below still describe four dots.
+    const undoFresh = await call('PATCH', `/api/matches/${fixId}/ball/${lastPostedBallId}`, {
+      eventType: 'dot',
+      runsOffBat: 0,
+      extraRuns: 0,
+      bowlerId: fixBowler,
+    });
+    ok(undoFresh.status === 200, 'and corrected back to a dot', undoFresh);
 
     const beforeFix = await call('GET', `/api/matches/${fixId}/scorer`);
     ok(beforeFix.status === 200, 'scorer state loads', beforeFix);
