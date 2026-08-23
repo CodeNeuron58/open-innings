@@ -189,8 +189,27 @@ export default function More() {
           {!isGuest ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
         </Pressable>
 
-        {/* Supporter plan pitch. */}
-        {!isSupporter ? (
+        {/* Supporter plan status or pitch. */}
+        {isSupporter ? (
+          <View className="border-steel-300 bg-steel-100 mt-3 flex-row items-center justify-between border p-3.5">
+            <View className="min-w-0 flex-1">
+              <Text className="text-steel-900 font-heading text-[15px]">Supporter active</Text>
+              <Text className="text-steel-800/75 mt-0.5 text-[12px]">
+                Ads are disabled across the app
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Manage your subscription on Google Play"
+              onPress={() => void Linking.openURL('https://play.google.com/store/account/subscriptions')}
+              className="border-steel-400 border px-2.5 py-1.5 active:opacity-60"
+            >
+              <Text className="text-steel-900 font-heading text-[9.5px] uppercase tracking-[1.2px]">
+                Manage
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Remove ads — see the plans"
@@ -207,7 +226,7 @@ export default function More() {
               See plan
             </Text>
           </Pressable>
-        ) : null}
+        )}
 
         {/* Guest signup pitch. */}
         {isGuest ? (

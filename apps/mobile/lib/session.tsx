@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import * as SecureStore from 'expo-secure-store';
 import type { AuthResponse } from '@open-innings/shared';
 import { api, ApiError } from './api';
+import { logOutPurchases } from './purchases';
 
 const TOKEN_KEY = 'oi_session_token';
 
@@ -145,6 +146,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setIsGuest(false);
     setPlayerId(null);
+
+    void logOutPurchases();
 
     if (current) {
       try {

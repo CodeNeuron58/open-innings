@@ -2,6 +2,7 @@
  * The banner ad and removal pitch.
  * Never appears on the scorer screen. Resolves through adUnit().
  */
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ export function AdBar({
 }) {
   const router = useRouter();
   const { isSupporter, isLoading } = useSupporter();
+  const [adFailed, setAdFailed] = useState(false);
   const unitId = adUnit(placement);
 
   // They did the work. No ad, no pitch, regardless of anything below.
@@ -45,7 +47,7 @@ export function AdBar({
 
   // Nothing safe to show. Render nothing rather than an empty framed strip —
   // a missing few pixels beats a box that looks broken.
-  if (!unitId) return null;
+  if (!unitId || adFailed) return null;
 
   return (
     <View className="border-border flex-row items-center gap-2 border-t px-3 py-1.5">
@@ -63,6 +65,7 @@ export function AdBar({
             // alternative.
             requestNonPersonalizedAdsOnly: true,
           }}
+          onAdFailedToLoad={() => setAdFailed(true)}
         />
       </View>
 

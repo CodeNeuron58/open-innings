@@ -1,42 +1,50 @@
-# Donation model
+# Funding & Sustainability Model
 
-Open Innings is **free forever** — no ads, no paywalls, no "premium" tier, no
-"contact us for pricing". Inspired by [Lichess](https://lichess.org/about),
-we run entirely on community donations.
+Open Innings is **AGPL-3.0 open source and free forever** — every cricket scoring rule, tournament format, career stat, scorebook export, and live web link is completely free with zero feature paywalls.
 
-This document explains how that works, where the money goes, and how you can
-help.
+This document explains our sustainability roadmap, how early bootstrapping is funded, where money goes, and how you can help.
 
-## How funding works
+---
 
-We accept donations through two platforms. Both publish every transaction
-transparently.
+## 1. The Core Philosophy
+
+1. **No Feature Paywalls**: Every single capability is available to every user and club. We will never lock features behind a "pro" tier or enterprise contract.
+2. **The Scorer is Never the Toll**: Scoring a 3-hour match takes effort and concentration. The live scoring console is strictly ad-free, and match creators are completely exempt from ads on their owned scorecards.
+3. **Self-Hosting Freedom**: Any club or league can clone the repository and run their own backend and frontend, 100% ad-free, without paying a dime.
+
+---
+
+## 2. Bootstrapping vs. Long-Term Destination
+
+### Phase 1: Bootstrap & Early Sustainability (Years 1–2)
+During early growth, server infrastructure (database, CDN, live WebSocket/polling, OpenGraph image generation) incurs real ongoing costs:
+- **Non-Intrusive Viewer Banners**: Passive AdMob banner ads on public viewer scorecard screens (`card`, `cards`, `share`) for non-owner spectators.
+- **Supporter In-App Subscription**: An optional ₹49/month or ₹199/year subscription (via Google Play / RevenueCat) for community members who want an ad-free spectator experience and wish to support hosting costs.
+
+### Phase 2: Fully Community & Donation-Funded (Lichess Model)
+As community adoption grows and recurring donations on Open Collective / Liberapay cover 100% of server infrastructure and maintenance costs, our explicit roadmap is to deprecate in-app advertising entirely and run 100% on community donations.
+
+---
+
+## 3. How Funding Works
+
+We accept direct community donations through two transparent platforms:
 
 ### Open Collective
-
 <https://opencollective.com/open-innings>
-
 - Designed for open-source projects
 - Issues invoices for corporate donations (useful for employer matching)
 - Provides legal entity + accounting in many jurisdictions
 - Funds are released to project expenses, not to individuals
 
 ### Liberapay
-
 <https://liberapay.com/open-innings>
+- Recurring donations with zero platform fees on small amounts
+- Direct supporter donations
 
-- Recurring donations, no fees on small amounts
-- Tip-the-dev style
-- Better for individual donors
+---
 
-### Why both?
-
-Different platforms serve different donors. Open Collective is better for
-companies and EU-based donors (invoicing). Liberapay is better for
-individuals donating small amounts. Having both maximises the chances of
-reaching our funding goals.
-
-## Where the money goes
+## 4. Where the Money Goes
 
 All expenses are public. Expected annual costs at various scales:
 
@@ -47,42 +55,30 @@ All expenses are public. Expected annual costs at various scales:
 | **10k–100k users** | TBD                     | A paid VM tier, or splitting app and DB onto separate instances                                                                                  |
 | **100k+ users**    | TBD                     | Dedicated DB, read replicas, monitoring, contractor support                                                                                      |
 
-**We will never spend donations on:**
-
+**We will never spend funds on:**
 - Founders' salaries (until/unless we're a registered non-profit with payroll)
 - Marketing campaigns or paid ads
 - Crypto, NFTs, or speculative investments
 - Anything that compromises user privacy
 
-**We will spend donations on:**
-
+**We will spend funds on:**
 - Hosting, databases, storage, CDN
 - Domain registration + SSL
-- Design work (if volunteer design isn't available)
-- Security audits (when we can afford them)
-- Legal advice (entity formation, GDPR compliance)
-- Bounties for important bug fixes (once established)
+- Design and accessibility work
+- Security audits
+- Legal advice (entity formation, GDPR / Data Safety compliance)
+- Bounties for critical bug fixes
 
-## Long-term sustainability
+---
 
-The Lichess model has worked since 2010:
+## 5. What We Will NOT Do
 
-1. **Year 1–2:** out-of-pocket, donations trickle in
-2. **Year 2–3:** donations cover hosting
-3. **Year 3+:** donations cover hosting + part-time maintainer
-4. **Year 5+:** donations cover hosting + multiple maintainers + legal entity
-
-We're at step 0. We have a long road ahead, and the first 12 months of
-hosting will likely come out of pocket.
-
-## What we will NOT do
-
-To be crystal clear, in case it's not already:
-
-- ❌ No ads. Ever.
+To be crystal clear:
+- ❌ No ads during live scoring — ever.
+- ❌ No ads for the person who scored the match.
 - ❌ No "premium tier" that locks existing features.
-- ❌ No selling user data (we have none anyway — see [privacy.md](privacy.md)).
-- ❌ No corporate ownership. This is a community project, period.
+- ❌ No selling user data (we collect minimal operational data — see [privacy.md](privacy.md)).
+- ❌ No corporate lock-in — the full codebase remains AGPL-3.0.
 - ❌ No feature paywalls, no "contact us for enterprise pricing".
 
 ## Donate

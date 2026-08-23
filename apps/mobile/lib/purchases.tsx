@@ -26,6 +26,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import Purchases, {
   LOG_LEVEL,
   PACKAGE_TYPE,
@@ -42,6 +43,8 @@ const API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '';
 
 export const purchasesConfigured = API_KEY.length > 0;
 
+const SUPPORTER_CACHE_KEY = 'oi_supporter_entitlement_v1';
+
 let started = false;
 
 /** Called once at launch. Safe to call again; safe to call with no key. */
@@ -53,6 +56,18 @@ export function initPurchases(): void {
   // that is noise in someone's logcat rather than information.
   Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
   Purchases.configure({ apiKey: API_KEY });
+}
+
+/** Called on sign out to disconnect RevenueCat user id and clear cached entitlement. */
+export async function logOutPurchases(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(SUPPORTER_CACHE_KEY);
+    if (purchasesConfigured) {
+      await Purchases.logOut();
+    }
+  } catch {
+    /* best effort */
+  }
 }
 
 /** One buyable plan, with everything the paywall needs to render it. */
@@ -186,6 +201,21 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [unavailable, setUnavailable] = useState<string | null>(null);
 
+  // Optimistic entitlement hydration from local storage on cold launch.
+  useEffect(() => {
+    let cancelled = false;
+    SecureStore.getItemAsync(SUPPORTER_CACHE_KEY)
+      .then((cached) => {
+        if (!cancelled && cached === '1') {
+          setIsSupporter(true);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -230,7 +260,9 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
 
         if (cancelled) return;
 
-        setIsSupporter(info.entitlements.active[ENTITLEMENT_ID] !== undefined);
+        const active = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
+        setIsSupporter(active);
+        void SecureStore.setItemAsync(SUPPORTER_CACHE_KEY, active ? '1' : '0').catch(() => {});
         setPlans(found);
         // No plans means the offering is not marked current, or has no
         // packages in it — the usual state before a first release, and worth
@@ -257,6 +289,7 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
       const { customerInfo } = await Purchases.purchasePackage(plan.package);
       const active = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
       setIsSupporter(active);
+      void SecureStore.setItemAsync(SUPPORTER_CACHE_KEY, active ? '1' : '0').catch(() => {});
       return { ok: active, message: active ? null : 'The purchase did not complete.' };
     } catch (err) {
       // A cancelled purchase is not a failure and must not be reported as one
@@ -278,6 +311,7 @@ export function SupporterProvider({ children }: { children: ReactNode }) {
       const info = await Purchases.restorePurchases();
       const active = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
       setIsSupporter(active);
+      void SecureStore.setItemAsync(SUPPORTER_CACHE_KEY, active ? '1' : '0').catch(() => {});
       return {
         ok: active,
         message: active ? null : 'No previous purchase found on this account.',
