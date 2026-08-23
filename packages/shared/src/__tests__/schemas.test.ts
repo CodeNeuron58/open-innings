@@ -300,6 +300,7 @@ describe('consistentBallEventSchema', () => {
       { eventType: 'wide', runsOffBat: 0, extraRuns: 4 },
       { eventType: 'no_ball', runsOffBat: 4, extraRuns: 1 },
       { eventType: 'leg_bye', runsOffBat: 0, extraRuns: 2 },
+      { eventType: 'penalty', runsOffBat: 0, extraRuns: 5 },
       // A run-out is allowed after any number of runs, so it is not constrained.
       { eventType: 'wicket', runsOffBat: 1, extraRuns: 0, wicketType: 'run_out' },
     ];

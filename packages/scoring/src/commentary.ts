@@ -61,6 +61,8 @@ function outcomePhrase(ball: BallEvent): string {
       return `${ball.totalRuns} bye${ball.totalRuns === 1 ? '' : 's'}`;
     case 'leg_bye':
       return `${ball.totalRuns} leg bye${ball.totalRuns === 1 ? '' : 's'}`;
+    case 'penalty':
+      return `${ball.extraRuns} penalty runs`;
     case 'dot':
       return 'no run';
     case '4':
@@ -68,6 +70,9 @@ function outcomePhrase(ball: BallEvent): string {
     case '6':
       return 'SIX';
     default:
+      if (ball.overthrowRuns > 0) {
+        return `${ball.runsOffBat} run${ball.runsOffBat === 1 ? '' : 's'} + ${ball.overthrowRuns} overthrows`;
+      }
       return `${ball.runsOffBat} run${ball.runsOffBat === 1 ? '' : 's'}`;
   }
 }

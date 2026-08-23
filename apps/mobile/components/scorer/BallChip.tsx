@@ -20,6 +20,8 @@ function describe(ball: BallEvent): { label: string; tone: Tone } {
       return { label: `b${ball.totalRuns}`, tone: 'extra' };
     case 'leg_bye':
       return { label: `lb${ball.totalRuns}`, tone: 'extra' };
+    case 'penalty':
+      return { label: `+${ball.totalRuns}P`, tone: 'extra' };
     case 'dot':
       return { label: '•', tone: 'dot' };
     case '4':

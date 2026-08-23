@@ -395,7 +395,7 @@ const RUNS_FOR_TYPE: Partial<Record<(typeof BALL_EVENT_TYPES)[number], number>> 
 };
 
 /** Types that carry a penalty or come off something other than the bat. */
-const EXTRA_TYPES = new Set(['wide', 'no_ball', 'bye', 'leg_bye']);
+const EXTRA_TYPES = new Set(['wide', 'no_ball', 'bye', 'leg_bye', 'penalty']);
 
 type BallShape = {
   eventType: (typeof BALL_EVENT_TYPES)[number];

@@ -698,9 +698,11 @@ export default function Scorer() {
                     eventType: 'penalty',
                     runsOffBat: 0,
                     extraRuns: 5,
+                    totalRuns: 5,
                     batsmanId: effStriker,
                     nonStrikerId: effNonStriker,
                     bowlerId: effBowler,
+                    bowlerReplacedMidOver: midOverBowlerId !== null,
                   })
                 }
                 disabled={mutation.busy}

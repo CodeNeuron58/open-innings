@@ -144,4 +144,15 @@ describe('every payload a keypad can build is one the server accepts', () => {
     // What separates it from the correct payload is where the runs went.
     expect(deliveryFor({ kind: 'extra', extra: 'no_ball', total: 5 }).runsOffBat).toBe(4);
   });
+
+  it('accepts the 5 penalty runs payload built by the scorer +5 Pen button', () => {
+    const penaltyPayload = {
+      eventType: 'penalty' as const,
+      runsOffBat: 0,
+      extraRuns: 5,
+      ...ids,
+    };
+    const parsed = consistentBallEventSchema.safeParse(penaltyPayload);
+    expect(parsed.success).toBe(true);
+  });
 });

@@ -30,6 +30,7 @@ export type StoredBall = {
   ballNumber: number;
   eventType: string;
   runsOffBat: number;
+  overthrowRuns?: number;
   extraRuns: number;
   totalRuns: number;
   isLegalDelivery: boolean;
@@ -400,6 +401,9 @@ function describeBall(b: {
   extraRuns: number;
   totalRuns: number;
 }): string {
+  if (b.eventType === 'penalty') {
+    return `${b.extraRuns} penalty runs`;
+  }
   if (b.eventType === 'wide' || b.eventType === 'no_ball') {
     return `${b.eventType.replace('_', '-')} (${b.totalRuns})`;
   }
@@ -445,6 +449,7 @@ function toInput(row: StoredBall): BallEventInput {
     ...baseInput(row),
     eventType: row.eventType as BallEventInput['eventType'],
     runsOffBat: row.runsOffBat,
+    overthrowRuns: row.overthrowRuns ?? 0,
     extraRuns: row.extraRuns,
     totalRuns: row.totalRuns,
     isLegalDelivery: row.isLegalDelivery,
