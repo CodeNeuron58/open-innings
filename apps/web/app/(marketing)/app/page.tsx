@@ -94,13 +94,9 @@ export default function AppPage() {
             {/* Points at the notify form until there is a Play listing to
                 point at. Swap the href, not the label, when there is. */}
             <div className="oi-cta-row">
-              <Link href="/#get" className="btn btn-primary blueprint oi-btn-lg">
-                <i className="corner tl" />
-                <i className="corner tr" />
-                <i className="corner bl" />
-                <i className="corner br" />
+              <BlueprintLink href="/#get" className="btn btn-primary oi-btn-lg">
                 Get it on Android
-              </Link>
+              </BlueprintLink>
               {/* "Join the iOS beta" was here. Removed rather than wired:
                   AGPL-3.0 conflicts with the App Store's terms, so there is
                   no iOS beta to join and there will not be one under this
@@ -228,9 +224,9 @@ export default function AppPage() {
             <BlueprintLink href="/pricing" className="btn btn-primary oi-btn-md">
               See pricing
             </BlueprintLink>
-            <a className="btn btn-secondary oi-btn-md oi-btn-plain" href="/formats">
+            <Link className="btn btn-secondary oi-btn-md oi-btn-plain" href="/formats">
               Formats
-            </a>
+            </Link>
           </div>
         </div>
       </section>

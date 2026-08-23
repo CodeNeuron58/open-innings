@@ -315,7 +315,12 @@ export default function PrivacyPage() {
               </a>
               <br />
               Anything about your data, at that address. Bugs are better in{' '}
-              <a className="oi-fl" href="https://github.com/CodeNeuron58/open-innings/issues">
+              <a
+                className="oi-fl"
+                href="https://github.com/CodeNeuron58/open-innings/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 the issue tracker
               </a>
               .

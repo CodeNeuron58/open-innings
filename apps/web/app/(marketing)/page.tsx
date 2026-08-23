@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 import { NotifyForm } from '@/components/marketing/notify-form';
 import { AndroidFrame } from '@/components/marketing/android-frame';
@@ -113,9 +114,9 @@ export default function HomePage() {
               <BlueprintLink href="/app" className="btn btn-primary oi-btn-lg">
                 Get it on Android
               </BlueprintLink>
-              <a className="btn btn-secondary oi-btn-lg oi-btn-plain" href="/open-source">
+              <Link className="btn btn-secondary oi-btn-lg oi-btn-plain" href="/open-source">
                 Read the source
-              </a>
+              </Link>
             </div>
             <div className="oi-tag-row">
               <span className="tag tag-outline">Free with ads</span>
@@ -241,9 +242,9 @@ export default function HomePage() {
                 <div className="oi-kick oi-figure-label">Undo depth</div>
               </div>
             </div>
-            <a className="btn btn-secondary oi-btn-md oi-btn-plain oi-btn-spaced" href="/app">
+            <Link className="btn btn-secondary oi-btn-md oi-btn-plain oi-btn-spaced" href="/app">
               See every screen
-            </a>
+            </Link>
           </div>
           <div className="oi-phone">
             <AndroidFrame>

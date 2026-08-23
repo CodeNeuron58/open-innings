@@ -47,7 +47,7 @@ export function NotifyForm({ source }: { source?: string }) {
 
   if (state.kind === 'done') {
     return (
-      <p className="oi-card-body oi-measure" role="status">
+      <p className="oi-card-body oi-measure" role="status" aria-live="polite">
         <strong>You&rsquo;re on the list.</strong> Release notes when there are some — nothing else,
         and no launch countdowns.
       </p>
@@ -82,6 +82,7 @@ export function NotifyForm({ source }: { source?: string }) {
         <p
           className="oi-card-body oi-measure"
           role="alert"
+          aria-live="polite"
           style={{ color: 'var(--color-destructive)' }}
         >
           {state.message}

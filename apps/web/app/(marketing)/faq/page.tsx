@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Blueprint } from '@/components/marketing/blueprint';
 
 export const metadata: Metadata = {
@@ -156,12 +157,14 @@ export default function FaqPage() {
               <a
                 className="btn btn-secondary oi-faq-aside-btn oi-btn-plain"
                 href="https://github.com/CodeNeuron58/open-innings/issues"
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 Open an issue
               </a>
-              <a className="btn btn-secondary oi-faq-aside-btn oi-btn-plain" href="/pricing">
+              <Link className="btn btn-secondary oi-faq-aside-btn oi-btn-plain" href="/pricing">
                 See pricing
-              </a>
+              </Link>
             </div>
             <div className="oi-faq-aside-rule" />
             <span className="oi-kick oi-faq-aside-kick">One line summary</span>

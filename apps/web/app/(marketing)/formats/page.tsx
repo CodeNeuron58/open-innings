@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 
 export const metadata: Metadata = {
@@ -176,9 +177,9 @@ export default function FormatsPage() {
             <BlueprintLink href="/app" className="btn btn-primary oi-btn-md">
               See the app
             </BlueprintLink>
-            <a className="btn btn-secondary oi-btn-md oi-btn-plain" href="/pricing">
+            <Link className="btn btn-secondary oi-btn-md oi-btn-plain" href="/pricing">
               Pricing
-            </a>
+            </Link>
           </div>
         </div>
       </section>

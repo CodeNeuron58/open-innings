@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Blueprint, BlueprintLink, BlueprintButton } from '@/components/marketing/blueprint';
+import Link from 'next/link';
+import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -87,9 +88,9 @@ export default function PricingPage() {
               ))}
               <div className="oi-plan-muted">{PLANS[0].muted}</div>
             </div>
-            <a className="btn btn-secondary oi-plan-cta oi-btn-plain" href={PLANS[0].cta.href}>
+            <Link className="btn btn-secondary oi-plan-cta oi-btn-plain" href={PLANS[0].cta.href}>
               {PLANS[0].cta.label}
-            </a>
+            </Link>
           </Blueprint>
 
           {/* The paid plate is the one reversed field on the page — steel as
@@ -107,9 +108,9 @@ export default function PricingPage() {
               <div>Or ₹49 a month, if you would rather not commit</div>
               <div className="oi-plan-muted-dark">Cancel any time; runs to the end of the term</div>
             </div>
-            <BlueprintButton type="button" className="btn btn-primary oi-plan-cta oi-plan-cta-dark">
+            <BlueprintLink href="/app" className="btn btn-primary oi-plan-cta oi-plan-cta-dark">
               Go ad-free
-            </BlueprintButton>
+            </BlueprintLink>
           </Blueprint>
 
           <Blueprint className="oi-plan">
@@ -123,9 +124,9 @@ export default function PricingPage() {
               ))}
               <div className="oi-plan-muted">{PLANS[1].muted}</div>
             </div>
-            <a className="btn btn-secondary oi-plan-cta oi-btn-plain" href={PLANS[1].cta.href}>
+            <Link className="btn btn-secondary oi-plan-cta oi-btn-plain" href={PLANS[1].cta.href}>
               {PLANS[1].cta.label}
-            </a>
+            </Link>
           </Blueprint>
         </div>
       </section>
@@ -180,9 +181,9 @@ export default function PricingPage() {
               <BlueprintLink href="/app" className="btn btn-primary oi-btn-md">
                 Get the app
               </BlueprintLink>
-              <a className="btn btn-ghost oi-btn-md oi-btn-ghost" href="/faq">
+              <Link className="btn btn-ghost oi-btn-md oi-btn-ghost" href="/faq">
                 Read the FAQ
-              </a>
+              </Link>
             </div>
           </Blueprint>
         </div>

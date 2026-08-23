@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Blueprint, BlueprintLink } from '@/components/marketing/blueprint';
 
 export const metadata: Metadata = {
@@ -101,10 +102,20 @@ export default function OpenSourcePage() {
             and your own matches.
           </p>
           <div className="oi-cta-row">
-            <BlueprintLink href={REPO_URL} className="btn btn-primary oi-btn-lg">
+            <BlueprintLink
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary oi-btn-lg"
+            >
               View on GitHub
             </BlueprintLink>
-            <a className="btn btn-secondary oi-btn-lg oi-btn-plain" href={CONTRIBUTING_URL}>
+            <a
+              className="btn btn-secondary oi-btn-lg oi-btn-plain"
+              href={CONTRIBUTING_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Read the contributing guide
             </a>
           </div>
@@ -195,9 +206,9 @@ export default function OpenSourcePage() {
             <BlueprintLink href="/app" className="btn btn-primary oi-btn-md">
               See the app
             </BlueprintLink>
-            <a className="btn btn-secondary oi-btn-md oi-btn-plain" href="/faq">
+            <Link className="btn btn-secondary oi-btn-md oi-btn-plain" href="/faq">
               FAQ
-            </a>
+            </Link>
           </div>
         </div>
       </section>
