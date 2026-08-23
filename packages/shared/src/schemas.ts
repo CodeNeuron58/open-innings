@@ -329,6 +329,8 @@ export const ballEventSchema = z.object({
    * numbers, so there is nothing to coerce.
    */
   runsOffBat: z.number().int().min(0).max(6),
+  /** Overthrow runs — physically run after a deflection (Law 18.6/19.8). Excluded from batter stats. */
+  overthrowRuns: z.number().int().min(0).max(12).optional().default(0),
   /** Penalties plus byes. Well above anything real, but bounded. */
   extraRuns: z.number().int().min(0).max(12),
 
@@ -400,6 +402,7 @@ const EXTRA_TYPES = new Set(['wide', 'no_ball', 'bye', 'leg_bye', 'penalty']);
 type BallShape = {
   eventType: (typeof BALL_EVENT_TYPES)[number];
   runsOffBat: number;
+  overthrowRuns?: number;
   extraRuns: number;
 };
 
