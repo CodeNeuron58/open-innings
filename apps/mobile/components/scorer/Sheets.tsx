@@ -3,10 +3,22 @@
  * Mandatory sheets (e.g., wicket) have no dismiss button to prevent invalid state.
  */
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import type { WicketTypeValue } from '@open-innings/shared';
 import { EXTRA_LABELS, EXTRA_TOTALS, type ExtraKind } from '../../lib/deliveries';
 import { Button } from '../ui';
+
+function hapticFeedback() {
+  try {
+    if (Platform.OS === 'android') {
+      Vibration.vibrate(12);
+    } else {
+      Vibration.vibrate([0, 10]);
+    }
+  } catch {
+    /* ignore if vibration not supported */
+  }
+}
 
 // ─── Shell ───────────────────────────────────────────────────────────────────
 
@@ -14,12 +26,14 @@ function SheetShell({
   title,
   subtitle,
   onDismiss,
+  footer,
   children,
 }: {
   title: string;
   subtitle?: string;
   /** Omit for mandatory sheets — there must be no way to tap past them. */
   onDismiss?: () => void;
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -37,7 +51,10 @@ function SheetShell({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
-                onPress={onDismiss}
+                onPress={() => {
+                  hapticFeedback();
+                  onDismiss();
+                }}
                 // A word, not an ✕. There is room for it, and a scorer who has
                 // opened this by accident should not have to aim at a glyph.
                 className="shrink-0 px-1 py-1 active:opacity-60"
@@ -52,6 +69,8 @@ function SheetShell({
           <ScrollView className="mt-4" contentContainerClassName="gap-4 pb-1">
             {children}
           </ScrollView>
+
+          {footer ? <View className="border-border border-t pt-3">{footer}</View> : null}
         </View>
       </View>
     </Modal>
@@ -78,7 +97,10 @@ function Chip({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      onPress={onPress}
+      onPress={() => {
+        hapticFeedback();
+        onPress();
+      }}
       className={`h-11 items-center justify-center border px-3 ${
         grow ? 'min-w-0 flex-1' : 'shrink-0'
       } ${selected ? 'bg-scoreboard border-scoreboard' : 'border-input bg-transparent'} active:opacity-70`}
@@ -138,7 +160,10 @@ export function ExtraRunsSheet({
             key={runs}
             accessibilityRole="button"
             accessibilityLabel={`${runs} run${runs === 1 ? '' : 's'} in total`}
-            onPress={() => onConfirm(runs)}
+            onPress={() => {
+              hapticFeedback();
+              onConfirm(runs);
+            }}
             className="border-border h-14 w-1/4 items-center justify-center border-b border-r active:opacity-70"
           >
             <Text className="text-foreground font-heading text-[20px]">{runs}</Text>
@@ -221,6 +246,7 @@ export function WicketSheet({
     outBatterId: string,
     fielderId?: string,
     nextBatterId?: string,
+    runsCompleted?: number,
   ) => void;
   onCancel: () => void;
 }) {
@@ -232,6 +258,7 @@ export function WicketSheet({
   const [outBatterId, setOutBatterId] = useState(strikerId);
   const [fielderId, setFielderId] = useState<string | null>(null);
   const [nextBatterId, setNextBatterId] = useState<string | null>(null);
+  const [runsCompleted, setRunsCompleted] = useState(0);
   const [pickingOut, setPickingOut] = useState(false);
   const [pickingNext, setPickingNext] = useState(false);
 
@@ -253,6 +280,9 @@ export function WicketSheet({
       setOutBatterId(strikerId);
       setPickingOut(false);
     }
+    if (next !== 'run_out') {
+      setRunsCompleted(0);
+    }
   }
 
   return (
@@ -264,39 +294,69 @@ export function WicketSheet({
           : undefined
       }
       onDismiss={onCancel}
+      footer={
+        <Button
+          label="Record wicket"
+          onPress={() =>
+            onConfirm(
+              type,
+              effectiveOutId,
+              needsFielder && fielderId ? fielderId : undefined,
+              nextBatterId ?? undefined,
+              type === 'run_out' ? runsCompleted : 0,
+            )
+          }
+        />
+      }
     >
       <View className="gap-2">
-        <Label>How out</Label>
+        <Label>Dismissal</Label>
         <View className="flex-row flex-wrap gap-1.5">
           {allowed.map((w) => (
-            <View key={w.value} className="w-[31.7%]">
-              <Chip label={w.label} selected={type === w.value} onPress={() => choose(w.value)} />
-            </View>
+            <Chip
+              key={w.value}
+              label={w.label}
+              selected={type === w.value}
+              onPress={() => choose(w.value)}
+            />
           ))}
         </View>
       </View>
 
-      {needsFielder ? (
-        <View className="gap-2">
-          <Label>Fielder {type === 'run_out' ? '(who threw)' : '(optional)'}</Label>
-          <View className="flex-row flex-wrap gap-1.5">
-            {fielders.map((p) => (
+      {/* Law 38 Run Out: option to specify completed runs before dismissal */}
+      {type === 'run_out' ? (
+        <View className="border-border border-t pt-3.5">
+          <Label>Runs completed before run-out</Label>
+          <View className="mt-2 flex-row gap-1.5">
+            {[0, 1, 2, 3].map((r) => (
               <Chip
-                key={p.id}
-                label={p.fullName}
-                selected={fielderId === p.id}
-                onPress={() => setFielderId(fielderId === p.id ? null : p.id)}
+                key={r}
+                grow
+                label={r === 0 ? '0 (No run)' : `${r} run${r === 1 ? '' : 's'}`}
+                selected={runsCompleted === r}
+                onPress={() => setRunsCompleted(r)}
               />
             ))}
           </View>
         </View>
       ) : null}
 
-      {/*
-        Out, and who replaces them — one row, because they are one decision.
-        Naming the incoming batter here is what stops a second mandatory sheet
-        appearing the moment this one closes.
-      */}
+      {needsFielder ? (
+        <View className="border-border border-t pt-3.5">
+          <Label>{type === 'run_out' ? 'Fielder (run out by)' : 'Fielder (catch / stumping)'}</Label>
+          <View className="mt-2 flex-row flex-wrap gap-1.5">
+            {fielders.map((f) => (
+              <Chip
+                key={f.id}
+                label={f.fullName}
+                selected={fielderId === f.id}
+                onPress={() => setFielderId(fielderId === f.id ? null : f.id)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <View className="border-border border-t pt-3.5">
         <View className="flex-row items-center gap-2">
           <Text className="font-heading shrink-0 text-[9.5px] uppercase tracking-[1.5px] text-neutral-600">
@@ -385,18 +445,6 @@ export function WicketSheet({
           </View>
         ) : null}
       </View>
-
-      <Button
-        label="Record wicket"
-        onPress={() =>
-          onConfirm(
-            type,
-            effectiveOutId,
-            needsFielder && fielderId ? fielderId : undefined,
-            nextBatterId ?? undefined,
-          )
-        }
-      />
     </SheetShell>
   );
 }

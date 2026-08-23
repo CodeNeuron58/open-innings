@@ -73,11 +73,13 @@ describe('deliveryFor', () => {
     expect(deliveryFor({ kind: 'runs', runs: 4 })).toEqual({
       eventType: '4',
       runsOffBat: 4,
+      overthrowRuns: 0,
       extraRuns: 0,
     });
     expect(deliveryFor({ kind: 'runs', runs: 0 })).toEqual({
       eventType: 'dot',
       runsOffBat: 0,
+      overthrowRuns: 0,
       extraRuns: 0,
     });
   });
@@ -86,6 +88,7 @@ describe('deliveryFor', () => {
     expect(deliveryFor({ kind: 'extra', extra: 'no_ball', total: 5 })).toEqual({
       eventType: 'no_ball',
       runsOffBat: 4,
+      overthrowRuns: 0,
       extraRuns: 1,
     });
   });
@@ -106,7 +109,7 @@ describe('every payload a keypad can build is one the server accepts', () => {
   };
 
   const everyChoice = [
-    ...[0, 1, 2, 3, 4, 6].map((runs) => ({ kind: 'runs' as const, runs })),
+    ...[0, 1, 2, 3, 4, 5, 6].map((runs) => ({ kind: 'runs' as const, runs })),
     ...KINDS.flatMap((extra) =>
       EXTRA_TOTALS[extra].map((total) => ({ kind: 'extra' as const, extra, total })),
     ),

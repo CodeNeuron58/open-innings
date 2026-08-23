@@ -55,14 +55,15 @@ export const RUN_EVENT_TYPE: Record<number, BallEventType> = {
  */
 export function deliveryFor(
   choice: { kind: 'runs'; runs: number } | { kind: 'extra'; extra: ExtraKind; total: number },
-): { eventType: BallEventType; runsOffBat: number; extraRuns: number } {
+): { eventType: BallEventType; runsOffBat: number; overthrowRuns: number; extraRuns: number } {
   if (choice.kind === 'runs') {
     return {
       eventType: RUN_EVENT_TYPE[choice.runs] ?? 'dot',
       runsOffBat: choice.runs,
+      overthrowRuns: 0,
       extraRuns: 0,
     };
   }
   const { runsOffBat, extraRuns } = splitExtra(choice.extra, choice.total);
-  return { eventType: choice.extra, runsOffBat, extraRuns };
+  return { eventType: choice.extra, runsOffBat, overthrowRuns: 0, extraRuns };
 }

@@ -3,11 +3,23 @@
  * Replaces a single delivery and shows the resulting changes to the innings.
  */
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';
 import type { BallCorrectionChange, PatchBallInput } from '@open-innings/shared';
 import { EXTRA_TOTALS, deliveryFor, type ExtraKind } from '../../lib/deliveries';
 import { Button } from '../ui';
+
+function hapticFeedback() {
+  try {
+    if (Platform.OS === 'android') {
+      Vibration.vibrate(12);
+    } else {
+      Vibration.vibrate([0, 10]);
+    }
+  } catch {
+    /* ignore if vibration not supported */
+  }
+}
 
 /**
  * What one delivery can be corrected to.
@@ -32,6 +44,7 @@ const CHOICES: Choice[] = [
   { kind: 'runs', runs: 2, label: '2' },
   { kind: 'runs', runs: 3, label: '3' },
   { kind: 'runs', runs: 4, label: '4' },
+  { kind: 'runs', runs: 5, label: '5' },
   { kind: 'runs', runs: 6, label: '6' },
   { kind: 'extra', extra: 'wide', label: 'wd' },
   { kind: 'extra', extra: 'no_ball', label: 'nb' },
@@ -164,6 +177,7 @@ export function CorrectBallSheet({
                         accessibilityRole="radio"
                         accessibilityState={{ selected: picked === i }}
                         onPress={() => {
+                          hapticFeedback();
                           setPicked(i);
                           setTotal(1);
                         }}
@@ -194,7 +208,10 @@ export function CorrectBallSheet({
                           key={n}
                           accessibilityRole="radio"
                           accessibilityState={{ selected: total === n }}
-                          onPress={() => setTotal(n)}
+                          onPress={() => {
+                            hapticFeedback();
+                            setTotal(n);
+                          }}
                           className={`h-11 w-[52px] items-center justify-center border ${
                             total === n ? 'bg-scoreboard border-scoreboard' : 'border-input'
                           } active:opacity-70`}

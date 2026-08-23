@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -381,6 +381,7 @@ export default function Scorer() {
     outBatterId: string,
     fielderId?: string,
     nextBatterId?: string,
+    runsCompleted: number = 0,
   ) {
     setShowWicket(false);
     // Through `send`, so a wicket gets the same retry protection every other
@@ -388,9 +389,9 @@ export default function Scorer() {
     const next = await send({
       inningsId: inn.id,
       eventType: 'wicket',
-      runsOffBat: 0,
+      runsOffBat: runsCompleted,
       extraRuns: 0,
-      totalRuns: 0,
+      totalRuns: runsCompleted,
       batsmanId: effStriker,
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
@@ -671,7 +672,10 @@ export default function Scorer() {
                   key={kind}
                   accessibilityRole="button"
                   accessibilityState={{ selected: pendingExtra === kind }}
-                  onPress={() => setPendingExtra(kind)}
+                  onPress={() => {
+                    hapticFeedback();
+                    setPendingExtra(kind);
+                  }}
                   disabled={mutation.busy}
                   className={`h-9 flex-1 items-center justify-center border ${
                     pendingExtra === kind
@@ -692,7 +696,8 @@ export default function Scorer() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Award 5 penalty runs (Law 41/42)"
-                onPress={() =>
+                onPress={() => {
+                  hapticFeedback();
                   void send({
                     inningsId: inn.id,
                     eventType: 'penalty',
@@ -703,8 +708,8 @@ export default function Scorer() {
                     nonStrikerId: effNonStriker,
                     bowlerId: effBowler,
                     bowlerReplacedMidOver: midOverBowlerId !== null,
-                  })
-                }
+                  });
+                }}
                 disabled={mutation.busy}
                 className={`border-border h-9 w-14 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
               >
@@ -728,7 +733,10 @@ export default function Scorer() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Undo last ball"
-                onPress={() => void undo()}
+                onPress={() => {
+                  hapticFeedback();
+                  void undo();
+                }}
                 disabled={mutation.busy || state.balls.length === 0}
                 className={`border-border h-9 flex-row items-center justify-center border px-3 ${
                   mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
@@ -777,8 +785,8 @@ export default function Scorer() {
           nextBatters={batterCandidates}
           // Law 21.18 narrows the sheet rather than letting the tap be refused.
           isFreeHit={inn.isFreeHitNext}
-          onConfirm={(type, outId, fielderId, nextId) =>
-            void scoreWicket(type, outId, fielderId, nextId)
+          onConfirm={(type, outId, fielderId, nextId, runsCompleted) =>
+            void scoreWicket(type, outId, fielderId, nextId, runsCompleted)
           }
           onCancel={() => setShowWicket(false)}
         />
@@ -978,6 +986,18 @@ function BatterRow({
   );
 }
 
+function hapticFeedback() {
+  try {
+    if (Platform.OS === 'android') {
+      Vibration.vibrate(12);
+    } else {
+      Vibration.vibrate([0, 10]);
+    }
+  } catch {
+    /* ignore if vibration not supported */
+  }
+}
+
 function Key({
   label,
   tone,
@@ -996,7 +1016,10 @@ function Key({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label === '0' ? 'Dot ball' : label === 'W' ? 'Wicket' : `${label} runs`}
-      onPress={onPress}
+      onPress={() => {
+        hapticFeedback();
+        onPress();
+      }}
       disabled={disabled}
       // w-1/4 with a right/bottom hairline gives the drawn grid without gaps.
       className={`${tone} border-border h-[52px] w-1/4 items-center justify-center border-b border-r ${
