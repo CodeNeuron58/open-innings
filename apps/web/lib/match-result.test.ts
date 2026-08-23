@@ -109,4 +109,16 @@ describe('formatMatchResult', () => {
       'Winner won by 5 runs',
     );
   });
+
+  it('formats super over wins and ties cleanly without margin numbers', () => {
+    expect(
+      formatMatchResult({ winningTeamId: 't', marginRuns: 4 }, 'Belonia', { superOver: true }),
+    ).toBe('Belonia won the Super Over');
+    expect(
+      formatMatchResult({ winningTeamId: 't', marginWickets: 1 }, 'Belonia', { superOver: true }),
+    ).toBe('Belonia won the Super Over');
+    expect(
+      formatMatchResult({ winningTeamId: null }, 'Belonia', { superOver: true }),
+    ).toBe('Super Over tied');
+  });
 });

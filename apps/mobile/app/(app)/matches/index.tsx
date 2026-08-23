@@ -1,11 +1,7 @@
-/**
- * B1 — Matches home screen.
- * Shows live matches first, then finished.
- */
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import type { MatchListResponse } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { formatLabel } from '../../../lib/formats';
@@ -115,6 +111,13 @@ function FinishedMatch({
 export default function Matches() {
   const router = useRouter();
   const query = useApiQuery<MatchListResponse>((t, signal) => api.matches(t, signal), []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void query.refresh();
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refresh is stable
+    }, [query.refresh]),
+  );
 
   // Corrections and settings are accessed via long press.
   const [settingsFor, setSettingsFor] = useState<MatchRow | null>(null);

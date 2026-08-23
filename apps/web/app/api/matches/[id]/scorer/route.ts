@@ -86,13 +86,17 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const teamName = (teamId: string) =>
     teamId === match.teamAId ? (teamA?.name ?? 'Team A') : (teamB?.name ?? 'Team B');
 
-  // The innings break: innings 1 is done and the chase hasn't been opened yet.
+  // The innings break: an innings is done and the chase hasn't been opened yet.
   const firstInnings = allInnings.find((i) => i.inningsNumber === 1);
   const secondInnings = allInnings.find((i) => i.inningsNumber === 2);
+  const thirdInnings = allInnings.find((i) => i.inningsNumber === 3);
+  const fourthInnings = allInnings.find((i) => i.inningsNumber === 4);
+  const isSuperOverBreak =
+    thirdInnings?.status === 'completed' && fourthInnings === undefined;
   const awaitingSecondInnings =
     match.status !== 'completed' &&
-    firstInnings?.status === 'completed' &&
-    secondInnings === undefined;
+    ((firstInnings?.status === 'completed' && secondInnings === undefined) ||
+      isSuperOverBreak);
 
   return NextResponse.json(
     {
@@ -109,7 +113,7 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
       // The chase needs openers from the sides swapped round.
       nextBattingSquad: awaitingSecondInnings ? bowlingSquad : [],
       nextBowlingSquad: awaitingSecondInnings ? battingSquad : [],
-      firstInningsRuns: firstInnings?.runs ?? null,
+      firstInningsRuns: (isSuperOverBreak ? thirdInnings?.runs : firstInnings?.runs) ?? null,
       watching: await countWatching(id),
     },
     { status: HTTP.ok },

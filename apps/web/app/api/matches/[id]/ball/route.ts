@@ -214,7 +214,9 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
                 ? 'team_a_win'
                 : 'team_b_win',
           winningTeamId: result.winningTeamId,
-          summary: formatMatchResult(result, winner?.name),
+          summary: formatMatchResult(result, winner?.name, {
+            superOver: currentInnings.inningsNumber >= 3,
+          }),
         });
       } catch (err) {
         // The ball is already saved — a failed result write must not fail the request.

@@ -102,7 +102,7 @@ export function InningsBreak({
       <Stack.Screen options={{ title: 'Innings break', headerShown: false }} />
 
       <View className="flex-row items-baseline justify-between px-4 pb-2 pt-3">
-        <Kicker>Innings break</Kicker>
+        <Kicker>{inn.inningsNumber >= 3 ? 'Super Over break' : 'Innings break'}</Kicker>
         {step === 'openers' ? (
           <Pressable
             accessibilityRole="button"
@@ -237,7 +237,10 @@ export function InningsBreak({
               </View>
             </View>
             <View className="mt-2">
-              <Button label="Start 2nd innings" onPress={() => setStep('openers')} />
+              <Button
+                label={inn.inningsNumber >= 3 ? 'Start Super Over chase' : 'Start 2nd innings'}
+                onPress={() => setStep('openers')}
+              />
             </View>
             {/* The usual reason to be here wrongly is a mis-recorded final ball. */}
             <View className="mt-1">
@@ -271,7 +274,11 @@ export function InningsBreak({
           </ScrollView>
 
           <View className="border-border border-t px-4 pb-3 pt-3">
-            <Button label="Start the chase" onPress={begin} loading={busy} />
+            <Button
+              label={inn.inningsNumber >= 3 ? 'Start Super Over chase' : 'Start the chase'}
+              onPress={begin}
+              loading={busy}
+            />
           </View>
         </>
       )}

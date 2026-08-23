@@ -312,6 +312,40 @@ export async function updateOwnedMatch(matchId: string, input: UpdateMatchInput)
 
   if (lengthChanged || input.maxOversPerBowler !== undefined) {
     await recomputeInningsCaches(matchId);
+    const allInnings = await getInnings(matchId);
+    const lastInning = allInnings[allInnings.length - 1];
+    const freshMatch = (await getMatch(matchId)) ?? match;
+    if (
+      lastInning &&
+      lastInning.inningsNumber >= 2 &&
+      lastInning.status === 'completed' &&
+      lastInning.target != null &&
+      freshMatch.status === 'live'
+    ) {
+      const result = computeMatchResult({
+        runs: lastInning.runs,
+        wickets: lastInning.wickets,
+        target: lastInning.target,
+        maxWickets: lastInning.maxWickets,
+        battingTeamId: lastInning.battingTeamId,
+        bowlingTeamId: lastInning.bowlingTeamId,
+      });
+      const winner = result.winningTeamId
+        ? await getTeam(result.winningTeamId).catch(() => null)
+        : null;
+      await completeMatch(matchId, {
+        result:
+          result.winningTeamId === null
+            ? 'tie'
+            : result.winningTeamId === match.teamAId
+              ? 'team_a_win'
+              : 'team_b_win',
+        winningTeamId: result.winningTeamId,
+        summary: formatMatchResult(result, winner?.name, {
+          superOver: lastInning.inningsNumber >= 3,
+        }),
+      });
+    }
   }
 
   return (await getMatch(matchId)) ?? match;

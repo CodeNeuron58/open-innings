@@ -50,19 +50,28 @@ export function MatchSettings({
     if (saved) onDone();
   }
 
+  async function doAbandon(reason: string) {
+    const done = await mutation.run((t) => api.abandonMatch(t, match.id, reason));
+    if (done) onDone();
+  }
+
   function confirmAbandon() {
     Alert.alert(
       'Abandon this match?',
-      'It will be recorded as a no result — not a tie, and not a win. Everything scored so far is kept.',
+      'Choose the reason. It will be recorded as a no result — not a tie, and not a win. Everything scored so far is kept.',
       [
         { text: 'Keep playing', style: 'cancel' },
         {
-          text: 'Abandon',
-          style: 'destructive',
-          onPress: async () => {
-            const done = await mutation.run((t) => api.abandonMatch(t, match.id, 'Rain'));
-            if (done) onDone();
-          },
+          text: 'Rain / Bad Weather',
+          onPress: () => void doAbandon('Rain'),
+        },
+        {
+          text: 'Bad Light',
+          onPress: () => void doAbandon('Bad light'),
+        },
+        {
+          text: 'Mutual Agreement / Other',
+          onPress: () => void doAbandon('Mutual agreement'),
         },
       ],
     );

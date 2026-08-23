@@ -348,7 +348,18 @@ export default function NewMatch() {
                   <Chips
                     options={teams.map((t) => t.name)}
                     value={nameOf(homeId) || null}
-                    onChange={(name) => setHomeId(teams.find((t) => t.name === name)?.id ?? null)}
+                    onChange={(name) => {
+                      const newId = teams.find((t) => t.name === name)?.id ?? null;
+                      setHomeId(newId);
+                      if (tossWinnerId && tossWinnerId !== newId && tossWinnerId !== awayId) {
+                        setTossWinnerId(null);
+                        setTossDecision(null);
+                      }
+                      setStrikerId(null);
+                      setNonStrikerId(null);
+                      setBowlerId(null);
+                      setSelected(new Set());
+                    }}
                     disabled={awayId ? [nameOf(awayId)] : []}
                   />
                 </View>
@@ -361,7 +372,18 @@ export default function NewMatch() {
                   <Chips
                     options={teams.map((t) => t.name)}
                     value={nameOf(awayId) || null}
-                    onChange={(name) => setAwayId(teams.find((t) => t.name === name)?.id ?? null)}
+                    onChange={(name) => {
+                      const newId = teams.find((t) => t.name === name)?.id ?? null;
+                      setAwayId(newId);
+                      if (tossWinnerId && tossWinnerId !== homeId && tossWinnerId !== newId) {
+                        setTossWinnerId(null);
+                        setTossDecision(null);
+                      }
+                      setStrikerId(null);
+                      setNonStrikerId(null);
+                      setBowlerId(null);
+                      setSelected(new Set());
+                    }}
                     disabled={homeId ? [nameOf(homeId)] : []}
                   />
                 </View>
@@ -376,9 +398,14 @@ export default function NewMatch() {
                 <Chips
                   options={[nameOf(homeId), nameOf(awayId)]}
                   value={nameOf(tossWinnerId) || null}
-                  onChange={(name) =>
-                    setTossWinnerId(teams.find((t) => t.name === name)?.id ?? null)
-                  }
+                  onChange={(name) => {
+                    const id = teams.find((t) => t.name === name)?.id ?? null;
+                    setTossWinnerId(id);
+                    setStrikerId(null);
+                    setNonStrikerId(null);
+                    setBowlerId(null);
+                    setSelected(new Set());
+                  }}
                 />
                 <Chips
                   options={['Elected to bat', 'Elected to bowl']}
@@ -389,7 +416,13 @@ export default function NewMatch() {
                         ? 'Elected to bowl'
                         : null
                   }
-                  onChange={(v) => setTossDecision(v === 'Elected to bat' ? 'bat' : 'bowl')}
+                  onChange={(v) => {
+                    setTossDecision(v === 'Elected to bat' ? 'bat' : 'bowl');
+                    setStrikerId(null);
+                    setNonStrikerId(null);
+                    setBowlerId(null);
+                    setSelected(new Set());
+                  }}
                 />
               </View>
               {sides ? (
