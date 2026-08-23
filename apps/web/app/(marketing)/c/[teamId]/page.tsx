@@ -53,6 +53,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   }
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  batsman: 'Top order',
+  bowler: 'Bowler',
+  all_rounder: 'All-rounder',
+  wicket_keeper: 'Keeper',
+  wicket_keeper_batsman: 'Keeper-bat',
+};
+
 function when(date: Date | null): string {
   if (!date) return '';
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -139,7 +147,9 @@ export default async function ClubPage({ params }: Params) {
                 <BlueprintLink key={p.id} href={`/p/${p.id}`} className="oi-card oi-card-link">
                   <h2 className="oi-h2 oi-h3">{p.fullName}</h2>
                   {p.role ? (
-                    <p className="oi-card-body oi-dim">{p.role.replace(/_/g, ' ')}</p>
+                    <p className="oi-card-body oi-dim">
+                      {ROLE_LABELS[p.role] ?? p.role.replace(/_/g, ' ')}
+                    </p>
                   ) : null}
                   <span className="oi-card-cta">Career record ›</span>
                 </BlueprintLink>

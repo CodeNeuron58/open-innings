@@ -102,13 +102,15 @@ export default async function Image({ params }: { params: Promise<{ playerId: st
     // A bowler's card should lead with wickets, a batter's with runs. Pick by
     // whichever they have actually done more of rather than showing a wall of
     // zeroes for the half they don't play.
-    const isBowler = bowling.wickets > 0 && bowling.wickets * 20 > batting.runs;
+    const isBowler =
+      (bowling.wickets > 0 && bowling.wickets * 20 > batting.runs) ||
+      (bowling.innings > 0 && batting.innings === 0);
 
     stats = isBowler
       ? [
           { value: String(bowling.wickets), label: 'Wickets' },
           {
-            value: bowling.bestWickets > 0 ? `${bowling.bestWickets}-${bowling.bestRuns}` : '—',
+            value: bowling.innings > 0 ? `${bowling.bestWickets}-${bowling.bestRuns}` : '—',
             label: 'Best',
           },
           { value: bowling.economy === null ? '—' : bowling.economy.toFixed(2), label: 'Economy' },
@@ -128,6 +130,8 @@ export default async function Image({ params }: { params: Promise<{ playerId: st
     if (batting.innings > 0) parts.push(`${batting.innings} innings`);
     if (bowling.wickets > 0) {
       parts.push(`${bowling.wickets} wicket${bowling.wickets === 1 ? '' : 's'}`);
+    } else if (bowling.innings > 0 && batting.innings === 0) {
+      parts.push('0 wickets');
     }
     const fiftyPlus = batting.fifties + batting.hundreds;
     if (fiftyPlus > 0) {

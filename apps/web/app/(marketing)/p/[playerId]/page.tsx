@@ -152,7 +152,7 @@ export default async function PlayerPage({ params }: Params) {
                   />
                 </>
               ) : null}
-              {season.bowling.wickets > 0 ? (
+              {season.bowling.innings > 0 ? (
                 <>
                   <Figure value={String(season.bowling.wickets)} label="Wickets" />
                   <Figure value={n(season.bowling.economy)} label="Economy" />
@@ -236,7 +236,7 @@ export default async function PlayerPage({ params }: Params) {
             <div className="oi-figures">
               <Figure value={String(bowling.wickets)} label="Wickets" />
               <Figure
-                value={bowling.bestWickets > 0 ? `${bowling.bestWickets}-${bowling.bestRuns}` : '—'}
+                value={bowling.innings > 0 ? `${bowling.bestWickets}-${bowling.bestRuns}` : '—'}
                 label="Best figures"
               />
               <Figure value={n(bowling.average)} label="Average" />
