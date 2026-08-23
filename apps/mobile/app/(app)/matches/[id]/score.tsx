@@ -423,12 +423,14 @@ export default function Scorer() {
     runsCompleted: number = 0,
   ) {
     setShowWicket(false);
+    setPendingExtra(null);
     // Through `send`, so a wicket gets the same retry protection every other
     // delivery has — it was the one path that bypassed it.
     const next = await send({
       inningsId: inn.id,
       eventType: 'wicket',
       runsOffBat: runsCompleted,
+      overthrowRuns: 0,
       extraRuns: 0,
       totalRuns: runsCompleted,
       batsmanId: effStriker,
