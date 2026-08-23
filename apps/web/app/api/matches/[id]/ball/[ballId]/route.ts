@@ -87,6 +87,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
         overNumber: b.overNumber,
         eventType: b.eventType,
         runsOffBat: b.runsOffBat,
+        overthrowRuns: b.overthrowRuns,
         extraRuns: b.extraRuns,
         totalRuns: b.totalRuns,
         isLegalDelivery: b.isLegalDelivery,

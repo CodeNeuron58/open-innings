@@ -88,6 +88,7 @@ export const ballEventType = pgEnum('ball_event_type', [
   'no_ball',
   'bye',
   'leg_bye',
+  'penalty', // Law 41/42: 5-run fielding penalty
   'wicket',
 ]);
 
@@ -534,9 +535,15 @@ export const ballEvents = pgTable(
       .references(() => players.id, { onDelete: 'restrict' }),
 
     // Runs breakdown
-    runsOffBat: smallint('runs_off_bat').notNull().default(0), // 0..6
+    runsOffBat: smallint('runs_off_bat').notNull().default(0), // 0..6 — what the batter hit
+    /**
+     * Overthrow runs — physically run after the ball deflects off a fielder.
+     * Law 18.6 / 19.8: counted in the team total but NOT credited to the batter.
+     * Zero on every ordinary delivery. Added in migration 0015.
+     */
+    overthrowRuns: smallint('overthrow_runs').notNull().default(0),
     extraRuns: smallint('extra_runs').notNull().default(0), // wides/no-balls/bye runs
-    totalRuns: smallint('total_runs').notNull().default(0), // runsOffBat + extraRuns
+    totalRuns: smallint('total_runs').notNull().default(0), // runsOffBat + overthrowRuns + extraRuns
     isLegalDelivery: boolean('is_legal_delivery').notNull().default(true),
 
     // Free hit context — set when this ball is a free hit (after a no-ball).

@@ -145,7 +145,7 @@ export const WIDE_PENALTY = 1;
  * dropped no-balls, the engine did the reverse — so the same innings produced
  * one strike rate on a match card and another on a career page.
  */
-export const BATSMAN_FACING_EXCLUDED_TYPES: ReadonlySet<string> = new Set(['wide']);
+export const BATSMAN_FACING_EXCLUDED_TYPES: ReadonlySet<string> = new Set(['wide', 'penalty']);
 
 /**
  * Extras that are NOT charged to the bowler's analysis.
@@ -269,8 +269,9 @@ export const BALLS_PER_OVER = 6;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function isLegalDelivery(eventType: string): boolean {
-  // wide and no_ball are illegal — every other type is legal
-  return eventType !== 'wide' && eventType !== 'no_ball';
+  // wide, no_ball, and penalty are not bowled deliveries — they do not count
+  // toward the over's ball tally.
+  return eventType !== 'wide' && eventType !== 'no_ball' && eventType !== 'penalty';
 }
 
 export function isExtra(eventType: string): boolean {

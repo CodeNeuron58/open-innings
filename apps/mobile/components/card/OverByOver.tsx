@@ -30,6 +30,7 @@ function toBallEvent(d: CardDelivery, index: number): BallEvent {
     ballNumber: d.ballNumber,
     eventType: d.eventType as BallEvent['eventType'],
     runsOffBat: d.runsOffBat,
+    overthrowRuns: 0,
     extraRuns: d.extraRuns,
     totalRuns: d.totalRuns,
     isLegalDelivery: d.isLegalDelivery,

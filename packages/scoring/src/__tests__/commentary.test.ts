@@ -14,6 +14,7 @@ function ball(overrides: Partial<BallEvent> = {}): BallEvent {
     ballNumber: 114,
     eventType: 'dot',
     runsOffBat: 0,
+    overthrowRuns: 0,
     extraRuns: 0,
     totalRuns: 0,
     isLegalDelivery: true,

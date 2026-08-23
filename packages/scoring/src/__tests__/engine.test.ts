@@ -969,3 +969,60 @@ describe('new batter after a wicket', () => {
     ).toThrow(ScoringError);
   });
 });
+
+describe('Overthrow runs separation (Law 18.6 & 19.8)', () => {
+  it('adds overthrow runs to innings score but does NOT credit them as bat runs or boundaries', () => {
+    let state = seed();
+    state = applyBall(state, {
+      inningsId: asInningsId(INNINGS_ID),
+      eventType: '1',
+      runsOffBat: 1,
+      overthrowRuns: 4,
+      extraRuns: 0,
+      totalRuns: 5,
+      batsmanId: pid(STRIKER),
+      nonStrikerId: pid(NON_STRIKER),
+      bowlerId: pid(BOWLER),
+    });
+
+    // Innings gets all 5 runs
+    expect(state.currentInnings.runs).toBe(5);
+    expect(state.currentInnings.ballsBowled).toBe(1);
+
+    // Batter only credited with the 1 run off the bat (NOT 5 runs, NOT a boundary four)
+    expect(state.batting[STRIKER]?.runs).toBe(1);
+    expect(state.batting[STRIKER]?.fours).toBe(0);
+    expect(state.batting[STRIKER]?.sixes).toBe(0);
+    expect(state.batting[STRIKER]?.balls).toBe(1);
+  });
+});
+
+describe('Penalty runs (Law 41 & 42)', () => {
+  it('records 5 penalty runs to team extras without advancing balls bowled or bowler runs', () => {
+    let state = seed();
+    state = applyBall(state, {
+      inningsId: asInningsId(INNINGS_ID),
+      eventType: 'penalty',
+      runsOffBat: 0,
+      extraRuns: 5,
+      totalRuns: 5,
+      batsmanId: pid(STRIKER),
+      nonStrikerId: pid(NON_STRIKER),
+      bowlerId: pid(BOWLER),
+    });
+
+    // Innings total has 5 extras and 5 runs, but balls bowled has NOT advanced
+    expect(state.currentInnings.runs).toBe(5);
+    expect(state.currentInnings.extras).toBe(5);
+    expect(state.currentInnings.ballsBowled).toBe(0);
+
+    // Bowler is exempt from penalty runs
+    expect(state.bowling[BOWLER]?.runs).toBe(0);
+    expect(state.bowling[BOWLER]?.balls).toBe(0);
+
+    // Striker did not face a ball
+    expect(state.batting[STRIKER]?.balls).toBe(0);
+    expect(state.batting[STRIKER]?.runs).toBe(0);
+  });
+});
+

@@ -85,6 +85,7 @@ export const BALL_EVENT_TYPES = [
   'no_ball',
   'bye',
   'leg_bye',
+  'penalty', // Law 41/42: 5-run fielding penalty
   'wicket',
 ] as const;
 export type BallEventTypeValue = (typeof BALL_EVENT_TYPES)[number];

@@ -688,6 +688,26 @@ export default function Scorer() {
                   </Text>
                 </Pressable>
               ))}
+              {/* Law 41/42: 5-run fielding penalty (helmet on field, ball tampering, etc.) */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Award 5 penalty runs (Law 41/42)"
+                onPress={() =>
+                  void send({
+                    inningsId: inn.id,
+                    eventType: 'penalty',
+                    runsOffBat: 0,
+                    extraRuns: 5,
+                    batsmanId: effStriker,
+                    nonStrikerId: effNonStriker,
+                    bowlerId: effBowler,
+                  })
+                }
+                disabled={mutation.busy}
+                className={`border-border h-9 w-14 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+              >
+                <Text className="text-amber-600 font-heading text-[11px]">+5 Pen</Text>
+              </Pressable>
             </View>
 
             {/* 0–6 and W, on one hairline grid. */}

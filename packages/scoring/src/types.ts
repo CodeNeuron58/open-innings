@@ -31,7 +31,19 @@ export const asTeamId = (s: string): TeamId => s as TeamId;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BallEventType =
-  'dot' | '1' | '2' | '3' | '4' | '5' | '6' | 'wide' | 'no_ball' | 'bye' | 'leg_bye' | 'wicket'; // synthetic — always paired with wicketType
+  | 'dot'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | 'wide'
+  | 'no_ball'
+  | 'bye'
+  | 'leg_bye'
+  | 'penalty' // Law 41/42: 5-run fielding penalty (helmet, tampering, unfair play)
+  | 'wicket'; // synthetic — always paired with wicketType
 
 export type WicketType =
   | 'bowled'
@@ -63,10 +75,23 @@ export type BallEvent = {
   ballNumber: number; // sequence within innings (1-indexed for display)
 
   eventType: BallEventType;
-  runsOffBat: number; // 0..6 — what the batsman hit
+  runsOffBat: number; // 0..6 — what the batsman hit (EXCLUDES overthrowRuns)
   extraRuns: number; // penalty (wides/no-balls) + byes/leg-byes
-  totalRuns: number; // = runsOffBat + extraRuns
-  isLegalDelivery: boolean; // false for wide/no_ball
+  totalRuns: number; // = runsOffBat + overthrowRuns + extraRuns
+  isLegalDelivery: boolean; // false for wide/no_ball/penalty
+
+  /**
+   * Overthrow runs — physically run after the ball deflects off a fielder
+   * and the batting team crosses while the ball is not yet dead.
+   *
+   * Law 18.6 / 19.8: they add to the innings total but are NOT credited to
+   * the batter's individual runs, fours, or sixes, and therefore do NOT
+   * inflate strike rates or boundary counts.
+   *
+   * Separate from runsOffBat so `updateBatting` can exclude them. Zero on
+   * every ordinary delivery.
+   */
+  overthrowRuns: number;
 
   isFreeHit: boolean; // this ball IS a free hit (after a no-ball)
 
@@ -242,9 +267,10 @@ export type MatchState = {
  *   - `id` (random UUID)
  *   - `overNumber` (computed from innings state)
  *   - `ballNumber` (computed as balls.length + 1)
- *   - `totalRuns` (runsOffBat + extraRuns)
+ *   - `totalRuns` (runsOffBat + overthrowRuns + extraRuns)
  *   - `isLegalDelivery` (derived from eventType)
  *   - `isFreeHit` (taken from state.isFreeHitNext)
+ *   - `overthrowRuns` (defaults to 0)
  */
 export type BallEventInput = {
   inningsId: InningsId;
@@ -252,6 +278,8 @@ export type BallEventInput = {
   eventType: BallEventType;
   runsOffBat: number;
   extraRuns: number;
+  /** Runs that crossed after a deflection — not credited to the batter. Defaults to 0. */
+  overthrowRuns?: number;
   totalRuns?: number; // auto-computed if not provided
   isLegalDelivery?: boolean; // auto-derived from eventType if not provided
   isFreeHit?: boolean; // auto-taken from state.isFreeHitNext if not provided

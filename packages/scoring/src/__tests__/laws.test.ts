@@ -173,6 +173,76 @@ describe('retirements are not outcomes of the delivery', () => {
       ),
     ).toBeNull();
   });
+
+  it('retired hurt on a wide: replacement takes the exact crease end of the retired batter', () => {
+    // b1 retires hurt off a wide. A wide does NOT rotate the strike (no runs
+    // physically crossed — the wide penalty is awarded, not run). So b1 was at
+    // the striker's end; the replacement (b3) must take the striker's end, and
+    // b2 must remain at the non-striker's end. If the engine mis-rotates,
+    // b3 would silently appear at the wrong end and the next delivery would
+    // BATSMAN_NOT_ON_FIELD.
+    let s = seedWith(); // b1 striker, b2 non-striker
+    s = bowl(s, {
+      eventType: 'wide',
+      extraRuns: 1,
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    // b1 was at the striker's end; after no strike rotation on a wide,
+    // that vacancy is the striker slot.
+    expect(s.currentInnings.strikerId).toBe(asPlayerId('b1'));
+    expect(s.currentInnings.nonStrikerId).toBe(asPlayerId('b2'));
+
+    // Replace b1 (the striker) with b3. Must succeed — not BATSMAN_NOT_ON_FIELD.
+    expect(
+      codeFor(() => bowl(s, { batsmanId: asPlayerId('b3'), nonStrikerId: asPlayerId('b2') })),
+    ).toBeNull();
+  });
+
+  it('retired hurt on a wide with odd extra runs: replacement crease end reflects strike rotation', () => {
+    // Wide (1 penalty) + 1 run physically crossed = 2 total extraRuns.
+    // 1 run physically crossed is ODD → strike rotates.
+    // b1 (striker) crosses to non-striker's end before retiring.
+    // Therefore, b2 becomes the striker, and the replacement b3 must come in at non-striker.
+    let s = seedWith();
+    s = bowl(s, {
+      eventType: 'wide',
+      extraRuns: 2, // 1 penalty + 1 physically run = 1 run crossed (ODD -> strike swap)
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    // After odd crossing, b1 ended up at non-striker end, and b2 at striker end.
+    expect(s.currentInnings.strikerId).toBe(asPlayerId('b2'));
+    expect(s.currentInnings.nonStrikerId).toBe(asPlayerId('b1'));
+
+    // Replace b1 (non-striker) with b3. Must succeed — not BATSMAN_NOT_ON_FIELD.
+    expect(
+      codeFor(() => bowl(s, { batsmanId: asPlayerId('b2'), nonStrikerId: asPlayerId('b3') })),
+    ).toBeNull();
+  });
+
+  it('retired hurt on a wide with even extra runs: replacement stays at striker end', () => {
+    // Wide (1 penalty) + 2 runs physically crossed = 3 total extraRuns.
+    // 2 runs physically crossed is EVEN → strike does NOT rotate.
+    // b1 remains at striker's end before retiring.
+    let s = seedWith();
+    s = bowl(s, {
+      eventType: 'wide',
+      extraRuns: 3, // 1 penalty + 2 physically run = 2 runs crossed (EVEN -> no swap)
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    expect(s.currentInnings.strikerId).toBe(asPlayerId('b1'));
+    expect(s.currentInnings.nonStrikerId).toBe(asPlayerId('b2'));
+
+    // Replace b1 (striker) with b3.
+    expect(
+      codeFor(() => bowl(s, { batsmanId: asPlayerId('b3'), nonStrikerId: asPlayerId('b2') })),
+    ).toBeNull();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

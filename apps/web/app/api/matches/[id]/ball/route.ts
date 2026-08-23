@@ -130,6 +130,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         ballNumber: newBall.ballNumber,
         eventType: newBall.eventType,
         runsOffBat: newBall.runsOffBat,
+        overthrowRuns: newBall.overthrowRuns,
         extraRuns: newBall.extraRuns,
         totalRuns: newBall.totalRuns,
         isLegalDelivery: newBall.isLegalDelivery,

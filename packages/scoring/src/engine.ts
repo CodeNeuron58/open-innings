@@ -170,8 +170,10 @@ type ComposeContext = {
 function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
   const legal = isLegalDelivery(input.eventType);
 
+  const overthrowRuns = input.overthrowRuns ?? 0;
+
   // Auto-fill totalRuns if the caller didn't compute it
-  const totalRuns = input.totalRuns ?? input.runsOffBat + input.extraRuns;
+  const totalRuns = input.totalRuns ?? input.runsOffBat + overthrowRuns + input.extraRuns;
 
   // Auto-fill isLegalDelivery
   const isLegal = input.isLegalDelivery ?? legal;
@@ -193,6 +195,7 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
     ballNumber,
     eventType: input.eventType,
     runsOffBat: input.runsOffBat,
+    overthrowRuns,
     extraRuns: input.extraRuns,
     totalRuns,
     isLegalDelivery: isLegal,
@@ -561,10 +564,15 @@ function updateBatting(
     striker.balls += 1;
   }
 
-  // Runs off the bat — credited to the striker who played the ball
+  // Runs off the bat — credited to the striker who played the ball.
+  //
+  // Overthrow runs (Law 18.6 / 19.8) are NOT credited to the batter:
+  // they add to the team total but did not come off the bat, so they must
+  // not inflate the batter's run count, strike rate, or boundary tally.
   striker.runs += event.runsOffBat;
-  if (event.runsOffBat === 4) striker.fours += 1;
-  if (event.runsOffBat === 6) striker.sixes += 1;
+  // Only count a four/six when the boundary came from the bat itself.
+  if (event.runsOffBat === 4 && event.overthrowRuns === 0) striker.fours += 1;
+  if (event.runsOffBat === 6 && event.overthrowRuns === 0) striker.sixes += 1;
 
   // Wicket on the striker
   let strikerOut: BatsmanStats | null = null;
