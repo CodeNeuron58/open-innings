@@ -55,19 +55,17 @@ All expenses are public. Expected annual costs at various scales:
 | **10k–100k users** | TBD                     | A paid VM tier, or splitting app and DB onto separate instances                                                                                  |
 | **100k+ users**    | TBD                     | Dedicated DB, read replicas, monitoring, contractor support                                                                                      |
 
-**We will never spend funds on:**
-- Founders' salaries (until/unless we're a registered non-profit with payroll)
-- Marketing campaigns or paid ads
-- Crypto, NFTs, or speculative investments
-- Anything that compromises user privacy
-
 **We will spend funds on:**
-- Hosting, databases, storage, CDN
-- Domain registration + SSL
-- Design and accessibility work
-- Security audits
-- Legal advice (entity formation, GDPR / Data Safety compliance)
-- Bounties for critical bug fixes
+- Hosting, databases, storage, SSL, and domain registration
+- **Maintainer stipends**: Fair compensation for the open-source maintainers investing hundreds of hours into development, bug fixes, engine accuracy, and support
+- Design, accessibility work, and security reviews
+- Bounties for critical open-source contributions and bug fixes
+
+**We will never spend funds on:**
+- Bloated executive salaries or speculative corporate investments
+- Paid advertising or marketing campaigns to buy vanity metrics
+- Crypto, NFTs, or speculative assets
+- Anything that compromises user privacy or sells data
 
 ---
 
