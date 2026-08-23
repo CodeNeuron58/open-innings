@@ -525,9 +525,17 @@ export default function Scorer() {
           </View>
 
           {inn.isFreeHitNext && !completed ? (
-            <Text className="text-scoreboard-accent font-heading mt-2 text-[10px] uppercase tracking-[1.6px]">
-              Free hit
-            </Text>
+            <View className="border-amber-400/60 bg-amber-400/20 mt-3 flex-row items-center justify-between border px-3 py-2">
+              <View className="flex-row items-center gap-2">
+                <View className="h-2 w-2 bg-amber-400" />
+                <Text className="text-amber-300 font-heading text-[12px] font-bold uppercase tracking-[1.8px]">
+                  FREE HIT
+                </Text>
+              </View>
+              <Text className="text-amber-200/90 font-heading text-[10px] uppercase tracking-[1.2px]">
+                Only Run Out & Obstruction (Law 21.18)
+              </Text>
+            </View>
           ) : null}
         </View>
 
@@ -568,9 +576,16 @@ export default function Scorer() {
           <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
             {nameOf(effBowler)}
             {midOverBowlerId ? (
-              <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
+              <Text className="text-steel-700 font-heading text-[11px]"> · replacing (Law 17.4)</Text>
             ) : null}
           </Text>
+          {overInProgress && !completed && !midOverBowlerId ? (
+            <View className="border-steel-400 bg-steel-100 border px-1.5 py-0.5">
+              <Text className="text-steel-800 font-heading text-[9px] uppercase tracking-[1px]">
+                Change
+              </Text>
+            </View>
+          ) : null}
           <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
             {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
             {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}

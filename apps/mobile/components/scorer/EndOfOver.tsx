@@ -170,12 +170,11 @@ export function EndOfOver({
             </Text>
           </View>
 
-          {/* The bowler who just finished, shown and blocked. Leaving them out
-              entirely reads as "we lost him"; struck through says why. */}
+          {/* The bowler who just finished, shown and blocked per Law 16.2. */}
           <BowlerRow
             name={lastBowlerName}
             figures={figures(lastBowlerStats)}
-            note="Bowled the last over"
+            note="Bowled previous over (Law 16.2 restriction)"
             disabled
             selected={false}
             onPress={() => {}}

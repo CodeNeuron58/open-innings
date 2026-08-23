@@ -106,6 +106,9 @@ function runsCrossed(args: { eventType: string; runsOffBat: number; totalRuns: n
     case 'leg_bye':
       // No penalty attached, so every run on the board was run.
       return args.totalRuns;
+    case 'penalty':
+      // Law 41/42: Awarded directly without physical running.
+      return 0;
     default:
       return args.runsOffBat;
   }

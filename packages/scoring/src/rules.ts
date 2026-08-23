@@ -159,7 +159,7 @@ export const BATSMAN_FACING_EXCLUDED_TYPES: ReadonlySet<string> = new Set(['wide
  * career figures straight from the ball log. If the two ever disagree, a
  * bowler's economy on a match card contradicts their career page.
  */
-export const BOWLER_EXEMPT_EXTRAS: ReadonlySet<string> = new Set(['bye', 'leg_bye']);
+export const BOWLER_EXEMPT_EXTRAS: ReadonlySet<string> = new Set(['bye', 'leg_bye', 'penalty']);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Law 25 — Wickets
@@ -278,7 +278,8 @@ export function isExtra(eventType: string): boolean {
     eventType === 'wide' ||
     eventType === 'no_ball' ||
     eventType === 'bye' ||
-    eventType === 'leg_bye'
+    eventType === 'leg_bye' ||
+    eventType === 'penalty'
   );
 }
 
