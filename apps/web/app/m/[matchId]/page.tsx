@@ -153,6 +153,23 @@ function InningsExtrasAndFow({
           </p>
         </div>
       )}
+
+      {(() => {
+        const p = state.partnerships.find((item) => item.isActive) ?? state.partnerships.at(-1);
+        if (!p || (p.runs === 0 && p.balls === 0)) return null;
+        const b1 = playerNames[p.batsman1Id] ?? p.batsman1Id.slice(0, 6);
+        const b2 = playerNames[p.batsman2Id] ?? p.batsman2Id.slice(0, 6);
+        return (
+          <div className="border-border mt-3 border-t pt-2.5">
+            <span className="text-muted-foreground font-semibold uppercase tracking-wide">
+              {p.isActive ? 'Current partnership' : 'Last partnership'}
+            </span>
+            <p className="text-muted-foreground mt-1 leading-relaxed">
+              <span className="text-foreground font-medium">{p.runs} runs</span> ({p.balls}b) · {b1} & {b2}
+            </p>
+          </div>
+        );
+      })()}
     </div>
   );
 }

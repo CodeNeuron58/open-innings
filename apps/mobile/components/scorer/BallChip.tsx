@@ -8,7 +8,10 @@ import type { BallEvent } from '@open-innings/scoring';
 type Tone = 'four' | 'six' | 'wicket' | 'extra' | 'dot';
 
 function describe(ball: BallEvent): { label: string; tone: Tone } {
-  if (ball.wicketType) return { label: 'W', tone: 'wicket' };
+  if (ball.wicketType) {
+    const label = ball.totalRuns > 0 ? `W${ball.totalRuns}` : 'W';
+    return { label, tone: 'wicket' };
+  }
 
   switch (ball.eventType) {
     case 'wide':

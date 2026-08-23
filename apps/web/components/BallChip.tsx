@@ -16,7 +16,8 @@ type BallLike = {
 
 export function ballChipParts(ball: BallLike): { label: string; className: string } {
   if (ball.wicketType) {
-    return { label: 'W', className: 'bg-wicket text-wicket-foreground' };
+    const label = ball.totalRuns > 0 ? `W${ball.totalRuns}` : 'W';
+    return { label, className: 'bg-wicket text-wicket-foreground' };
   }
   switch (ball.eventType) {
     case 'wide':

@@ -319,7 +319,7 @@ function buildBallChip(ball: BallEvent): BallChip {
 
   if (isWicket) {
     type = 'wicket';
-    display = 'W';
+    display = ball.totalRuns > 0 ? `W${ball.totalRuns}` : 'W';
   } else if (ball.eventType === 'wide') {
     type = 'wide';
     display = ball.totalRuns > 1 ? `wd${ball.totalRuns - 1}` : 'wd';
