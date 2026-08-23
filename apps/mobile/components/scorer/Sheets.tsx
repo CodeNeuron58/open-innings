@@ -639,3 +639,69 @@ export function OpenersSheet({
     </SheetShell>
   );
 }
+
+// ─── Overthrows ──────────────────────────────────────────────────────────────
+
+export function OverthrowSheet({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: (runsOffBat: number, overthrowRuns: number) => void;
+  onCancel: () => void;
+}) {
+  const [runsOffBat, setRunsOffBat] = useState(1);
+  const [overthrowRuns, setOverthrowRuns] = useState(4);
+
+  const totalRuns = runsOffBat + overthrowRuns;
+
+  return (
+    <SheetShell
+      title="Overthrow (Law 19.8)"
+      subtitle="Runs struck by batter plus runs from overthrow deflection."
+      onDismiss={onCancel}
+      footer={
+        <Button
+          label={`Record ${totalRuns} runs (${runsOffBat} bat + ${overthrowRuns} OT)`}
+          onPress={() => onConfirm(runsOffBat, overthrowRuns)}
+        />
+      }
+    >
+      <View className="gap-2">
+        <Label>Runs struck by batter</Label>
+        <View className="flex-row gap-1.5">
+          {[0, 1, 2, 3, 4].map((r) => (
+            <Chip
+              key={r}
+              grow
+              label={r === 0 ? '0' : String(r)}
+              selected={runsOffBat === r}
+              onPress={() => setRunsOffBat(r)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View className="border-border border-t pt-3.5 gap-2">
+        <Label>Overthrow runs conceded</Label>
+        <View className="flex-row gap-1.5">
+          {[1, 2, 3, 4, 5, 6].map((ot) => (
+            <Chip
+              key={ot}
+              grow
+              label={ot === 4 ? '4 (Boundary)' : String(ot)}
+              selected={overthrowRuns === ot}
+              onPress={() => setOverthrowRuns(ot)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View className="border-border border-t pt-3.5">
+        <Text className="text-foreground/70 text-[13px] leading-[19px]">
+          {runsOffBat} run{runsOffBat === 1 ? '' : 's'} credited to batter. {overthrowRuns} overthrow
+          runs credited to team total and excluded from batter boundary count.
+        </Text>
+      </View>
+    </SheetShell>
+  );
+}

@@ -35,6 +35,7 @@ import { InningsBreak } from '../../../../components/scorer/InningsBreak';
 import {
   ExtraRunsSheet,
   NextPlayerSheet,
+  OverthrowSheet,
   WicketSheet,
   type ExtraKind,
 } from '../../../../components/scorer/Sheets';
@@ -113,6 +114,8 @@ export default function Scorer() {
   });
 
   const [showWicket, setShowWicket] = useState(false);
+  const [showOverthrow, setShowOverthrow] = useState(false);
+  const [showExtraRunsSheet, setShowExtraRunsSheet] = useState(false);
   // State for correcting a previous delivery.
   // Kept open on success to show what the correction changed.
   const [correcting, setCorrecting] = useState<string | null>(null);
@@ -343,10 +346,28 @@ export default function Scorer() {
   }
 
   function scoreRuns(runsOffBat: RunKey) {
+    if (pendingExtra) {
+      const extra = pendingExtra;
+      setPendingExtra(null);
+      // For no-ball: runs on keypad = runs struck off the bat. Total = struck + 1 penalty.
+      // E.g. tap 4 on No Ball -> 5 total runs (4 off bat + 1 extra).
+      // For wide / bye / leg_bye: runs on keypad = total runs.
+      // E.g. tap 0 or 1 on Wide -> 1 wide. Tap 4 -> 4 wides.
+      const total =
+        extra === 'no_ball'
+          ? runsOffBat + 1
+          : runsOffBat === 0
+            ? 1
+            : runsOffBat;
+      void scoreExtra(extra, total);
+      return;
+    }
+
     void send({
       inningsId: inn.id,
       eventType: RUN_EVENT_TYPE[runsOffBat],
       runsOffBat,
+      overthrowRuns: 0,
       extraRuns: 0,
       totalRuns: runsOffBat,
       batsmanId: effStriker,
@@ -363,12 +384,30 @@ export default function Scorer() {
     const { runsOffBat, extraRuns } = splitExtra(kind, totalRuns);
 
     setPendingExtra(null);
+    setShowExtraRunsSheet(false);
     void send({
       inningsId: inn.id,
       eventType: kind,
       runsOffBat,
+      overthrowRuns: 0,
       extraRuns,
       totalRuns,
+      batsmanId: effStriker,
+      nonStrikerId: effNonStriker,
+      bowlerId: effBowler,
+      bowlerReplacedMidOver: midOverBowlerId !== null,
+    });
+  }
+
+  function scoreOverthrow(runsOffBat: number, overthrowRuns: number) {
+    setShowOverthrow(false);
+    void send({
+      inningsId: inn.id,
+      eventType: RUN_EVENT_TYPE[runsOffBat as RunKey] ?? '1',
+      runsOffBat,
+      overthrowRuns,
+      extraRuns: 0,
+      totalRuns: runsOffBat + overthrowRuns,
       batsmanId: effStriker,
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
@@ -674,7 +713,12 @@ export default function Scorer() {
                   accessibilityState={{ selected: pendingExtra === kind }}
                   onPress={() => {
                     hapticFeedback();
+                    setPendingExtra((prev) => (prev === kind ? null : kind));
+                  }}
+                  onLongPress={() => {
+                    hapticFeedback();
                     setPendingExtra(kind);
+                    setShowExtraRunsSheet(true);
                   }}
                   disabled={mutation.busy}
                   className={`h-9 flex-1 items-center justify-center border ${
@@ -692,6 +736,19 @@ export default function Scorer() {
                   </Text>
                 </Pressable>
               ))}
+              {/* Law 19.8: Overthrow runs */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Record overthrow runs (Law 19.8)"
+                onPress={() => {
+                  hapticFeedback();
+                  setShowOverthrow(true);
+                }}
+                disabled={mutation.busy}
+                className={`border-border h-9 w-12 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+              >
+                <Text className="text-steel-800 font-heading text-[11px]">+OT</Text>
+              </Pressable>
               {/* Law 41/42: 5-run fielding penalty (helmet on field, ball tampering, etc.) */}
               <Pressable
                 accessibilityRole="button"
@@ -702,6 +759,7 @@ export default function Scorer() {
                     inningsId: inn.id,
                     eventType: 'penalty',
                     runsOffBat: 0,
+                    overthrowRuns: 0,
                     extraRuns: 5,
                     totalRuns: 5,
                     batsmanId: effStriker,
@@ -750,9 +808,14 @@ export default function Scorer() {
                 </Text>
               ) : null}
               {pendingExtra ? (
-                <Text className="text-steel-700 font-heading ml-auto text-[9px] uppercase tracking-[1.3px]">
-                  {EXTRA_LABELS[pendingExtra]} armed
-                </Text>
+                <Pressable
+                  onPress={() => setShowExtraRunsSheet(true)}
+                  className="ml-auto flex-row items-center gap-1"
+                >
+                  <Text className="text-steel-700 font-heading text-[9px] uppercase tracking-[1.3px]">
+                    {EXTRA_LABELS[pendingExtra]} armed (tap runs or tap here for sheet)
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           </View>
@@ -784,7 +847,7 @@ export default function Scorer() {
           fielders={data.bowlingSquad}
           nextBatters={batterCandidates}
           // Law 21.18 narrows the sheet rather than letting the tap be refused.
-          isFreeHit={inn.isFreeHitNext}
+          isFreeHit={inn.isFreeHitNext || pendingExtra === 'no_ball'}
           onConfirm={(type, outId, fielderId, nextId, runsCompleted) =>
             void scoreWicket(type, outId, fielderId, nextId, runsCompleted)
           }
@@ -792,11 +855,21 @@ export default function Scorer() {
         />
       ) : null}
 
-      {pendingExtra ? (
+      {showOverthrow ? (
+        <OverthrowSheet
+          onConfirm={(runsOffBat, overthrowRuns) => scoreOverthrow(runsOffBat, overthrowRuns)}
+          onCancel={() => setShowOverthrow(false)}
+        />
+      ) : null}
+
+      {showExtraRunsSheet && pendingExtra ? (
         <ExtraRunsSheet
           kind={pendingExtra}
           onConfirm={(runs) => scoreExtra(pendingExtra, runs)}
-          onCancel={() => setPendingExtra(null)}
+          onCancel={() => {
+            setShowExtraRunsSheet(false);
+            setPendingExtra(null);
+          }}
         />
       ) : null}
 

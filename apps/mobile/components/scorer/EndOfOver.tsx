@@ -99,6 +99,7 @@ export function EndOfOver({
   busy: boolean;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
+  const [peeking, setPeeking] = useState(false);
 
   const nextOver = oversCompleted + 1;
   const quota = quotaFrom(maxOversPerBowler);
@@ -137,6 +138,36 @@ export function EndOfOver({
           oversPerInnings - oversCompleted === 1 ? '' : 's'
         } left`;
 
+  if (peeking) {
+    return (
+      <View className="absolute bottom-3 left-3 right-3 z-50">
+        <View className="border-border bg-scoreboard flex-row items-center justify-between border-2 p-3.5 shadow-lg">
+          <View className="min-w-0 flex-1">
+            <Text className="text-scoreboard-text font-heading text-[13.5px]">
+              End of Over {oversCompleted} ({runs}-{wickets})
+            </Text>
+            <Text className="text-scoreboard-muted font-heading mt-0.5 text-[9.5px] uppercase tracking-[1.2px]">
+              Select bowler for over {nextOver}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Open bowler picker for over ${nextOver}`}
+            onPress={() => {
+              hapticFeedback();
+              setPeeking(false);
+            }}
+            className="bg-primary shrink-0 px-3.5 py-2 active:opacity-80"
+          >
+            <Text className="text-primary-foreground font-heading text-[11px] uppercase tracking-[1.2px]">
+              Pick Bowler
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <Modal visible transparent={false} animationType="slide">
       <SafeAreaView className="bg-background flex-1">
@@ -146,6 +177,19 @@ export function EndOfOver({
             <Text className="text-scoreboard-muted font-heading shrink-0 text-[10px] uppercase tracking-[1.5px]">
               End of over {oversCompleted}
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Peek scoreboard"
+              onPress={() => {
+                hapticFeedback();
+                setPeeking(true);
+              }}
+              className="border-scoreboard-border px-1.5 py-0.5 border active:opacity-70"
+            >
+              <Text className="text-scoreboard-muted font-heading text-[9px] uppercase tracking-[1px]">
+                Peek board
+              </Text>
+            </Pressable>
             <Text className="text-scoreboard-text font-heading shrink-0 text-[14px]">
               {runs}-{wickets}
               <Text className="text-scoreboard-muted"> · {chaseLine}</Text>
