@@ -122,7 +122,8 @@ export { MAX_CODE_ATTEMPTS };
  * here.
  */
 export async function requestPasswordReset(email: string): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const cleanEmail = email.trim().toLowerCase();
+  const [user] = await db.select().from(users).where(eq(users.email, cleanEmail)).limit(1);
 
   // No account, or a deleted one. Silence, and the caller says the same thing
   // it would have said anyway.

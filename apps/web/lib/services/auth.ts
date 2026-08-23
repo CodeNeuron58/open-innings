@@ -42,10 +42,11 @@ export async function registerUser(
   input: SignupInput,
   meta: RequestMeta = {},
 ): Promise<SessionGrant> {
+  const email = input.email.trim().toLowerCase();
   const existing = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, input.email))
+    .where(eq(users.email, email))
     .limit(1);
 
   // Checked up front for a friendlier message than a unique-constraint
@@ -60,8 +61,8 @@ export async function registerUser(
   const inserted = await db
     .insert(users)
     .values({
-      email: input.email,
-      displayName: input.displayName ?? input.email.split('@')[0],
+      email,
+      displayName: input.displayName ?? email.split('@')[0],
       passwordHash,
       passwordSalt: salt,
     })
@@ -101,7 +102,8 @@ export async function authenticateUser(
   input: LoginInput,
   meta: RequestMeta = {},
 ): Promise<SessionGrant> {
-  const rows = await db.select().from(users).where(eq(users.email, input.email)).limit(1);
+  const email = input.email.trim().toLowerCase();
+  const rows = await db.select().from(users).where(eq(users.email, email)).limit(1);
   const user = rows[0];
 
   /*

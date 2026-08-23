@@ -96,7 +96,10 @@ export default function Signup() {
             <Field
               label="Password"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                if (errors.password) setErrors((e) => ({ ...e, password: '' }));
+              }}
               error={errors.password}
               secureTextEntry={!showPassword}
               autoComplete="new-password"
@@ -115,16 +118,40 @@ export default function Signup() {
                 </Pressable>
               }
             />
+            {password.length > 0 && !errors.password ? (
+              <Text
+                className={`font-sans text-xs -mt-2.5 ${
+                  password.length >= 8 ? 'text-emerald-700' : 'text-neutral-500'
+                }`}
+              >
+                {password.length >= 8
+                  ? '✓ Password length met'
+                  : `At least 8 characters (${password.length}/8)`}
+              </Text>
+            ) : null}
+
             <Field
               label="Confirm password"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                if (errors.confirmPassword) setErrors((e) => ({ ...e, confirmPassword: '' }));
+              }}
               error={errors.confirmPassword}
               secureTextEntry={!showPassword}
               autoComplete="new-password"
               placeholder="Re-type your password"
               editable={!busy}
             />
+            {confirmPassword.length > 0 && !errors.confirmPassword ? (
+              <Text
+                className={`font-sans text-xs -mt-2.5 ${
+                  confirmPassword === password ? 'text-emerald-700' : 'text-destructive'
+                }`}
+              >
+                {confirmPassword === password ? '✓ Passwords match' : 'Passwords do not match'}
+              </Text>
+            ) : null}
             <Field
               label="Display name (optional)"
               value={displayName}
