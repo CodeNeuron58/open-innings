@@ -2,7 +2,7 @@
  * E2 — a club's home.
  * Shows club details, recent results, and career figures for squad members.
  */
-import { Alert, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { ClubLeaderView, ClubPageResponse, TeamListResponse } from '@open-innings/shared';
@@ -135,7 +135,12 @@ export default function ClubPage() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerClassName="pb-6">
+      <ScrollView
+        contentContainerClassName="pb-6"
+        refreshControl={
+          <RefreshControl refreshing={query.isRefreshing} onRefresh={query.refresh} />
+        }
+      >
         {/* Played / won / lost / tied, on one drawn grid. */}
         <View className="mx-4 flex-row border-l border-t border-neutral-300">
           {[

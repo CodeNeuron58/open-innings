@@ -3,7 +3,7 @@
  * Player statistics computed entirely from ball logs via /stats.
  */
 import { useState } from 'react';
-import { Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { BattingCareerView, FormEntryView } from '@open-innings/shared';
@@ -141,7 +141,12 @@ export default function PlayerProfile() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView contentContainerClassName="pb-6">
+      <ScrollView
+        contentContainerClassName="pb-6"
+        refreshControl={
+          <RefreshControl refreshing={query.isRefreshing} onRefresh={query.refresh} />
+        }
+      >
         {/* The plate. Reversed, like the score plate — this is the object the
             whole screen is about. */}
         <View className="bg-scoreboard px-4 pb-4 pt-3">
