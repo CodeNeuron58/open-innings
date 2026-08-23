@@ -3,7 +3,7 @@
  * Fetches /card once for both scorecard and over-by-over tabs.
  */
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CardInnings, MatchCardResponse } from '@open-innings/shared';
@@ -22,7 +22,7 @@ export default function MatchCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('scorecard');
-  const [inningsIndex, setInningsIndex] = useState(0);
+  const [inningsIndex, setInningsIndex] = useState<number | null>(null);
 
   const query = usePublicQuery<MatchCardResponse>(
     (t, signal) => api.matchCard(t, id, signal),
@@ -75,8 +75,9 @@ export default function MatchCard() {
     );
   }
 
-  // Default to the innings that decided it — the second, when there is one.
-  const index = Math.min(inningsIndex, card.innings.length - 1);
+  // Default to the innings that decided it — the second/latest, when there is one.
+  const activeIndex = inningsIndex ?? (card.innings.length - 1);
+  const index = Math.max(0, Math.min(activeIndex, card.innings.length - 1));
   const innings = card.innings[index] as CardInnings;
 
   return (
@@ -161,7 +162,12 @@ export default function MatchCard() {
         ))}
       </View>
 
-      <ScrollView contentContainerClassName="px-4 pb-4 pt-3">
+      <ScrollView
+        contentContainerClassName="px-4 pb-4 pt-3"
+        refreshControl={
+          <RefreshControl refreshing={query.isRefreshing} onRefresh={() => void query.refresh()} />
+        }
+      >
         {tab === 'scorecard' ? (
           <InningsScorecard innings={innings} />
         ) : (

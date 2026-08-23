@@ -134,8 +134,8 @@ export default function Result() {
           <Standout label="Most sixes" performer={m.mostSixes} format={(p) => String(p.primary)} />
         </View>
 
-        {/* Super Over handling for tied matches. */}
-        {m.canStartSuperOver ? (
+        {/* Super Over handling for tied matches (owner only). */}
+        {m.canStartSuperOver && m.isMine ? (
           <View className="border-steel-300 bg-steel-100 mx-4 mt-6 border p-3.5">
             <Text className="text-steel-900 font-heading text-[15px]">Scores level</Text>
             <Text className="text-steel-800/75 mt-1 text-[12.5px] leading-[18px]">

@@ -312,6 +312,8 @@ export type PlayerMatchLine = {
   /** The two sides, for the header: "Belonia Strikers v Whitefield". */
   fixture: string | null;
   result: string | null;
+  status: string;
+  isDone: boolean;
   batting: {
     runs: number;
     balls: number;
@@ -358,6 +360,8 @@ export async function playerMatchLineFor(
     name: nameOf(playerId),
     fixture: sides.length >= 2 ? `${sides[0]} v ${sides[1]}` : (match.title ?? null),
     result: match.summary,
+    status: match.status,
+    isDone: match.status === 'completed' || match.status === 'abandoned',
     // A player who came in and never faced a ball has no batting line to show.
     batting:
       bat && bat.balls > 0

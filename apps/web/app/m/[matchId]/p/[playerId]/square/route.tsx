@@ -27,7 +27,7 @@ export async function GET(
   ctx: { params: Promise<{ matchId: string; playerId: string }> },
 ) {
   const { matchId, playerId } = await ctx.params;
-  const { name, fixture, headline, stats } = await playerCardContent(matchId, playerId);
+  const { name, fixture, headline, stats, isDone } = await playerCardContent(matchId, playerId);
 
   const fonts = await loadCardFonts(
     glyphsFor([
@@ -169,10 +169,10 @@ export async function GET(
       height: SIZE,
       fonts,
       headers: {
-        // A finished player's figures do not change, but a live match's do.
-        // An hour absorbs the burst of a link being re-fetched by every chat
-        // app that sees it.
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        // Dynamic caching: live matches are never stale, completed matches are cached long-term.
+        'Cache-Control': isDone
+          ? 'public, max-age=86400, s-maxage=86400'
+          : 'no-cache, no-store, must-revalidate',
       },
     },
   );

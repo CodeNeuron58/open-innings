@@ -6,7 +6,8 @@ type Props = {
 };
 
 export function BowlingCard({ bowling, playerNames }: Props) {
-  const rows = Object.values(bowling).sort((a, b) => a.balls - b.balls);
+  // Preserve bowler spell entry order
+  const rows = Object.values(bowling);
 
   return (
     <div className="border-border bg-card shadow-card overflow-hidden rounded-lg border">

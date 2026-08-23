@@ -72,7 +72,18 @@ export function LiveRefresh({
     // seconds is counted rather than appearing only after the first interval.
     beat();
     const timer = setInterval(beat, intervalMs);
-    return () => clearInterval(timer);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        beat();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [router, intervalMs, matchId]);
 
   return null;

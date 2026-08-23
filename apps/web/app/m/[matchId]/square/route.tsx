@@ -27,7 +27,7 @@ const SIZE = 1080;
 
 export async function GET(_request: Request, ctx: { params: Promise<{ matchId: string }> }) {
   const { matchId } = await ctx.params;
-  const { heading, result, lines, performers } = await matchCardContent(matchId);
+  const { heading, result, lines, performers, isDone } = await matchCardContent(matchId);
 
   const fonts = await loadCardFonts(
     glyphsFor([
@@ -186,10 +186,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ matchId: s
       height: SIZE,
       fonts,
       headers: {
-        // Shared links get re-fetched by every chat app that sees them, and
-        // the score changes while a match is live. An hour is long enough to
-        // absorb a burst and short enough that a finished match settles.
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        // Dynamic caching: live matches are never stale, completed matches are cached long-term.
+        'Cache-Control': isDone
+          ? 'public, max-age=86400, s-maxage=86400'
+          : 'no-cache, no-store, must-revalidate',
       },
     },
   );

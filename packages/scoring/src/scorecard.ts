@@ -24,6 +24,7 @@ export type ScorecardView = {
   requiredRunRate?: number;
   target?: number;
   extras: number;
+  extrasBreakdown: ExtrasBreakdown;
 
   // Player stats tables
   batting: BattingRow[];
@@ -88,6 +89,15 @@ export type CurrentBowlerView = {
   economy: string;
 };
 
+export type ExtrasBreakdown = {
+  total: number;
+  wides: number;
+  noBalls: number;
+  byes: number;
+  legByes: number;
+  penalty: number;
+};
+
 export type FallOfWicketView = {
   wicketNumber: number;
   runsAtFall: number;
@@ -138,6 +148,22 @@ export function buildScorecard(
     ? requiredRunRate(inn.target, inn.runs, inn.ballsBowled, maxLegalBallsForOvers(inningsOvers))
     : undefined;
 
+  const extrasBreakdown: ExtrasBreakdown = {
+    total: inn.extras,
+    wides: 0,
+    noBalls: 0,
+    byes: 0,
+    legByes: 0,
+    penalty: 0,
+  };
+  for (const b of state.balls) {
+    if (b.eventType === 'wide') extrasBreakdown.wides += b.totalRuns;
+    else if (b.eventType === 'no_ball') extrasBreakdown.noBalls += b.totalRuns;
+    else if (b.eventType === 'bye') extrasBreakdown.byes += b.totalRuns;
+    else if (b.eventType === 'leg_bye') extrasBreakdown.legByes += b.totalRuns;
+    else if (b.eventType === 'penalty') extrasBreakdown.penalty += b.totalRuns;
+  }
+
   return {
     runs: inn.runs,
     wickets: inn.wickets,
@@ -147,6 +173,7 @@ export function buildScorecard(
     requiredRunRate: rrr !== undefined && isFinite(rrr) ? round2(rrr) : undefined,
     target: inn.target,
     extras: inn.extras,
+    extrasBreakdown,
 
     batting: Object.values(state.batting).map((b) => buildBattingRow(b, resolveName)),
     bowling: Object.values(state.bowling).map((b) => buildBowlingRow(b, resolveName)),
@@ -305,15 +332,18 @@ function buildBallChip(ball: BallEvent): BallChip {
   } else if (ball.eventType === 'leg_bye') {
     type = 'leg_bye';
     display = `${ball.totalRuns}lb`;
+  } else if (ball.eventType === 'penalty') {
+    type = 'dot';
+    display = `+${ball.totalRuns}P`;
   } else if (ball.runsOffBat === 6) {
     type = 'six';
     display = '6';
   } else if (ball.runsOffBat === 4) {
     type = 'boundary';
     display = '4';
-  } else if (ball.runsOffBat > 0) {
+  } else if (ball.totalRuns > 0) {
     type = 'run';
-    display = String(ball.runsOffBat);
+    display = String(ball.totalRuns);
   } else {
     type = 'dot';
     display = '0';

@@ -39,11 +39,16 @@ export function ballChipParts(ball: BallLike): { label: string; className: strin
         label: `${ball.totalRuns}lb`,
         className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
       };
+    case 'penalty':
+      return {
+        label: `+${ball.totalRuns}P`,
+        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
+      };
   }
   if (ball.runsOffBat === 4) return { label: '4', className: 'bg-four text-four-foreground' };
   if (ball.runsOffBat === 6) return { label: '6', className: 'bg-six text-six-foreground' };
-  if (ball.runsOffBat === 0) return { label: '•', className: 'bg-muted text-muted-foreground' };
-  return { label: String(ball.runsOffBat), className: 'bg-secondary text-secondary-foreground' };
+  if (ball.totalRuns === 0) return { label: '•', className: 'bg-muted text-muted-foreground' };
+  return { label: String(ball.totalRuns), className: 'bg-secondary text-secondary-foreground' };
 }
 
 export function BallChip({

@@ -10,17 +10,47 @@ type Props = {
   limit?: number;
 };
 
-const dismissalLabels: Record<string, string> = {
-  bowled: 'b',
-  caught: 'c',
-  caught_behind: 'c †',
-  lbw: 'lbw',
-  run_out: 'run out',
-  stumped: 'st',
-  hit_wicket: 'hit wicket',
-  retired_hurt: 'retired hurt',
-  retired_out: 'retired out',
-};
+function getDismissalText(b: BatsmanStats, playerNames: Record<string, string>): string {
+  if (b.isRetiredHurt) return 'retired hurt';
+  if (!b.isOut) return 'not out';
+  if (!b.dismissalType) return 'out';
+
+  const bowler = b.dismissedByPlayerId
+    ? (playerNames[b.dismissedByPlayerId as unknown as string] ?? b.dismissedByPlayerId.slice(0, 6))
+    : undefined;
+  const fielder = b.fielderId
+    ? (playerNames[b.fielderId as unknown as string] ?? b.fielderId.slice(0, 6))
+    : undefined;
+
+  switch (b.dismissalType) {
+    case 'bowled':
+      return `b ${bowler ?? '?'}`;
+    case 'caught':
+      return `c ${fielder ?? '?'} b ${bowler ?? '?'}`;
+    case 'caught_behind':
+      return `c †${fielder ?? '?'} b ${bowler ?? '?'}`;
+    case 'lbw':
+      return `lbw b ${bowler ?? '?'}`;
+    case 'run_out':
+      return `run out${fielder ? ` (${fielder})` : ''}`;
+    case 'stumped':
+      return `st †${fielder ?? '?'} b ${bowler ?? '?'}`;
+    case 'hit_wicket':
+      return `hit wicket b ${bowler ?? '?'}`;
+    case 'retired_hurt':
+      return 'retired hurt';
+    case 'retired_out':
+      return 'retired out';
+    case 'handled_ball':
+    case 'obstructing_field':
+    case 'timed_out':
+    case 'double_hit':
+    case 'hit_the_ball_twice':
+      return b.dismissalType.replace(/_/g, ' ');
+    default:
+      return 'out';
+  }
+}
 
 export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, limit }: Props) {
   // JS preserves insertion order on Object.keys — `batting` was built up as
@@ -54,7 +84,7 @@ export function BattingCard({ batting, strikerId, nonStrikerId, playerNames, lim
             const isNonStriker = b.playerId === nonStrikerId;
             const atCrease = isStriker || isNonStriker;
             const sr = b.balls > 0 ? ((b.runs / b.balls) * 100).toFixed(1) : '0.0';
-            const status = b.isOut ? (dismissalLabels[b.dismissalType ?? ''] ?? 'out') : 'not out';
+            const status = getDismissalText(b, playerNames);
             return (
               <tr key={b.playerId} className={cn(atCrease && 'bg-accent/30')}>
                 <td className="px-3 py-2.5">

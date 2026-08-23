@@ -14,6 +14,8 @@ export type PlayerCardContent = {
   fixture: string;
   /** "47(28) & 2-19" — the line a player would text a friend. */
   headline: string;
+  status: string;
+  isDone: boolean;
   stats: { value: string; label: string }[];
 };
 
@@ -24,6 +26,8 @@ export async function playerCardContent(
   let name = 'Player';
   let fixture = '';
   let headline = '';
+  let status = 'scheduled';
+  let isDone = false;
   const stats: PlayerCardContent['stats'] = [];
 
   try {
@@ -31,6 +35,8 @@ export async function playerCardContent(
     name = p.name;
     fixture = p.fixture ?? '';
     headline = p.line;
+    status = p.status;
+    isDone = p.isDone;
 
     if (p.batting) {
       stats.push({
@@ -54,5 +60,5 @@ export async function playerCardContent(
     headline = 'Match performance';
   }
 
-  return { name, fixture, headline, stats };
+  return { name, fixture, headline, status, isDone, stats };
 }

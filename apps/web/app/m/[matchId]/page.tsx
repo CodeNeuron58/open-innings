@@ -90,6 +90,73 @@ function replayInningsRow(
   );
 }
 
+function getInningsExtras(state: MatchState) {
+  const extras = {
+    total: state.currentInnings.extras,
+    wides: 0,
+    noBalls: 0,
+    byes: 0,
+    legByes: 0,
+    penalty: 0,
+  };
+  for (const b of state.balls) {
+    if (b.eventType === 'wide') extras.wides += b.totalRuns;
+    else if (b.eventType === 'no_ball') extras.noBalls += b.totalRuns;
+    else if (b.eventType === 'bye') extras.byes += b.totalRuns;
+    else if (b.eventType === 'leg_bye') extras.legByes += b.totalRuns;
+    else if (b.eventType === 'penalty') extras.penalty += b.totalRuns;
+  }
+  const parts = [
+    extras.wides > 0 ? `wd ${extras.wides}` : null,
+    extras.noBalls > 0 ? `nb ${extras.noBalls}` : null,
+    extras.byes > 0 ? `b ${extras.byes}` : null,
+    extras.legByes > 0 ? `lb ${extras.legByes}` : null,
+    extras.penalty > 0 ? `pen ${extras.penalty}` : null,
+  ].filter(Boolean);
+  return { ...extras, parts };
+}
+
+function InningsExtrasAndFow({
+  state,
+  playerNames,
+}: {
+  state: MatchState;
+  playerNames: Record<string, string>;
+}) {
+  const extras = getInningsExtras(state);
+  const fow = state.fallOfWickets;
+
+  return (
+    <div className="border-border bg-card shadow-card mt-4 rounded-lg border p-4 text-xs">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="text-muted-foreground font-semibold uppercase tracking-wide">Extras</span>
+        <span className="font-medium">
+          {extras.total}
+          {extras.parts.length > 0 && (
+            <span className="text-muted-foreground ml-1.5 font-normal">({extras.parts.join(', ')})</span>
+          )}
+        </span>
+      </div>
+
+      {fow.length > 0 && (
+        <div className="border-border mt-3 border-t pt-2.5">
+          <span className="text-muted-foreground font-semibold uppercase tracking-wide">
+            Fall of wickets
+          </span>
+          <p className="text-muted-foreground mt-1 leading-relaxed">
+            {fow
+              .map(
+                (f) =>
+                  `${f.wicketNumber}–${f.runs} (${playerNames[f.batsmanOutId] ?? f.batsmanOutId.slice(0, 6)}, ${formatOvers(f.ballsBowled)} ov)`,
+              )
+              .join('  ·  ')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function PublicScorecardPage({ params }: Props) {
   const { matchId } = await params;
   const data = await loadMatchInProgress(matchId).catch(() => null);
@@ -289,6 +356,9 @@ export default async function PublicScorecardPage({ params }: Props) {
           </div>
         </section>
 
+        {/* Current innings extras & fall of wickets */}
+        <InningsExtrasAndFow state={state} playerNames={playerNames} />
+
         {/* Earlier innings — collapsed by default so the current innings stays the focus */}
         {priorInnings.map((i, idx) => {
           const priorTeam = i.battingTeamId === match.teamAId ? teamA : teamB;
@@ -309,24 +379,27 @@ export default async function PublicScorecardPage({ params }: Props) {
                 </span>
                 <ChevronDown className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
               </summary>
-              <div className="border-border grid gap-6 border-t p-5 md:grid-cols-2">
-                <div>
-                  <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
-                    Batting
-                  </h3>
-                  <BattingCard
-                    batting={priorState.batting}
-                    strikerId={priorInn.strikerId as string}
-                    nonStrikerId={priorInn.nonStrikerId as string}
-                    playerNames={playerNames}
-                  />
+              <div className="border-border border-t p-5">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
+                      Batting
+                    </h3>
+                    <BattingCard
+                      batting={priorState.batting}
+                      strikerId={priorInn.strikerId as string}
+                      nonStrikerId={priorInn.nonStrikerId as string}
+                      playerNames={playerNames}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
+                      Bowling
+                    </h3>
+                    <BowlingCard bowling={priorState.bowling} playerNames={playerNames} />
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-muted-foreground mb-2 text-sm font-semibold uppercase tracking-wide">
-                    Bowling
-                  </h3>
-                  <BowlingCard bowling={priorState.bowling} playerNames={playerNames} />
-                </div>
+                <InningsExtrasAndFow state={priorState} playerNames={playerNames} />
               </div>
             </details>
           );

@@ -14,6 +14,8 @@ export type MatchCardContent = {
   heading: string;
   /** The server's own result line, or "In progress". Never invented here. */
   result: string;
+  status: string;
+  isDone: boolean;
   lines: { team: string; score: string }[];
   performers: { label: string; value: string }[];
 };
@@ -21,11 +23,15 @@ export type MatchCardContent = {
 export async function matchCardContent(matchId: string): Promise<MatchCardContent> {
   let heading = 'Match';
   let result = '';
+  let status = 'scheduled';
+  let isDone = false;
   let lines: MatchCardContent['lines'] = [];
   const performers: MatchCardContent['performers'] = [];
 
   try {
     const s = await matchSummaryFor(matchId);
+    status = s.status;
+    isDone = s.status === 'completed' || s.status === 'abandoned';
 
     lines = s.innings.map((i) => ({
       team: i.teamName,
@@ -80,5 +86,5 @@ export async function matchCardContent(matchId: string): Promise<MatchCardConten
     result = 'Scorecard';
   }
 
-  return { heading, result, lines, performers };
+  return { heading, result, status, isDone, lines, performers };
 }
