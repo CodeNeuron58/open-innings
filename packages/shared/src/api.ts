@@ -302,6 +302,7 @@ export type CardDelivery = {
   ballNumber: number;
   eventType: string;
   runsOffBat: number;
+  overthrowRuns?: number;
   extraRuns: number;
   totalRuns: number;
   isLegalDelivery: boolean;
@@ -343,7 +344,7 @@ export type CardInnings = {
     wickets: number;
     economy: string;
   }[];
-  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number };
+  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number; penalty?: number };
   fallOfWickets: { wicketNumber: number; runsAtFall: number; oversAtFall: string; name: string }[];
   /** Oldest first, exactly as bowled. Group and reverse for display. */
   deliveries: CardDelivery[];

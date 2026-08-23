@@ -51,7 +51,7 @@ export default function PlayerCards() {
     }
     for (const b of inn.bowling) {
       const e = byPlayer.get(b.playerId) ?? { name: b.playerName };
-      if (b.wickets > 0 || b.runs > 0) e.bowl = `${b.wickets}/${b.runs}`;
+      if (b.overs !== '0.0' && b.overs !== '0') e.bowl = `${b.wickets}/${b.runs}`;
       byPlayer.set(b.playerId, e);
     }
   }

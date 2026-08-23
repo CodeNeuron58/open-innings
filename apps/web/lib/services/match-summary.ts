@@ -352,7 +352,7 @@ export async function playerMatchLineFor(
 
   const parts: string[] = [];
   if (bat && bat.balls > 0) parts.push(`${bat.runs}${bat.isOut ? '' : '*'}(${bat.balls})`);
-  if (bowl && bowl.wickets > 0) parts.push(`${bowl.wickets}-${bowl.runs}`);
+  if (bowl && bowl.balls > 0) parts.push(`${bowl.wickets}-${bowl.runs}`);
 
   return {
     matchId: match.id,
@@ -410,6 +410,7 @@ export type CardDelivery = {
   ballNumber: number;
   eventType: string;
   runsOffBat: number;
+  overthrowRuns: number;
   extraRuns: number;
   totalRuns: number;
   isLegalDelivery: boolean;
@@ -480,22 +481,15 @@ export async function matchCardFor(matchId: string): Promise<MatchCard> {
     }
     const card = buildScorecard(state, nameOf);
 
-    // Extras by kind, folded from the ball log. The engine tracks wides and
-    // no-balls per bowler but byes and leg-byes belong to nobody, so the
-    // deliveries are the only place all four agree.
+    // Extras by kind, folded from the scorecard model.
     const extras = {
-      total: state.currentInnings.extras,
-      wides: 0,
-      noBalls: 0,
-      byes: 0,
-      legByes: 0,
+      total: card.extrasBreakdown.total,
+      wides: card.extrasBreakdown.wides,
+      noBalls: card.extrasBreakdown.noBalls,
+      byes: card.extrasBreakdown.byes,
+      legByes: card.extrasBreakdown.legByes,
+      penalty: card.extrasBreakdown.penalty,
     };
-    for (const b of state.balls) {
-      if (b.eventType === 'wide') extras.wides += b.totalRuns;
-      else if (b.eventType === 'no_ball') extras.noBalls += b.totalRuns;
-      else if (b.eventType === 'bye') extras.byes += b.totalRuns;
-      else if (b.eventType === 'leg_bye') extras.legByes += b.totalRuns;
-    }
 
     return {
       inningsNumber: inn.inningsNumber,
@@ -542,6 +536,7 @@ export async function matchCardFor(matchId: string): Promise<MatchCard> {
         ballNumber: b.ballNumber,
         eventType: b.eventType,
         runsOffBat: b.runsOffBat,
+        overthrowRuns: b.overthrowRuns ?? 0,
         extraRuns: b.extraRuns,
         totalRuns: b.totalRuns,
         isLegalDelivery: b.isLegalDelivery,

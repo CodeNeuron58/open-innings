@@ -51,7 +51,7 @@ export async function playerCardContent(
         stats.push({ value: p.batting.strikeRate.toFixed(0), label: 'Strike rate' });
       }
     }
-    if (p.bowling && p.bowling.wickets > 0) {
+    if (p.bowling) {
       stats.push({ value: `${p.bowling.wickets}-${p.bowling.runs}`, label: 'Bowling' });
     }
   } catch {

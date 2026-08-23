@@ -63,6 +63,7 @@ export function InningsScorecard({ innings }: { innings: CardInnings }) {
     extras.noBalls > 0 ? `nb ${extras.noBalls}` : null,
     extras.byes > 0 ? `b ${extras.byes}` : null,
     extras.legByes > 0 ? `lb ${extras.legByes}` : null,
+    (extras.penalty ?? 0) > 0 ? `pen ${extras.penalty}` : null,
   ].filter(Boolean);
 
   return (
