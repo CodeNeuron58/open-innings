@@ -24,6 +24,16 @@
         "NODE_OPTIONS": "--max-old-space-size=4096"
       }
     },
+    "testing": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://openinnings.com",
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
