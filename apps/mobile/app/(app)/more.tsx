@@ -152,14 +152,16 @@ export default function More() {
       <ScrollView contentContainerClassName="px-4 pb-8 pt-4">
         {/* Account and associated player profile. */}
         <Pressable
-          accessibilityRole={playerId ? 'button' : 'none'}
-          accessibilityLabel={playerId ? 'Your career page' : displayName}
+          accessibilityRole={isGuest ? 'none' : 'button'}
+          accessibilityLabel={playerId ? 'Your career page' : isGuest ? displayName : 'Set up your player profile'}
           onPress={
-            playerId
-              ? () => router.push({ pathname: '/players/[id]', params: { id: playerId } })
-              : undefined
+            isGuest
+              ? undefined
+              : playerId
+                ? () => router.push({ pathname: '/players/[id]', params: { id: playerId } })
+                : () => router.push('/profile')
           }
-          disabled={!playerId}
+          disabled={isGuest}
           className="border-border flex-row items-center gap-3 border p-3 active:opacity-70"
         >
           <View className="border-border h-11 w-11 items-center justify-center border">
@@ -175,10 +177,16 @@ export default function More() {
               className="font-heading mt-0.5 text-[9px] uppercase tracking-[1.2px] text-neutral-600"
               numberOfLines={1}
             >
-              {user?.email ?? (isGuest ? 'Looking around · no account' : 'No account')}
+              {user?.email
+                ? playerId
+                  ? 'Player profile linked'
+                  : 'Tap to set up player profile'
+                : isGuest
+                  ? 'Looking around · no account'
+                  : 'No account'}
             </Text>
           </View>
-          {playerId ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
+          {!isGuest ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
         </Pressable>
 
         {/* Supporter plan pitch. */}
@@ -256,15 +264,21 @@ export default function More() {
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/teams')}
           />
-          {/* Link to claimed player profile if available. */}
+          {/* Link to claimed player profile if available, or setup wizard if unclaimed. */}
           {playerId ? (
             <Row
               label="My career"
               onPress={() => router.push({ pathname: '/players/[id]', params: { id: playerId } })}
             />
+          ) : user && !isGuest ? (
+            <Row
+              label="Set up my player profile"
+              value="Unclaimed"
+              onPress={() => router.push('/profile')}
+            />
           ) : null}
           <Row
-            label={playerId ? 'Players & careers' : 'Players & careers'}
+            label="Players & careers"
             value={playerId ? undefined : isGuest ? undefined : 'Say which is you'}
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/players')}

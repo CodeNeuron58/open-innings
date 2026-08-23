@@ -1,29 +1,26 @@
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { loginSchema } from '@open-innings/shared';
 import { useSession } from '../../lib/session';
 import { ApiError, NetworkError } from '../../lib/api';
-import { API_BASE } from '../../lib/config';
 import { Button, ErrorBanner, Field } from '../../components/ui';
 
-/** The host for the reset form. Derived from API_BASE to handle preview builds. */
-const WEB_BASE = (API_BASE ?? 'https://openinnings.com').replace(/\/$/, '');
-
 export default function Login() {
+  const router = useRouter();
   const { signIn } = useSession();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,21 +85,32 @@ export default function Login() {
               label="Password"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoComplete="current-password"
               placeholder="••••••••"
               editable={!busy}
               onSubmitEditing={submit}
               returnKeyType="go"
+              rightAccessory={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  onPress={() => setShowPassword((s) => !s)}
+                  className="py-1"
+                >
+                  <Text className="font-heading text-[11px] uppercase tracking-[1px] text-neutral-600">
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Text>
+                </Pressable>
+              }
             />
           </View>
 
           <Button label="Sign in" onPress={submit} loading={busy} />
 
-          {/* Opens web reset flow rather than duplicating security forms natively. */}
           <Pressable
             accessibilityRole="link"
-            onPress={() => void Linking.openURL(`${WEB_BASE}/reset`)}
+            onPress={() => router.push('/reset' as any)}
             className="items-center py-1 active:opacity-60"
           >
             <Text className="text-muted-foreground text-sm underline">Forgot your password?</Text>

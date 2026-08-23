@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signupSchema } from '@open-innings/shared';
@@ -12,6 +12,8 @@ export default function Signup() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -20,6 +22,11 @@ export default function Signup() {
   async function submit() {
     setError(null);
     setErrors({});
+
+    if (password !== confirmPassword) {
+      setErrors({ confirmPassword: 'Passwords do not match' });
+      return;
+    }
 
     const parsed = signupSchema.safeParse({
       email,
@@ -91,9 +98,31 @@ export default function Signup() {
               value={password}
               onChangeText={setPassword}
               error={errors.password}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               autoComplete="new-password"
               placeholder="At least 8 characters"
+              editable={!busy}
+              rightAccessory={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  onPress={() => setShowPassword((s) => !s)}
+                  className="py-1"
+                >
+                  <Text className="font-heading text-[11px] uppercase tracking-[1px] text-neutral-600">
+                    {showPassword ? 'Hide' : 'Show'}
+                  </Text>
+                </Pressable>
+              }
+            />
+            <Field
+              label="Confirm password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              error={errors.confirmPassword}
+              secureTextEntry={!showPassword}
+              autoComplete="new-password"
+              placeholder="Re-type your password"
               editable={!busy}
             />
             <Field

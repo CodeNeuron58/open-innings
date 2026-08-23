@@ -113,10 +113,11 @@ export function Button({
 type FieldProps = TextInputProps & {
   label: string;
   error?: string;
+  rightAccessory?: React.ReactNode;
 };
 
 export const Field = forwardRef<TextInput, FieldProps>(function Field(
-  { label, error, ...props },
+  { label, error, rightAccessory, ...props },
   ref,
 ) {
   return (
@@ -124,15 +125,22 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
       <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
         {label}
       </Text>
-      <TextInput
-        ref={ref}
-        accessibilityLabel={label}
-        placeholderTextColor="#98989b"
-        className={`text-foreground h-12 border bg-neutral-100 px-4 font-sans text-base ${
-          error ? 'border-destructive' : 'border-input'
-        }`}
-        {...props}
-      />
+      <View className="relative justify-center">
+        <TextInput
+          ref={ref}
+          accessibilityLabel={label}
+          placeholderTextColor="#98989b"
+          className={`text-foreground h-12 border bg-neutral-100 px-4 ${
+            rightAccessory ? 'pr-14' : ''
+          } font-sans text-base ${error ? 'border-destructive' : 'border-input'}`}
+          {...props}
+        />
+        {rightAccessory ? (
+          <View className="absolute right-0 top-0 bottom-0 justify-center px-3">
+            {rightAccessory}
+          </View>
+        ) : null}
+      </View>
       {error ? <Text className="text-destructive font-sans text-xs">{error}</Text> : null}
     </View>
   );
