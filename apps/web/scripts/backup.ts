@@ -31,6 +31,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
+import { isLocalConnection } from '../lib/db/ssl';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 config({ path: resolve(process.cwd(), '.env') });
@@ -77,7 +78,13 @@ async function main() {
    */
   const args = ['--format=custom', '--no-owner', '--no-acl', '--file', file, url];
 
-  const child = spawn('pg_dump', args, { stdio: ['ignore', 'inherit', 'inherit'] });
+  const child = spawn('pg_dump', args, {
+    stdio: ['ignore', 'inherit', 'inherit'],
+    env: {
+      ...process.env,
+      PGSSLMODE: process.env.PGSSLMODE || (isLocalConnection(url) ? 'disable' : 'require'),
+    },
+  });
 
   child.on('error', (err) => {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {

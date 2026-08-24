@@ -243,14 +243,14 @@ async function main() {
   }
   console.log(`✓ Rosters assigned`);
 
-  // Sample match — India batting, VK + RS opening, JB bowling
+  // Sample match — India batting, VK + RS opening, Pat Cummins bowling for Australia
   const matchId = await getOrCreateSampleMatch(
     ownerId,
     teamAId,
     teamBId,
     playerIdsByName['Virat Kohli']!,
     playerIdsByName['Rohit Sharma']!,
-    playerIdsByName['Jasprit Bumrah']!,
+    playerIdsByName['Pat Cummins']!,
   );
   console.log(`✓ Sample match: /matches/${matchId}/score`);
   console.log('\n🎉 Seed complete. Sign in at /login with:');

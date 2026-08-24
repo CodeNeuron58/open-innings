@@ -111,11 +111,10 @@ This runs all SQL files in `apps/web/supabase/migrations/` in lexical order, tra
 You should see:
 
 ```
-→ Applying 4 migration(s):
+→ Applying 17 migration(s):
   0000_initial_schema.sql ... ok
-  0001_rls_policies.sql ... ok
-  0002_sessions.sql ... ok
-  0003_innings_opening_players.sql ... ok
+  ...
+  0017_overthrow_constraint_and_indexes.sql ... ok
 ✓ All migrations applied.
 ```
 
@@ -302,14 +301,14 @@ apps/web/
 ├── lib/
 │   ├── auth/                 # argon2 + sessions + cookies
 │   ├── db/                   # Drizzle schema + queries
-│   └── scoring/              # Pure-function engine + 44 unit tests
-├── scripts/                  # migrate.ts, seed.ts, auth-smoke.ts
-├── supabase/migrations/      # SQL migrations
+│   └── services/             # matches, ball-correction, stats
+├── scripts/                  # migrate.ts, seed.ts, auth-smoke.ts, verify-replay.ts
+├── supabase/migrations/      # 17 SQL migrations
 ├── .env.local                # YOUR config (not committed)
 └── .env.example              # Template (committed)
 ```
 
-The most important file is `packages/scoring/src/engine.ts` — a pure function `applyBall(state, event) → newState` with 48 tests covering MCC cricket rules.
+The core scoring engine lives in `packages/scoring/src/engine.ts` — a pure function `applyBall(state, event) → newState` with 155 unit tests covering MCC cricket rules.
 
 ---
 

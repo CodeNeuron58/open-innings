@@ -190,6 +190,9 @@ async function main() {
             `balls: cached ${inn.ballsBowled}, replayed ${state.currentInnings.ballsBowled}`,
           );
         }
+        if (state.currentInnings.extras !== inn.extras) {
+          drift.push(`extras: cached ${inn.extras}, replayed ${state.currentInnings.extras}`);
+        }
         if (drift.length > 0) {
           console.error(`⚠ ${match.title ?? match.id} innings ${inn.inningsNumber} — cache drift:`);
           for (const d of drift) console.error(`    ${d}`);

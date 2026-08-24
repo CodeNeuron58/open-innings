@@ -105,6 +105,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: auth-smoke — direct database auth verification
+        run: |
+          pnpm db:reset
+          pnpm db:migrate
+          pnpm smoke:auth
+
       # score-smoke.ts and p1-smoke.ts both play out a full match against the
       # one seeded live match, so they can't share a database — each gets its
       # own reset/migrate/seed and its own server instance (different ports,
@@ -112,31 +118,53 @@ jobs:
       # `next start` reads PORT from the environment — passing -p through two
       # layers of pnpm filtering (root -> --filter web -> next) mangles the
       # flag, PORT sidesteps that entirely.
-      - name: score-smoke — reset, seed, run
+      - name: score-smoke — reset, seed, run, verify replay
         run: |
           pnpm db:reset
           pnpm db:migrate
           pnpm db:seed
           PORT=3000 pnpm start &
+          SERVER_PID=$!
+          READY=0
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/api/health > /dev/null && break
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              READY=1
+              break
+            fi
             sleep 1
           done
+          if [ "$READY" -ne 1 ]; then
+            echo "Server failed to start on port 3000 within 30s"
+            kill $SERVER_PID || true
+            exit 1
+          fi
           SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:score
-          fuser -k 3000/tcp || true
+          pnpm db:verify
+          kill $SERVER_PID || true
 
-      - name: p1-smoke — reset, seed, run
+      - name: p1-smoke — reset, seed, run, verify replay
         run: |
           pnpm db:reset
           pnpm db:migrate
           pnpm db:seed
           PORT=3001 pnpm start &
+          SERVER_PID=$!
+          READY=0
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3001/api/health > /dev/null && break
+            if curl -sf http://localhost:3001/api/health > /dev/null; then
+              READY=1
+              break
+            fi
             sleep 1
           done
+          if [ "$READY" -ne 1 ]; then
+            echo "Server failed to start on port 3001 within 30s"
+            kill $SERVER_PID || true
+            exit 1
+          fi
           SMOKE_BASE_URL=http://localhost:3001 pnpm smoke:p1
-          fuser -k 3001/tcp || true
+          pnpm db:verify
+          kill $SERVER_PID || true
 
       # api-smoke drives the REST surface the mobile app uses, authenticating
       # with Authorization: Bearer rather than a cookie. It creates its own
@@ -145,9 +173,19 @@ jobs:
       - name: api-smoke — run
         run: |
           PORT=3002 pnpm start &
+          SERVER_PID=$!
+          READY=0
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3002/api/health > /dev/null && break
+            if curl -sf http://localhost:3002/api/health > /dev/null; then
+              READY=1
+              break
+            fi
             sleep 1
           done
+          if [ "$READY" -ne 1 ]; then
+            echo "Server failed to start on port 3002 within 30s"
+            kill $SERVER_PID || true
+            exit 1
+          fi
           SMOKE_BASE_URL=http://localhost:3002 pnpm smoke:api
-          fuser -k 3002/tcp || true
+          kill $SERVER_PID || true

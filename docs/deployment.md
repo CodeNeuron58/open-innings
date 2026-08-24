@@ -1,7 +1,8 @@
 # Deployment
 
-**Status: not deployed yet.** This documents the decided plan — deployment
-happens once the app is further along and tested locally, not before.
+> **Note**: For current live production deployment and infrastructure architecture on Heroku, see [`docs/hosting.md`](./hosting.md) and [`ops.md`](../ops.md). This document preserves the original self-hosted VM architecture reference.
+
+**Status: Live on Heroku (`openinnings.com`) with Oracle Cloud VM fallback.** This documents the original architectural evaluation and self-hosted fallback model.
 
 ## The decision
 
