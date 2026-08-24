@@ -18,6 +18,8 @@ import {
   MATCH_FORMATS,
   TOSS_DECISIONS,
   BALL_EVENT_TYPES,
+  OVERTHROW_IMPOSSIBLE_TYPES,
+  PENALTY_RUNS,
   WICKET_TYPES,
 } from './enums';
 
@@ -414,6 +416,19 @@ type BallShape = {
  */
 const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
   const expected = RUNS_FOR_TYPE[v.eventType];
+  const overthrows = v.overthrowRuns ?? 0;
+
+  // An overthrow needs a ball still in play to be thrown. A boundary off the
+  // bat is dead where it lies, and a penalty is an award rather than a
+  // delivery, so neither can carry one. Checked before anything else because
+  // it is true whatever the rest of the payload claims.
+  if (overthrows > 0 && OVERTHROW_IMPOSSIBLE_TYPES.has(v.eventType)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['overthrowRuns'],
+      message: `A '${v.eventType}' cannot carry overthrows — the ball is already dead`,
+    });
+  }
 
   // A scoring shot names its own runs, and carries no extras.
   if (expected !== undefined) {
@@ -435,6 +450,16 @@ const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
   }
 
   if (EXTRA_TYPES.has(v.eventType)) {
+    // Law 41/42 awards five. Not at least five, and not at most — the award
+    // is the number, so anything else is a payload describing something that
+    // did not happen.
+    if (v.eventType === 'penalty' && v.extraRuns !== PENALTY_RUNS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['extraRuns'],
+        message: `A penalty is ${PENALTY_RUNS} runs (Law 41/42), not ${v.extraRuns}`,
+      });
+    }
     // Every one of these puts at least one run on the board: a penalty for a
     // wide or no-ball, and a completed run for a bye or leg-bye.
     if (v.extraRuns < 1) {

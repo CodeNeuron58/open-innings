@@ -455,7 +455,14 @@ export type CardInnings = {
    * against the app checks these individually — a byes column that disagrees
    * is the usual sign something was entered on the wrong key.
    */
-  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number };
+  extras: {
+    total: number;
+    wides: number;
+    noBalls: number;
+    byes: number;
+    legByes: number;
+    penalty: number;
+  };
   fallOfWickets: { wicketNumber: number; runsAtFall: number; oversAtFall: string; name: string }[];
   deliveries: CardDelivery[];
 };

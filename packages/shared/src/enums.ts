@@ -90,6 +90,28 @@ export const BALL_EVENT_TYPES = [
 ] as const;
 export type BallEventTypeValue = (typeof BALL_EVENT_TYPES)[number];
 
+/**
+ * Law 41/42 awards exactly five penalty runs — the figure itself, not a
+ * default or a ceiling, which is why `ballEventSchema` pins `extraRuns` to it
+ * rather than bounding a range. Only the mobile keypad knew this before, so
+ * any other client could post a three-run penalty and have it stored.
+ */
+export const PENALTY_RUNS = 5;
+
+/**
+ * Event types on which an overthrow cannot physically have happened.
+ *
+ * A four or a six off the bat has already reached the boundary, so the ball is
+ * dead and there is nothing left to throw back. A penalty is an award, not a
+ * delivery. Without this, `{ eventType: '4', overthrowRuns: 4 }` validated
+ * and quietly cost the striker their boundary in the fours column.
+ *
+ * Lives here rather than in the scoring package's `rules.ts` because the
+ * schema is where it is enforced, and the two packages do not depend on one
+ * another — a second copy would be free to drift from this one.
+ */
+export const OVERTHROW_IMPOSSIBLE_TYPES: ReadonlySet<string> = new Set(['4', '6', 'penalty']);
+
 export const WICKET_TYPES = [
   'bowled',
   'caught',

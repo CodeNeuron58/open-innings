@@ -7,7 +7,12 @@
 
 import type { BowlerStats, BatsmanStats, InningsState } from './types';
 import { asPlayerId, type PlayerId } from './types';
-import { BALLS_PER_OVER, NO_BALL_PENALTY, WIDE_PENALTY } from './rules';
+import {
+  BALLS_PER_OVER,
+  NO_BALL_PENALTY,
+  WIDE_PENALTY,
+  OVERTHROW_TO_EXTRAS_TYPES,
+} from './rules';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Display formatting
@@ -181,6 +186,31 @@ export function overNumberFor(legalBallsBowledBefore: number): number {
  */
 export function ballNumberInOver(legalBallsBowledBefore: number): number {
   return (legalBallsBowledBefore % BALLS_PER_OVER) + 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Extras
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * What a delivery put in the extras column.
+ *
+ * Not its total, and not always its `extraRuns`. A no-ball struck for four is
+ * five runs, of which only the one-run penalty is an extra — the four belong
+ * to the batter. An overthrow off a ball the bat never touched has no batter
+ * to belong to, so it joins the column its delivery already sits in.
+ *
+ * `updateInnings` and the scorecard's extras breakdown both ask this, because
+ * they used to answer it separately: the breakdown counted a no-ball's total,
+ * so an innings could print "Extras 10" over parts adding to 14.
+ */
+export function extrasFrom(ball: {
+  eventType: string;
+  extraRuns: number;
+  overthrowRuns?: number;
+}): number {
+  const overthrows = ball.overthrowRuns ?? 0;
+  return ball.extraRuns + (OVERTHROW_TO_EXTRAS_TYPES.has(ball.eventType) ? overthrows : 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

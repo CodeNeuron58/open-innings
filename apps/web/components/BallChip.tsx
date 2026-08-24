@@ -1,3 +1,4 @@
+import { ballMark, type BallChipKind } from '@open-innings/scoring';
 import { cn } from '@/lib/utils';
 
 /**
@@ -14,42 +15,28 @@ type BallLike = {
   ballNumber?: number;
 };
 
+/**
+ * Colour for each kind of delivery. The mark itself comes from `ballMark` in
+ * the scoring package — this file used to derive both, and its notation had
+ * drifted from the engine's and the app's: a three-run wide read `3wd` here
+ * and `wd2` in both of the others.
+ */
+const KIND_CLASS: Record<BallChipKind, string> = {
+  wicket: 'bg-wicket text-wicket-foreground',
+  six: 'bg-six text-six-foreground',
+  boundary: 'bg-four text-four-foreground',
+  wide: 'bg-extra text-extra-foreground',
+  no_ball: 'bg-extra text-extra-foreground',
+  bye: 'bg-extra text-extra-foreground',
+  leg_bye: 'bg-extra text-extra-foreground',
+  penalty: 'bg-extra text-extra-foreground',
+  run: 'bg-secondary text-secondary-foreground',
+  dot: 'bg-muted text-muted-foreground',
+};
+
 export function ballChipParts(ball: BallLike): { label: string; className: string } {
-  if (ball.wicketType) {
-    const label = ball.totalRuns > 0 ? `W${ball.totalRuns}` : 'W';
-    return { label, className: 'bg-wicket text-wicket-foreground' };
-  }
-  switch (ball.eventType) {
-    case 'wide':
-      return {
-        label: ball.totalRuns > 1 ? `${ball.totalRuns}wd` : 'wd',
-        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
-      };
-    case 'no_ball':
-      return {
-        label: ball.totalRuns > 1 ? `${ball.totalRuns}nb` : 'nb',
-        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
-      };
-    case 'bye':
-      return {
-        label: `${ball.totalRuns}b`,
-        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
-      };
-    case 'leg_bye':
-      return {
-        label: `${ball.totalRuns}lb`,
-        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
-      };
-    case 'penalty':
-      return {
-        label: `+${ball.totalRuns}P`,
-        className: 'bg-extra/15 text-extra ring-1 ring-inset ring-extra/30',
-      };
-  }
-  if (ball.runsOffBat === 4) return { label: '4', className: 'bg-four text-four-foreground' };
-  if (ball.runsOffBat === 6) return { label: '6', className: 'bg-six text-six-foreground' };
-  if (ball.totalRuns === 0) return { label: '•', className: 'bg-muted text-muted-foreground' };
-  return { label: String(ball.totalRuns), className: 'bg-secondary text-secondary-foreground' };
+  const { label, kind } = ballMark(ball);
+  return { label, className: KIND_CLASS[kind] };
 }
 
 export function BallChip({

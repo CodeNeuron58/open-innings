@@ -626,3 +626,45 @@ describe('a batter who leaves the field must be replaced before the next deliver
     expect(codeFor(() => bowl(s))).toBe('BATSMAN_NOT_REPLACED');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Law 17.4 — parts of two consecutive overs
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a shared over still binds the bowler who started it', () => {
+  /** Six legal balls of over 0, with w1 replaced by w2 after the third. */
+  function sharedFirstOver(): MatchState {
+    let s = seedWith();
+    for (let i = 0; i < 3; i += 1) s = bowl(s, { bowlerId: asPlayerId('w1') });
+    for (let i = 0; i < 3; i += 1) {
+      s = bowl(s, { bowlerId: asPlayerId('w2'), bowlerReplacedMidOver: true });
+    }
+    return s;
+  }
+
+  it('refuses the bowler who finished it — Law 16.2, as before', () => {
+    expect(codeFor(() => bowl(sharedFirstOver(), { bowlerId: asPlayerId('w2') }))).toBe(
+      'BOWLER_BOWLED_CONSECUTIVE_OVERS',
+    );
+  });
+
+  it('refuses the bowler who started it and did not finish', () => {
+    // w1 bowled three balls of the over and was replaced. Opening the next one
+    // would have them bowling parts of two consecutive overs. `lastBowlerId`
+    // holds w2, so nothing here caught this before.
+    expect(codeFor(() => bowl(sharedFirstOver(), { bowlerId: asPlayerId('w1') }))).toBe(
+      'BOWLER_BOWLED_PART_OF_PREVIOUS_OVER',
+    );
+  });
+
+  it('allows anybody who did not bowl in it', () => {
+    expect(codeFor(() => bowl(sharedFirstOver(), { bowlerId: asPlayerId('w3') }))).toBeNull();
+  });
+
+  it('still lets a bowler finish an over they started', () => {
+    let s = seedWith();
+    s = bowl(s, { bowlerId: asPlayerId('w1') });
+    // Second ball of the same over, same bowler — the ordinary case.
+    expect(codeFor(() => bowl(s, { bowlerId: asPlayerId('w1') }))).toBeNull();
+  });
+});

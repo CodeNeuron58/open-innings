@@ -9,11 +9,15 @@ export { applyBall, type ApplyBallOptions } from './engine';
 export { initialState, replayEvents, replayInnings, replayWithLastRemoved } from './compute';
 export {
   buildScorecard,
+  ballMark,
   type ScorecardView,
   type BattingRow,
   type BowlingRow,
   type CurrentBatsmanView,
   type BallChip,
+  type BallChipKind,
+  type BallDescription,
+  type DescribableBall,
 } from './scorecard';
 export {
   describeBall,

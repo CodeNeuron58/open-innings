@@ -848,8 +848,8 @@ describe('scorecard view', () => {
     state = applyBall(state, r.event);
     const view = buildScorecard(state, (id: string) => id);
     expect(view.recentBalls.length).toBe(2);
-    expect(view.recentBalls[0]?.display).toBe('4');
-    expect(view.recentBalls[1]?.display).toBe('6');
+    expect(view.recentBalls[0]?.label).toBe('4');
+    expect(view.recentBalls[1]?.label).toBe('6');
   });
 });
 
@@ -970,8 +970,8 @@ describe('new batter after a wicket', () => {
   });
 });
 
-describe('Overthrow runs separation (Law 18.6 & 19.8)', () => {
-  it('adds overthrow runs to innings score but does NOT credit them as bat runs or boundaries', () => {
+describe('Overthrow runs (Law 19.8)', () => {
+  it('credits an overthrow off a struck ball to the striker, without calling it a boundary', () => {
     let state = seed();
     state = applyBall(state, {
       inningsId: asInningsId(INNINGS_ID),
@@ -985,15 +985,60 @@ describe('Overthrow runs separation (Law 18.6 & 19.8)', () => {
       bowlerId: pid(BOWLER),
     });
 
-    // Innings gets all 5 runs
     expect(state.currentInnings.runs).toBe(5);
     expect(state.currentInnings.ballsBowled).toBe(1);
 
-    // Batter only credited with the 1 run off the bat (NOT 5 runs, NOT a boundary four)
-    expect(state.batting[STRIKER]?.runs).toBe(1);
+    // The ball came off the bat, so all five runs are the striker's — the
+    // 2019 final: struck for one, four more overthrown, six on the card.
+    expect(state.batting[STRIKER]?.runs).toBe(5);
+    expect(state.batting[STRIKER]?.balls).toBe(1);
+
+    // Runs, but not a stroke to the boundary. The tally counts shots.
     expect(state.batting[STRIKER]?.fours).toBe(0);
     expect(state.batting[STRIKER]?.sixes).toBe(0);
-    expect(state.batting[STRIKER]?.balls).toBe(1);
+
+    // And none of it reached the extras column.
+    expect(state.currentInnings.extras).toBe(0);
+  });
+
+  it('sends an overthrow off a ball the bat never touched to extras', () => {
+    let state = seed();
+    state = applyBall(state, {
+      inningsId: asInningsId(INNINGS_ID),
+      eventType: 'bye',
+      runsOffBat: 0,
+      overthrowRuns: 4,
+      extraRuns: 1,
+      totalRuns: 5,
+      batsmanId: pid(STRIKER),
+      nonStrikerId: pid(NON_STRIKER),
+      bowlerId: pid(BOWLER),
+    });
+
+    expect(state.currentInnings.runs).toBe(5);
+    // A run overthrown after a bye is a bye. No batter played it.
+    expect(state.currentInnings.extras).toBe(5);
+    expect(state.batting[STRIKER]?.runs).toBe(0);
+    // Law 24 still keeps byes off the bowler, overthrown or not.
+    expect(state.bowling[BOWLER]?.runs).toBe(0);
+  });
+
+  it('charges the bowler exactly what the striker was credited', () => {
+    let state = seed();
+    state = applyBall(state, {
+      inningsId: asInningsId(INNINGS_ID),
+      eventType: '2',
+      runsOffBat: 2,
+      overthrowRuns: 4,
+      extraRuns: 0,
+      totalRuns: 6,
+      batsmanId: pid(STRIKER),
+      nonStrikerId: pid(NON_STRIKER),
+      bowlerId: pid(BOWLER),
+    });
+
+    expect(state.batting[STRIKER]?.runs).toBe(6);
+    expect(state.bowling[BOWLER]?.runs).toBe(6);
   });
 });
 

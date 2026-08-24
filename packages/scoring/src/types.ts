@@ -308,6 +308,7 @@ export type ScoringErrorCode =
   /** Law 21 / Law 22.6 — that dismissal is not available off that delivery. */
   | 'INVALID_WICKET_FOR_DELIVERY'
   | 'BOWLER_BOWLED_CONSECUTIVE_OVERS'
+  | 'BOWLER_BOWLED_PART_OF_PREVIOUS_OVER'
   /** A playing condition, not a Law — only checked when the match sets one. */
   | 'BOWLER_QUOTA_EXCEEDED'
   /** Law 17.4 — the bowler may not change part-way through an over. */

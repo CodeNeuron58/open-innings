@@ -3,37 +3,38 @@
  * Uses text labels for accessibility, with a monochrome steel color scale for quick visual scanning.
  */
 import { Pressable, Text, View } from 'react-native';
-import type { BallEvent } from '@open-innings/scoring';
+import { ballMark, type BallEvent, type BallChipKind } from '@open-innings/scoring';
 
-type Tone = 'four' | 'six' | 'wicket' | 'extra' | 'dot';
+type Tone = 'four' | 'six' | 'wicket' | 'extra' | 'run' | 'dot';
+
+/**
+ * Which tone each kind of delivery is drawn in.
+ *
+ * The mark itself comes from `ballMark` in the scoring package. This file used
+ * to work it out too, and had drifted: a bye for two read `b2` here and `2b`
+ * everywhere else, and — worse — a ball struck for two with four overthrown
+ * showed `2`, because it read `runsOffBat` where the scorecard read the total.
+ * The same delivery reported two different scores on two screens.
+ *
+ * `run` was the other half of that bug: every 1, 2, 3 and 5 fell through to
+ * the dot tone and was drawn as though nothing had happened.
+ */
+const KIND_TONE: Record<BallChipKind, Tone> = {
+  wicket: 'wicket',
+  six: 'six',
+  boundary: 'four',
+  wide: 'extra',
+  no_ball: 'extra',
+  bye: 'extra',
+  leg_bye: 'extra',
+  penalty: 'extra',
+  run: 'run',
+  dot: 'dot',
+};
 
 function describe(ball: BallEvent): { label: string; tone: Tone } {
-  if (ball.wicketType) {
-    const label = ball.totalRuns > 0 ? `W${ball.totalRuns}` : 'W';
-    return { label, tone: 'wicket' };
-  }
-
-  switch (ball.eventType) {
-    case 'wide':
-      // A wide is never touched by the bat, so its total is all extras.
-      return { label: ball.totalRuns > 1 ? `wd${ball.totalRuns - 1}` : 'wd', tone: 'extra' };
-    case 'no_ball':
-      return { label: ball.totalRuns > 1 ? `nb${ball.totalRuns - 1}` : 'nb', tone: 'extra' };
-    case 'bye':
-      return { label: `b${ball.totalRuns}`, tone: 'extra' };
-    case 'leg_bye':
-      return { label: `lb${ball.totalRuns}`, tone: 'extra' };
-    case 'penalty':
-      return { label: `+${ball.totalRuns}P`, tone: 'extra' };
-    case 'dot':
-      return { label: '•', tone: 'dot' };
-    case '4':
-      return { label: '4', tone: 'four' };
-    case '6':
-      return { label: '6', tone: 'six' };
-    default:
-      return { label: String(ball.runsOffBat), tone: 'dot' };
-  }
+  const { label, kind } = ballMark(ball);
+  return { label, tone: KIND_TONE[kind] };
 }
 
 const TONE_STYLES: Record<Tone, { bg: string; text: string; border: string }> = {
@@ -41,6 +42,9 @@ const TONE_STYLES: Record<Tone, { bg: string; text: string; border: string }> = 
   six: { bg: 'bg-six', text: 'text-six-foreground', border: 'border-steel-400' },
   wicket: { bg: 'bg-wicket', text: 'text-wicket-foreground', border: 'border-wicket' },
   extra: { bg: 'bg-extra', text: 'text-extra-foreground', border: 'border-extra' },
+  // Runs off the bat that were not a boundary. Filled, so the over strip shows
+  // at a glance which balls were scored off — these used to be drawn as dots.
+  run: { bg: 'bg-steel-200', text: 'text-foreground', border: 'border-steel-300' },
   // A dot ball is the quietest thing that happened — drawn, not filled.
   dot: { bg: 'bg-neutral-100', text: 'text-foreground', border: 'border-border' },
 };
@@ -57,6 +61,7 @@ const DARK_TONE_STYLES: Record<Tone, { bg: string; text: string; border: string 
   six: { bg: 'bg-steel-500', text: 'text-scoreboard', border: 'border-steel-500' },
   wicket: { bg: 'bg-scoreboard-text', text: 'text-scoreboard', border: 'border-scoreboard-text' },
   extra: { bg: 'bg-steel-800', text: 'text-scoreboard-accent', border: 'border-steel-700' },
+  run: { bg: 'bg-steel-900', text: 'text-scoreboard-text', border: 'border-steel-700' },
   dot: { bg: 'bg-transparent', text: 'text-scoreboard-text', border: 'border-scoreboard-border' },
 };
 

@@ -65,6 +65,7 @@ import {
   NON_DELIVERY_WICKETS,
   NO_BALL_VALID_WICKETS,
   NO_CONSECUTIVE_OVERS,
+  OVERTHROW_TO_EXTRAS_TYPES,
   REQUIRES_FIELDER,
   TEAM_WICKET_COUNTED,
   WIDE_VALID_WICKETS,
@@ -81,7 +82,7 @@ import {
   playerIdKey,
   rotateStrike,
   shouldSwapStrike,
-} from './helpers';
+  extrasFrom,} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // applyBall — the main entry point.
@@ -392,6 +393,28 @@ function validateBowler(state: MatchState, event: BallEvent): void {
   // without advancing that counter.
   const currentOver = overNumberFor(inn.ballsBowled);
   const overInProgress = state.balls.some((b) => b.overNumber === currentOver);
+
+  // Law 17.4 again, the half `lastBowlerId` cannot see: a bowler may not
+  // "bowl parts of each of two consecutive overs". `lastBowlerId` holds
+  // whoever *finished* the previous over, so when an over was shared — a
+  // bowler pulled up injured and another completed it — the one who started
+  // it was free to open the next over. They would then have bowled in two
+  // consecutive overs, which is the thing the Law forbids, and the guard
+  // above would have let it through because they were not the finisher.
+  //
+  // Only asked at the top of an over. Finishing an over you started is the
+  // ordinary case and has nothing to do with this rule.
+  if (NO_CONSECUTIVE_OVERS && !overInProgress && currentOver > 0) {
+    const bowledPrevious = state.balls.some(
+      (b) => b.overNumber === currentOver - 1 && b.bowlerId === event.bowlerId,
+    );
+    if (bowledPrevious) {
+      throw new ScoringError(
+        'BOWLER_BOWLED_PART_OF_PREVIOUS_OVER',
+        'A bowler may not bowl parts of two consecutive overs (Law 17.4)',
+      );
+    }
+  }
   if (overInProgress && event.bowlerId !== inn.currentBowlerId && !event.bowlerReplacedMidOver) {
     throw new ScoringError(
       'BOWLER_CHANGED_MID_OVER',
@@ -564,13 +587,23 @@ function updateBatting(
     striker.balls += 1;
   }
 
-  // Runs off the bat — credited to the striker who played the ball.
+  // Runs off the bat — credited to the striker who played the ball, plus any
+  // overthrows that followed it.
   //
-  // Overthrow runs (Law 18.6 / 19.8) are NOT credited to the batter:
-  // they add to the team total but did not come off the bat, so they must
-  // not inflate the batter's run count, strike rate, or boundary tally.
-  striker.runs += event.runsOffBat;
-  // Only count a four/six when the boundary came from the bat itself.
+  // Law 19.8: an overthrow off a struck ball belongs to the striker exactly as
+  // the runs that preceded it do. Withholding them broke the identity every
+  // scorecard has to satisfy — innings total = batters + extras — because the
+  // engine put them on the board and then credited them to nobody, while
+  // charging the bowler in full. `OVERTHROW_TO_EXTRAS_TYPES` routes the other
+  // case, where the ball never touched the bat, to the extras column instead.
+  const overthrowToBatter = OVERTHROW_TO_EXTRAS_TYPES.has(event.eventType)
+    ? 0
+    : event.overthrowRuns;
+  striker.runs += event.runsOffBat + overthrowToBatter;
+
+  // The boundary tally counts strokes, not runs. Four off the bat is a four;
+  // two run plus four overthrown is six runs and no boundary, which is why
+  // this tests `runsOffBat` and not the credited total.
   if (event.runsOffBat === 4 && event.overthrowRuns === 0) striker.fours += 1;
   if (event.runsOffBat === 6 && event.overthrowRuns === 0) striker.sixes += 1;
 
@@ -760,7 +793,7 @@ function updateInnings(
   // Score update
   const runs = inn.runs + event.totalRuns;
   const ballsBowled = inn.ballsBowled + (event.isLegalDelivery ? 1 : 0);
-  const extras = inn.extras + event.extraRuns;
+  const extras = inn.extras + extrasFrom(event);
 
   // Wicket update — only counted types
   let wickets = inn.wickets;

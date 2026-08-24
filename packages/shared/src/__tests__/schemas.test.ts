@@ -266,6 +266,47 @@ describe('consistentBallEventSchema', () => {
   };
   const parse = (o: Record<string, unknown>) => consistentBallEventSchema.safeParse(o);
 
+  it('pins a penalty to the five runs Law 41/42 awards', () => {
+    const penalty = (extraRuns: number) =>
+      parse({ ...delivery, eventType: 'penalty', runsOffBat: 0, extraRuns });
+
+    expect(penalty(5).success).toBe(true);
+    // Three runs is not a smaller penalty; it is not a penalty.
+    for (const wrong of [1, 2, 3, 4, 6, 10]) {
+      expect(penalty(wrong).success).toBe(false);
+    }
+  });
+
+  it('refuses overthrows on a delivery where the ball is already dead', () => {
+    // A boundary off the bat has reached the rope; a penalty was never bowled.
+    expect(parse({ ...delivery, eventType: '4', runsOffBat: 4, overthrowRuns: 4 }).success).toBe(
+      false,
+    );
+    expect(parse({ ...delivery, eventType: '6', runsOffBat: 6, overthrowRuns: 2 }).success).toBe(
+      false,
+    );
+    expect(
+      parse({ ...delivery, eventType: 'penalty', runsOffBat: 0, extraRuns: 5, overthrowRuns: 4 })
+        .success,
+    ).toBe(false);
+  });
+
+  it('allows overthrows on deliveries where the ball is still live', () => {
+    // Struck and run: the overthrow is the striker's.
+    expect(parse({ ...delivery, eventType: '2', runsOffBat: 2, overthrowRuns: 4 }).success).toBe(
+      true,
+    );
+    // Beaten the bat and misfielded: the overthrow is a bye.
+    expect(
+      parse({ ...delivery, eventType: 'bye', runsOffBat: 0, extraRuns: 1, overthrowRuns: 4 })
+        .success,
+    ).toBe(true);
+    // Played, no run taken, then thrown to the boundary — still the striker's.
+    expect(parse({ ...delivery, eventType: 'dot', runsOffBat: 0, overthrowRuns: 4 }).success).toBe(
+      true,
+    );
+  });
+
   it('refuses a number dressed up as something else', () => {
     // z.coerce.number() would have turned each of these into a real delivery
     // with a 200 back. Number(null)=0, Number(true)=1, Number([4])=4.

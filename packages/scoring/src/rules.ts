@@ -161,6 +161,38 @@ export const BATSMAN_FACING_EXCLUDED_TYPES: ReadonlySet<string> = new Set(['wide
  */
 export const BOWLER_EXEMPT_EXTRAS: ReadonlySet<string> = new Set(['bye', 'leg_bye', 'penalty']);
 
+/**
+ * Deliveries on which overthrow runs belong to the extras column rather than
+ * to the striker.
+ *
+ * Law 19.8 counts the boundary allowance from an overthrow as runs to the
+ * batting side, and the long-standing scoring convention is that they follow
+ * the ball: struck by the bat, they are the striker's, exactly as the two runs
+ * that preceded them were. Stokes was credited with six in the 2019 final and
+ * Boult was charged six for the same delivery.
+ *
+ * When the ball never touched the bat, the runs have no batter to belong to,
+ * so they join the category the delivery already sits in — an overthrow after
+ * a bye is a bye, after a wide a wide.
+ *
+ * `penalty` is here for completeness; `overthrowRuns` is refused on it
+ * entirely, because no ball was bowled to be thrown back.
+ */
+export const OVERTHROW_TO_EXTRAS_TYPES: ReadonlySet<string> = new Set([
+  'wide',
+  'bye',
+  'leg_bye',
+  'penalty',
+]);
+
+/*
+ * The five-run figure for a Law 41/42 penalty, and the event types on which an
+ * overthrow is impossible, live in `@open-innings/shared`'s `enums.ts`. Both
+ * are enforced by `ballEventSchema` before a payload ever reaches the engine,
+ * and the two packages do not depend on one another, so keeping a second copy
+ * here would only give it room to drift.
+ */
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Law 25 — Wickets
 // ─────────────────────────────────────────────────────────────────────────────

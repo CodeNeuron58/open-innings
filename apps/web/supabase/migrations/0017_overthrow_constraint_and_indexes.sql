@@ -15,6 +15,11 @@ ALTER TABLE ball_events
   ADD CONSTRAINT ball_events_total_runs_sum
   CHECK (total_runs = runs_off_bat + overthrow_runs + extra_runs);
 
+-- Dropped first for the same reason as the constraint above: Postgres has no
+-- ADD CONSTRAINT IF EXISTS, so without this the statement is the one thing in
+-- the file that cannot be run twice.
+ALTER TABLE ball_events DROP CONSTRAINT IF EXISTS ball_events_overthrow_runs_range;
+
 ALTER TABLE ball_events
   ADD CONSTRAINT ball_events_overthrow_runs_range
   CHECK (overthrow_runs >= 0 AND overthrow_runs <= 12);
