@@ -277,6 +277,7 @@ export const players = pgTable(
   (t) => ({
     userIdx: index('players_user_idx').on(t.userId),
     nameIdx: index('players_name_idx').on(t.fullName),
+    createdByIdx: index('players_created_by_idx').on(t.createdBy),
   }),
 );
 
@@ -501,6 +502,7 @@ export const innings = pgTable(
   (t) => ({
     matchNumberIdx: uniqueIndex('innings_match_number_idx').on(t.matchId, t.inningsNumber),
     battingTeamIdx: index('innings_batting_team_idx').on(t.battingTeamId),
+    bowlingTeamIdx: index('innings_bowling_team_idx').on(t.bowlingTeamId),
   }),
 );
 
@@ -736,6 +738,10 @@ export const matchesRelations = relations(matches, ({ one, many }) => ({
     fields: [matches.tossWinnerTeamId],
     references: [teams.id],
   }),
+  winningTeam: one(teams, {
+    fields: [matches.winningTeamId],
+    references: [teams.id],
+  }),
   tournament: one(tournaments, { fields: [matches.tournamentId], references: [tournaments.id] }),
   innings: many(innings),
   createdByUser: one(users, { fields: [matches.createdBy], references: [users.id] }),
@@ -750,6 +756,18 @@ export const inningsRelations = relations(innings, ({ one, many }) => ({
   bowlingTeam: one(teams, {
     fields: [innings.bowlingTeamId],
     references: [teams.id],
+  }),
+  openingStriker: one(players, {
+    fields: [innings.openingStrikerId],
+    references: [players.id],
+  }),
+  openingNonStriker: one(players, {
+    fields: [innings.openingNonStrikerId],
+    references: [players.id],
+  }),
+  openingBowler: one(players, {
+    fields: [innings.openingBowlerId],
+    references: [players.id],
   }),
   ballEvents: many(ballEvents),
 }));
@@ -769,6 +787,7 @@ export const ballEventsRelations = relations(ballEvents, ({ one }) => ({
     references: [players.id],
     relationName: 'fielder',
   }),
+  createdByUser: one(users, { fields: [ballEvents.createdBy], references: [users.id] }),
 }));
 
 export const tournamentsRelations = relations(tournaments, ({ one, many }) => ({

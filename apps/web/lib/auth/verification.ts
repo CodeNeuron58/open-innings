@@ -51,7 +51,7 @@ function generateToken(): string {
  */
 export async function issueToken(
   userId: string,
-  purpose: Purpose,
+  purpose: 'password_reset',
   sentTo: string,
 ): Promise<string> {
   const token = generateToken();

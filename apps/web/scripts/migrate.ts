@@ -64,8 +64,10 @@ async function main() {
       const contents = await readFile(path, 'utf8');
       process.stdout.write(`  ${file} ... `);
       try {
-        await sql.unsafe(contents);
-        await sql`insert into __open_innings_migrations (name) values (${file})`;
+        await sql.begin(async (tx) => {
+          await tx.unsafe(contents);
+          await tx`insert into __open_innings_migrations (name) values (${file})`;
+        });
         process.stdout.write('ok\n');
       } catch (err) {
         process.stdout.write('FAIL\n');
