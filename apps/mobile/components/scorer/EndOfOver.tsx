@@ -184,7 +184,7 @@ export function EndOfOver({
                 hapticFeedback();
                 setPeeking(true);
               }}
-              className="border-scoreboard-border px-1.5 py-0.5 border active:opacity-70"
+              className="border-scoreboard-border border px-1.5 py-0.5 active:opacity-70"
             >
               <Text className="text-scoreboard-muted font-heading text-[9px] uppercase tracking-[1px]">
                 Peek board

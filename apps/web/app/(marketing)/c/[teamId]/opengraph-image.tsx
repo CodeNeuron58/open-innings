@@ -87,9 +87,15 @@ export default async function Image({ params }: { params: Promise<{ teamId: stri
     ];
 
     if (club.leaders.runs) {
-      stats.push({ value: String(club.leaders.runs.value), label: `Runs · ${club.leaders.runs.name.split(' ')[0]}` });
+      stats.push({
+        value: String(club.leaders.runs.value),
+        label: `Runs · ${club.leaders.runs.name.split(' ')[0]}`,
+      });
     } else if (club.leaders.wickets) {
-      stats.push({ value: String(club.leaders.wickets.value), label: `Wkts · ${club.leaders.wickets.name.split(' ')[0]}` });
+      stats.push({
+        value: String(club.leaders.wickets.value),
+        label: `Wkts · ${club.leaders.wickets.name.split(' ')[0]}`,
+      });
     }
 
     const parts: string[] = [];

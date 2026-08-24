@@ -344,7 +344,14 @@ export type CardInnings = {
     wickets: number;
     economy: string;
   }[];
-  extras: { total: number; wides: number; noBalls: number; byes: number; legByes: number; penalty?: number };
+  extras: {
+    total: number;
+    wides: number;
+    noBalls: number;
+    byes: number;
+    legByes: number;
+    penalty?: number;
+  };
   fallOfWickets: { wicketNumber: number; runsAtFall: number; oversAtFall: string; name: string }[];
   /** Oldest first, exactly as bowled. Group and reverse for display. */
   deliveries: CardDelivery[];

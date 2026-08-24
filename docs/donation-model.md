@@ -17,11 +17,14 @@ This document explains our sustainability roadmap, how early bootstrapping is fu
 ## 2. Bootstrapping vs. Long-Term Destination
 
 ### Phase 1: Bootstrap & Early Sustainability (Years 1–2)
+
 During early growth, server infrastructure (database, CDN, live WebSocket/polling, OpenGraph image generation) incurs real ongoing costs:
+
 - **Non-Intrusive Viewer Banners**: Passive AdMob banner ads on public viewer scorecard screens (`card`, `cards`, `share`) for non-owner spectators.
 - **Supporter In-App Subscription**: An optional ₹49/month or ₹199/year subscription (via Google Play / RevenueCat) for community members who want an ad-free spectator experience and wish to support hosting costs.
 
 ### Phase 2: Fully Community & Donation-Funded (Lichess Model)
+
 As community adoption grows and recurring donations on Open Collective / Liberapay cover 100% of server infrastructure and maintenance costs, our explicit roadmap is to deprecate in-app advertising entirely and run 100% on community donations.
 
 ---
@@ -31,14 +34,18 @@ As community adoption grows and recurring donations on Open Collective / Liberap
 We accept direct community donations through two transparent platforms:
 
 ### Open Collective
+
 <https://opencollective.com/open-innings>
+
 - Designed for open-source projects
 - Issues invoices for corporate donations (useful for employer matching)
 - Provides legal entity + accounting in many jurisdictions
 - Funds are released to project expenses, not to individuals
 
 ### Liberapay
+
 <https://liberapay.com/open-innings>
+
 - Recurring donations with zero platform fees on small amounts
 - Direct supporter donations
 
@@ -56,12 +63,14 @@ All expenses are public. Expected annual costs at various scales:
 | **100k+ users**    | TBD                     | Dedicated DB, read replicas, monitoring, contractor support                                                                                      |
 
 **We will spend funds on:**
+
 - Hosting, databases, storage, SSL, and domain registration
 - **Maintainer stipends**: Fair compensation for the open-source maintainers investing hundreds of hours into development, bug fixes, engine accuracy, and support
 - Design, accessibility work, and security reviews
 - Bounties for critical open-source contributions and bug fixes
 
 **We will never spend funds on:**
+
 - Bloated executive salaries or speculative corporate investments
 - Paid advertising or marketing campaigns to buy vanity metrics
 - Crypto, NFTs, or speculative assets
@@ -72,6 +81,7 @@ All expenses are public. Expected annual costs at various scales:
 ## 5. What We Will NOT Do
 
 To be crystal clear:
+
 - ❌ No ads during live scoring — ever.
 - ❌ No ads for the person who scored the match.
 - ❌ No "premium tier" that locks existing features.

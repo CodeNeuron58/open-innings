@@ -136,7 +136,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
           {...props}
         />
         {rightAccessory ? (
-          <View className="absolute right-0 top-0 bottom-0 justify-center px-3">
+          <View className="absolute bottom-0 right-0 top-0 justify-center px-3">
             {rightAccessory}
           </View>
         ) : null}

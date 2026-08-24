@@ -120,7 +120,7 @@ export default function Signup() {
             />
             {password.length > 0 && !errors.password ? (
               <Text
-                className={`font-sans text-xs -mt-2.5 ${
+                className={`-mt-2.5 font-sans text-xs ${
                   password.length >= 8 ? 'text-emerald-700' : 'text-neutral-500'
                 }`}
               >
@@ -145,7 +145,7 @@ export default function Signup() {
             />
             {confirmPassword.length > 0 && !errors.confirmPassword ? (
               <Text
-                className={`font-sans text-xs -mt-2.5 ${
+                className={`-mt-2.5 font-sans text-xs ${
                   confirmPassword === password ? 'text-emerald-700' : 'text-destructive'
                 }`}
               >

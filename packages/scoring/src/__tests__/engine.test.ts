@@ -1070,4 +1070,3 @@ describe('Penalty runs (Law 41 & 42)', () => {
     expect(state.batting[STRIKER]?.runs).toBe(0);
   });
 });
-

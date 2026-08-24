@@ -153,7 +153,9 @@ export default function More() {
         {/* Account and associated player profile. */}
         <Pressable
           accessibilityRole={isGuest ? 'none' : 'button'}
-          accessibilityLabel={playerId ? 'Your career page' : isGuest ? displayName : 'Set up your player profile'}
+          accessibilityLabel={
+            playerId ? 'Your career page' : isGuest ? displayName : 'Set up your player profile'
+          }
           onPress={
             isGuest
               ? undefined
@@ -201,7 +203,9 @@ export default function More() {
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Manage your subscription on Google Play"
-              onPress={() => void Linking.openURL('https://play.google.com/store/account/subscriptions')}
+              onPress={() =>
+                void Linking.openURL('https://play.google.com/store/account/subscriptions')
+              }
               className="border-steel-400 border px-2.5 py-1.5 active:opacity-60"
             >
               <Text className="text-steel-900 font-heading text-[9.5px] uppercase tracking-[1.2px]">

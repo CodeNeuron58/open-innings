@@ -7,12 +7,7 @@
 
 import type { BowlerStats, BatsmanStats, InningsState } from './types';
 import { asPlayerId, type PlayerId } from './types';
-import {
-  BALLS_PER_OVER,
-  NO_BALL_PENALTY,
-  WIDE_PENALTY,
-  OVERTHROW_TO_EXTRAS_TYPES,
-} from './rules';
+import { BALLS_PER_OVER, NO_BALL_PENALTY, WIDE_PENALTY, OVERTHROW_TO_EXTRAS_TYPES } from './rules';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Display formatting

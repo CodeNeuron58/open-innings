@@ -69,7 +69,11 @@ export default function ResetPassword() {
                 valid for an hour.
               </Text>
               <View className="mt-2">
-                <Button label="Back to sign in" variant="secondary" onPress={() => router.replace('/login')} />
+                <Button
+                  label="Back to sign in"
+                  variant="secondary"
+                  onPress={() => router.replace('/login')}
+                />
               </View>
             </View>
           ) : (

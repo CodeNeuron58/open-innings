@@ -76,7 +76,7 @@ export default function MatchCard() {
   }
 
   // Default to the innings that decided it — the second/latest, when there is one.
-  const activeIndex = inningsIndex ?? (card.innings.length - 1);
+  const activeIndex = inningsIndex ?? card.innings.length - 1;
   const index = Math.max(0, Math.min(activeIndex, card.innings.length - 1));
   const innings = card.innings[index] as CardInnings;
 

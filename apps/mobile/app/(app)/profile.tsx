@@ -128,10 +128,12 @@ export default function Profile() {
 
       // 3. Create club team if specified
       if (club.trim() && playerId) {
-        await api.createTeam(token, {
-          name: club.trim(),
-          playerIds: [playerId],
-        }).catch(() => {});
+        await api
+          .createTeam(token, {
+            name: club.trim(),
+            playerIds: [playerId],
+          })
+          .catch(() => {});
       }
 
       // 4. Refresh session to populate claimed playerId
@@ -177,19 +179,9 @@ export default function Profile() {
             editable={!busy}
           />
 
-          <Segmented
-            label="Player Role"
-            options={ROLES}
-            value={role}
-            onChange={setRole}
-          />
+          <Segmented label="Player Role" options={ROLES} value={role} onChange={setRole} />
 
-          <Segmented
-            label="Batting Hand"
-            options={HANDS}
-            value={bats}
-            onChange={setBats}
-          />
+          <Segmented label="Batting Hand" options={HANDS} value={bats} onChange={setBats} />
 
           <Segmented
             label="Bowling Style"
@@ -220,11 +212,7 @@ export default function Profile() {
         <View className="grow" />
 
         <View className="mt-8 gap-3">
-          <Button
-            label="Save profile"
-            onPress={() => void submit()}
-            loading={busy}
-          />
+          <Button label="Save profile" onPress={() => void submit()} loading={busy} />
 
           <Pressable
             accessibilityRole="button"

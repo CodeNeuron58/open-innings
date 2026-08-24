@@ -57,7 +57,10 @@ function FormChart({ form }: { form: FormEntryView[] }) {
   const best = Math.max(...entries.map((f) => f.runs), 1);
 
   return (
-    <View accessibilityRole="summary" accessibilityLabel={`Recent form across last ${entries.length} innings`}>
+    <View
+      accessibilityRole="summary"
+      accessibilityLabel={`Recent form across last ${entries.length} innings`}
+    >
       <View className="h-[92px] flex-row items-end gap-2">
         {entries.map((f, i) => (
           <View
@@ -278,9 +281,7 @@ export default function PlayerProfile() {
                 <Line label="Wickets" value={String(bowling.wickets)} />
                 <Line
                   label="Best"
-                  value={
-                    bowling.innings > 0 ? `${bowling.bestWickets}/${bowling.bestRuns}` : '—'
-                  }
+                  value={bowling.innings > 0 ? `${bowling.bestWickets}/${bowling.bestRuns}` : '—'}
                 />
                 <Line label="Econ" value={rate(bowling.economy, 1)} />
               </View>

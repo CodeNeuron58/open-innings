@@ -82,7 +82,8 @@ import {
   playerIdKey,
   rotateStrike,
   shouldSwapStrike,
-  extrasFrom,} from './helpers';
+  extrasFrom,
+} from './helpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // applyBall — the main entry point.

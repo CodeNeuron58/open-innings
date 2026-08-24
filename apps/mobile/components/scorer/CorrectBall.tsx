@@ -3,7 +3,16 @@
  * Replaces a single delivery and shows the resulting changes to the innings.
  */
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  Vibration,
+  View,
+} from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';
 import type { BallCorrectionChange, PatchBallInput } from '@open-innings/shared';
 import { EXTRA_TOTALS, deliveryFor, type ExtraKind } from '../../lib/deliveries';

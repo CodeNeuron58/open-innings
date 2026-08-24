@@ -133,7 +133,9 @@ function InningsExtrasAndFow({
         <span className="font-medium">
           {extras.total}
           {extras.parts.length > 0 && (
-            <span className="text-muted-foreground ml-1.5 font-normal">({extras.parts.join(', ')})</span>
+            <span className="text-muted-foreground ml-1.5 font-normal">
+              ({extras.parts.join(', ')})
+            </span>
           )}
         </span>
       </div>
@@ -165,7 +167,8 @@ function InningsExtrasAndFow({
               {p.isActive ? 'Current partnership' : 'Last partnership'}
             </span>
             <p className="text-muted-foreground mt-1 leading-relaxed">
-              <span className="text-foreground font-medium">{p.runs} runs</span> ({p.balls}b) · {b1} & {b2}
+              <span className="text-foreground font-medium">{p.runs} runs</span> ({p.balls}b) · {b1}{' '}
+              & {b2}
             </p>
           </div>
         );

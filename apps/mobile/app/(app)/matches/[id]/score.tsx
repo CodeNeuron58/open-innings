@@ -353,12 +353,7 @@ export default function Scorer() {
       // E.g. tap 4 on No Ball -> 5 total runs (4 off bat + 1 extra).
       // For wide / bye / leg_bye: runs on keypad = total runs.
       // E.g. tap 0 or 1 on Wide -> 1 wide. Tap 4 -> 4 wides.
-      const total =
-        extra === 'no_ball'
-          ? runsOffBat + 1
-          : runsOffBat === 0
-            ? 1
-            : runsOffBat;
+      const total = extra === 'no_ball' ? runsOffBat + 1 : runsOffBat === 0 ? 1 : runsOffBat;
       void scoreExtra(extra, total);
       return;
     }
@@ -567,14 +562,14 @@ export default function Scorer() {
           </View>
 
           {inn.isFreeHitNext && !completed ? (
-            <View className="border-amber-400/60 bg-amber-400/20 mt-3 flex-row items-center justify-between border px-3 py-2">
+            <View className="mt-3 flex-row items-center justify-between border border-amber-400/60 bg-amber-400/20 px-3 py-2">
               <View className="flex-row items-center gap-2">
                 <View className="h-2 w-2 bg-amber-400" />
-                <Text className="text-amber-300 font-heading text-[12px] font-bold uppercase tracking-[1.8px]">
+                <Text className="font-heading text-[12px] font-bold uppercase tracking-[1.8px] text-amber-300">
                   FREE HIT
                 </Text>
               </View>
-              <Text className="text-amber-200/90 font-heading text-[10px] uppercase tracking-[1.2px]">
+              <Text className="font-heading text-[10px] uppercase tracking-[1.2px] text-amber-200/90">
                 Only Run Out & Obstruction (Law 21.18)
               </Text>
             </View>
@@ -618,7 +613,10 @@ export default function Scorer() {
           <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
             {nameOf(effBowler)}
             {midOverBowlerId ? (
-              <Text className="text-steel-700 font-heading text-[11px]"> · replacing (Law 17.4)</Text>
+              <Text className="text-steel-700 font-heading text-[11px]">
+                {' '}
+                · replacing (Law 17.4)
+              </Text>
             ) : null}
           </Text>
           {overInProgress && !completed && !midOverBowlerId ? (
@@ -773,7 +771,7 @@ export default function Scorer() {
                 disabled={mutation.busy}
                 className={`border-border h-9 w-14 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
               >
-                <Text className="text-amber-600 font-heading text-[11px]">+5 Pen</Text>
+                <Text className="font-heading text-[11px] text-amber-600">+5 Pen</Text>
               </Pressable>
             </View>
 

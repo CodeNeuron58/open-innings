@@ -117,8 +117,8 @@ describe('formatMatchResult', () => {
     expect(
       formatMatchResult({ winningTeamId: 't', marginWickets: 1 }, 'Belonia', { superOver: true }),
     ).toBe('Belonia won the Super Over');
-    expect(
-      formatMatchResult({ winningTeamId: null }, 'Belonia', { superOver: true }),
-    ).toBe('Super Over tied');
+    expect(formatMatchResult({ winningTeamId: null }, 'Belonia', { superOver: true })).toBe(
+      'Super Over tied',
+    );
   });
 });

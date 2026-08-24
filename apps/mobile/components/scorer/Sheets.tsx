@@ -343,7 +343,9 @@ export function WicketSheet({
 
       {needsFielder ? (
         <View className="border-border border-t pt-3.5">
-          <Label>{type === 'run_out' ? 'Fielder (run out by)' : 'Fielder (catch / stumping)'}</Label>
+          <Label>
+            {type === 'run_out' ? 'Fielder (run out by)' : 'Fielder (catch / stumping)'}
+          </Label>
           <View className="mt-2 flex-row flex-wrap gap-1.5">
             {fielders.map((f) => (
               <Chip
@@ -681,7 +683,7 @@ export function OverthrowSheet({
         </View>
       </View>
 
-      <View className="border-border border-t pt-3.5 gap-2">
+      <View className="border-border gap-2 border-t pt-3.5">
         <Label>Overthrow runs conceded</Label>
         <View className="flex-row gap-1.5">
           {[1, 2, 3, 4, 5, 6].map((ot) => (
@@ -698,8 +700,8 @@ export function OverthrowSheet({
 
       <View className="border-border border-t pt-3.5">
         <Text className="text-foreground/70 text-[13px] leading-[19px]">
-          {runsOffBat} run{runsOffBat === 1 ? '' : 's'} credited to batter. {overthrowRuns} overthrow
-          runs credited to team total and excluded from batter boundary count.
+          {runsOffBat} run{runsOffBat === 1 ? '' : 's'} credited to batter. {overthrowRuns}{' '}
+          overthrow runs credited to team total and excluded from batter boundary count.
         </Text>
       </View>
     </SheetShell>

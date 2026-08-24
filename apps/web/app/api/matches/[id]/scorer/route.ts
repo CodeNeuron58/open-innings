@@ -91,12 +91,10 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
   const secondInnings = allInnings.find((i) => i.inningsNumber === 2);
   const thirdInnings = allInnings.find((i) => i.inningsNumber === 3);
   const fourthInnings = allInnings.find((i) => i.inningsNumber === 4);
-  const isSuperOverBreak =
-    thirdInnings?.status === 'completed' && fourthInnings === undefined;
+  const isSuperOverBreak = thirdInnings?.status === 'completed' && fourthInnings === undefined;
   const awaitingSecondInnings =
     match.status !== 'completed' &&
-    ((firstInnings?.status === 'completed' && secondInnings === undefined) ||
-      isSuperOverBreak);
+    ((firstInnings?.status === 'completed' && secondInnings === undefined) || isSuperOverBreak);
 
   return NextResponse.json(
     {
