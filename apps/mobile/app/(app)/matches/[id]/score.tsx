@@ -645,6 +645,21 @@ export default function Scorer() {
   const undoTarget = lastBall ? ballMark(lastBall).label : '';
 
   /*
+   * The score, as a person would say it out loud.
+   *
+   * Not "142 dash 6" — the plate renders `{runs}-{wickets}` and a screen
+   * reader reads the hyphen. This is the sentence, and the chase is on it
+   * because that is what anybody asking the score actually wants.
+   */
+  const spokenScore = [
+    `${inn.runs} for ${inn.wickets}`,
+    `after ${formatOvers(inn.ballsBowled)} overs`,
+    runsNeeded !== undefined && !completed ? `need ${runsNeeded} off ${ballsLeft}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  /*
    * The two questions a scorer is asked most often, and the plate answered
    * neither.
    *
@@ -737,8 +752,22 @@ export default function Scorer() {
       </View>
 
       <ScrollView contentContainerClassName="pb-2">
-        {/* Score plate — the one reversed field on the screen */}
-        <View className="bg-scoreboard px-4 pb-3.5 pt-3.5">
+        {/*
+          Score plate — the one reversed field on the screen.
+
+          It is also the one thing on here worth hearing. Roles and labels are
+          covered carefully across this app, but nothing announced a *change*:
+          a screen reader user could tap 4 and be told nothing at all, because
+          the score is static text that happens to have been re-rendered.
+
+          `accessibilityLiveRegion` on the plate and a label that reads as a
+          sentence fixes both halves — what it says, and that it said it.
+        */}
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={spokenScore}
+          className="bg-scoreboard px-4 pb-3.5 pt-3.5"
+        >
           <View className="flex-row items-end gap-3">
             {/* shrink-0 throughout: RN gives Text in a flex-row an implicit
                 flexShrink and clips mid-word rather than wrapping. */}
@@ -939,20 +968,6 @@ export default function Scorer() {
           </ScrollView>
         </View>
 
-        {mutation.error ? (
-          <View className="px-4 pb-2">
-            <ErrorBanner message={mutation.error} />
-          </View>
-        ) : null}
-
-        {/* Refused before it was queued, so there is nothing to undo — just
-            something to do differently. */}
-        {localRefusal ? (
-          <Pressable onPress={() => setLocalRefusal(null)} className="px-4 pb-2">
-            <ErrorBanner message={localRefusal} />
-          </Pressable>
-        ) : null}
-
         {/* Not an error — the server was ahead of the screen, and now is not. */}
         {conflictNote ? (
           <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
@@ -997,6 +1012,29 @@ export default function Scorer() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/*
+        Failures, next to the thumb that caused them.
+
+        These rendered near the top of the scroll view, which is not where
+        anybody is looking a quarter-second after tapping a key — so a refused
+        delivery could sit unread while the scorer wondered why the score had
+        not moved. Both are dismissable by tapping, because neither survives
+        the next successful ball anyway.
+      */}
+      {mutation.error ? (
+        <Pressable onPress={() => mutation.setError(null)} className="px-3 pb-2">
+          <ErrorBanner message={mutation.error} />
+        </Pressable>
+      ) : null}
+
+      {/* Refused before it was queued, so there is nothing to undo — just
+          something to do differently. */}
+      {localRefusal ? (
+        <Pressable onPress={() => setLocalRefusal(null)} className="px-3 pb-2">
+          <ErrorBanner message={localRefusal} />
+        </Pressable>
+      ) : null}
 
       {/* What has and has not reached the server, next to the thumb that is
           about to add to it. This replaces a static "Live" square that meant
