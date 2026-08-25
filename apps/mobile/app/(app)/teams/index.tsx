@@ -6,10 +6,15 @@ import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
-import { createTeamSchema, type PlayerSummary, type TeamSummary } from '@open-innings/shared';
+import {
+  createPlayerSchema,
+  createTeamSchema,
+  type PlayerSummary,
+  type TeamSummary,
+} from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
-import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
 
 export default function Teams() {
   const router = useRouter();
@@ -22,6 +27,29 @@ export default function Teams() {
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [squad, setSquad] = useState<Set<string>>(new Set());
+
+  // The inline add — see the note beside the field.
+  const [newPlayer, setNewPlayer] = useState('');
+  const [playerError, setPlayerError] = useState<string | null>(null);
+
+  /** Create a player and put them straight in the squad being picked. */
+  async function addPlayer() {
+    setPlayerError(null);
+    const parsed = createPlayerSchema.safeParse({ fullName: newPlayer });
+    if (!parsed.success) {
+      setPlayerError(parsed.error.issues[0]?.message ?? 'Enter a name');
+      return;
+    }
+
+    const created = await mutation.run((token) => api.createPlayer(token, parsed.data));
+    if (!created) return;
+
+    setNewPlayer('');
+    // Selected on creation: somebody typed into a squad picker, so putting
+    // them in the squad is the only reading of what they meant.
+    setSquad((current) => new Set(current).add(created.player.id));
+    await players.refresh();
+  }
 
   function toggle(playerId: string) {
     setSquad((current) => {
@@ -63,8 +91,8 @@ export default function Teams() {
 
       <View className="flex-row items-center justify-between px-5 pb-3 pt-4">
         <View>
-          <Text className="text-foreground text-2xl font-bold">Teams</Text>
-          <Text className="text-muted-foreground text-sm">
+          <Text className="text-foreground font-heading text-[26px] uppercase">Teams</Text>
+          <Text className="font-heading text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
             {teamList.length} {teamList.length === 1 ? 'team' : 'teams'}
           </Text>
         </View>
@@ -82,7 +110,7 @@ export default function Teams() {
       ) : null}
 
       {creating ? (
-        <View className="border-border bg-card mx-5 mb-3 gap-3 rounded-2xl border p-4">
+        <View className="border-border mx-5 mb-3 gap-3 border p-4">
           <Field
             label="Team name"
             value={name}
@@ -95,14 +123,10 @@ export default function Teams() {
           />
 
           <View className="gap-2">
-            <Text className="text-foreground text-sm font-medium">
-              Squad ({squad.size} selected)
+            <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+              Squad — {squad.size} selected
             </Text>
-            {allPlayers.length === 0 ? (
-              <Text className="text-muted-foreground text-sm">
-                No players yet — add some first, then come back.
-              </Text>
-            ) : (
+            {allPlayers.length > 0 ? (
               <View className="flex-row flex-wrap gap-2">
                 {allPlayers.map((player) => (
                   <SquadChip
@@ -113,10 +137,60 @@ export default function Teams() {
                   />
                 ))}
               </View>
-            )}
+            ) : null}
+
+            {/*
+              Adding a player without leaving.
+
+              This used to read "No players yet — add some first, then come
+              back", which is a screen instructing somebody to navigate away and
+              return. It was the second of three dead ends between installing
+              the app and scoring a ball: Matches sent you to Teams, Teams sent
+              you to Players, and each was discovered by walking into it.
+
+              A name is enough. Batting style, bowling style and role are all
+              optional on `createPlayerSchema` and can be filled in later from
+              the player's own page — asking for them at the ground, ten minutes
+              before a start, is asking for the app to be closed.
+            */}
+            <View className="mt-1 flex-row items-end gap-2">
+              <View className="min-w-0 flex-1">
+                <Field
+                  label="Add a player"
+                  value={newPlayer}
+                  onChangeText={setNewPlayer}
+                  error={playerError ?? undefined}
+                  placeholder="Name, then Add"
+                  autoCapitalize="words"
+                  editable={!mutation.busy}
+                  onSubmitEditing={() => void addPlayer()}
+                  returnKeyType="done"
+                />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add this player to the squad"
+                onPress={() => void addPlayer()}
+                disabled={mutation.busy || newPlayer.trim().length === 0}
+                className={`border-input h-12 shrink-0 justify-center border px-4 ${
+                  mutation.busy || newPlayer.trim().length === 0
+                    ? 'opacity-40'
+                    : 'active:opacity-70'
+                }`}
+              >
+                <Text className="text-foreground font-heading text-[13.5px] uppercase tracking-[1.2px]">
+                  Add
+                </Text>
+              </Pressable>
+            </View>
           </View>
 
-          <Button label="Create team" onPress={createTeam} loading={mutation.busy} />
+          <Button
+            label="Create team"
+            onPress={createTeam}
+            loading={mutation.busy}
+            disabled={name.trim().length === 0}
+          />
         </View>
       ) : null}
 
@@ -129,16 +203,13 @@ export default function Teams() {
         }
         ListEmptyComponent={
           creating || teams.error ? null : (
-            <View className="border-border bg-card mt-6 gap-3 rounded-2xl border p-6">
-              <Text className="text-foreground text-base font-semibold">No teams yet</Text>
-              <Text className="text-muted-foreground text-sm">
-                You need two teams with squads before you can start a match.
+            <View className="border-border mt-6 gap-3 border p-5">
+              <Kicker>No teams yet</Kicker>
+              <Text className="text-foreground/75 text-[14px] leading-5">
+                A match is between two of them. Name a team and add whoever turned out — you can do
+                both here, and they stay on the club&apos;s books for next time.
               </Text>
-              {allPlayers.length === 0 ? (
-                <Button label="Add players first" onPress={() => router.push('/players')} />
-              ) : (
-                <Button label="Create a team" onPress={() => setCreating(true)} />
-              )}
+              <Button label="Create a team" onPress={() => setCreating(true)} />
             </View>
           )
         }
@@ -176,12 +247,14 @@ function SquadChip({
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      className={`shrink-0 rounded-full border px-3 py-2 ${
-        selected ? 'bg-primary border-primary' : 'border-border bg-card'
-      }`}
+      className={`h-11 shrink-0 justify-center border px-3 ${
+        selected ? 'bg-primary border-primary' : 'border-border bg-transparent'
+      } active:opacity-70`}
     >
       <Text
-        className={`text-sm ${selected ? 'text-primary-foreground font-semibold' : 'text-foreground'}`}
+        className={`font-heading text-[13.5px] ${
+          selected ? 'text-primary-foreground' : 'text-foreground'
+        }`}
       >
         {player.shortName ?? player.fullName}
       </Text>

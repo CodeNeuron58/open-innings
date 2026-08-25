@@ -239,10 +239,29 @@ export default function Matches() {
           live.length === 0 && !query.error ? (
             <View className="border-border mt-2 border p-5">
               <Kicker>No matches yet</Kicker>
-              <Text className="text-foreground/70 mt-3 text-[14px] leading-5">
+              <Text className="text-foreground/75 mt-3 text-[14px] leading-5">
                 Start one and the scorecard, the commentary and everyone&rsquo;s career records
                 build themselves from the balls you tap.
               </Text>
+              {/* An empty state is the on-ramp, not a consolation note. This
+                  one was three sentences with no action on it, and the only
+                  control on the screen led to a wizard that would refuse
+                  until two teams existed. */}
+              <View className="mt-4">
+                <Button
+                  label="Start your first match"
+                  onPress={() => router.push('/matches/new')}
+                />
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/teams')}
+                className="mt-3 h-11 justify-center active:opacity-60"
+              >
+                <Text className="text-steel-700 font-heading text-[12px] uppercase tracking-[1.3px]">
+                  Set up teams and players first
+                </Text>
+              </Pressable>
             </View>
           ) : null
         }

@@ -10,7 +10,7 @@ import { createPlayerSchema, type PlayerSummary } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { useSession } from '../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
-import { Button, ErrorBanner, Field, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
 
 export default function Players() {
   const router = useRouter();
@@ -59,8 +59,8 @@ export default function Players() {
 
       <View className="flex-row items-center justify-between px-5 pb-3 pt-4">
         <View>
-          <Text className="text-foreground text-2xl font-bold">Players</Text>
-          <Text className="text-muted-foreground text-sm">
+          <Text className="text-foreground font-heading text-[26px] uppercase">Players</Text>
+          <Text className="font-heading text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
             {players.length} {players.length === 1 ? 'player' : 'players'}
           </Text>
         </View>
@@ -75,7 +75,7 @@ export default function Players() {
       </View>
 
       {adding ? (
-        <View className="border-border bg-card mx-5 mb-3 gap-3 rounded-2xl border p-4">
+        <View className="border-border mx-5 mb-3 gap-3 border p-4">
           <Field
             label="Full name"
             value={fullName}
@@ -135,9 +135,9 @@ function PlayerRow({
       accessibilityRole="button"
       accessibilityLabel={`${player.fullName} — career record${isMe ? ', this is you' : ''}`}
       onPress={() => router.push(`/players/${player.id}`)}
-      className="border-border flex-row items-center justify-between gap-3 border px-4 py-3 active:opacity-70"
+      className="border-border min-h-14 flex-row items-center justify-between gap-3 border px-4 py-3 active:opacity-70"
     >
-      <Text className="text-foreground flex-1 text-base" numberOfLines={1}>
+      <Text className="text-foreground flex-1 text-[15.5px]" numberOfLines={1}>
         {player.fullName}
       </Text>
 
@@ -151,11 +151,11 @@ function PlayerRow({
         accessibilityLabel={isMe ? `${player.fullName} is you` : `Say ${player.fullName} is you`}
         onPress={onClaim}
         hitSlop={8}
-        className="shrink-0 px-1 py-1 active:opacity-60"
+        className="h-11 shrink-0 justify-center px-2 active:opacity-60"
       >
         <Text
-          className={`font-heading text-[10px] uppercase tracking-[1.2px] ${
-            isMe ? 'text-steel-700' : 'text-neutral-500'
+          className={`font-heading text-[11px] uppercase tracking-[1.2px] ${
+            isMe ? 'text-steel-700' : 'text-neutral-700'
           }`}
         >
           {isMe ? '★ You' : 'This is me'}
@@ -170,11 +170,11 @@ function PlayerRow({
 function EmptyState({ onAdd, visible }: { onAdd: () => void; visible: boolean }) {
   if (!visible) return null;
   return (
-    <View className="border-border bg-card mt-6 gap-3 rounded-2xl border p-6">
-      <Text className="text-foreground text-base font-semibold">No players yet</Text>
-      <Text className="text-muted-foreground text-sm">
-        Add everyone who might bat or bowl. You&apos;ll pick squads from here when you create a
-        team.
+    <View className="border-border mt-6 gap-3 border p-5">
+      <Kicker>No players yet</Kicker>
+      <Text className="text-foreground/75 text-[14px] leading-5">
+        Add everyone who might bat or bowl. You&apos;ll pick squads from here when you create a team
+        — and a name is enough to start; the rest can wait.
       </Text>
       <Button label="Add the first player" onPress={onAdd} />
     </View>
