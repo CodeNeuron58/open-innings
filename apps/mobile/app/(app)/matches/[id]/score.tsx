@@ -2,12 +2,13 @@
  * The ball-by-ball scorer. Server owns state, mandatory sheets block scoring,
  * and no ads are shown here.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Alert, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  applyBall,
   asPlayerId,
   ballMark,
   formatOvers,
@@ -19,10 +20,12 @@ import {
 import type { BallCorrectionChange, PatchBallInput, ScorerResponse } from '@open-innings/shared';
 import { EXTRA_LABELS, splitExtra, wicketDeliveryFor } from '../../../../lib/deliveries';
 import { api } from '../../../../lib/api';
-import { requestIdFor, type PendingDelivery } from '../../../../lib/request-id';
+import { requestIdFor } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
 import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
+import { project } from '../../../../lib/outbox';
+import { useOutbox, type SyncState } from '../../../../lib/use-outbox';
 import { Button, ErrorBanner, LoadingScreen } from '../../../../components/ui';
 import { BallChip } from '../../../../components/scorer/BallChip';
 import { CorrectBallSheet } from '../../../../components/scorer/CorrectBall';
@@ -111,6 +114,8 @@ export default function Scorer() {
     },
   });
 
+  // A delivery the engine refused, now that the engine runs here. See `send`.
+  const [localRefusal, setLocalRefusal] = useState<string | null>(null);
   const [showWicket, setShowWicket] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showRetirement, setShowRetirement] = useState(false);
@@ -134,33 +139,6 @@ export default function Scorer() {
   // This flag must be stored on the delivery itself for replay validation.
   const [midOverBowlerId, setMidOverBowlerId] = useState<string | null>(null);
   const [pickingMidOverBowler, setPickingMidOverBowler] = useState(false);
-
-  /*
-   * The delivery that has been sent and whose outcome we do not know.
-   *
-   * Migration 0013 gave the server a way to recognise a resent delivery, and
-   * this is the half that makes it mean anything: the id has to survive a
-   * failed attempt, or every retry looks like a new ball and the server has
-   * nothing to match on. Until now the client minted a fresh one per call, so
-   * a lost response still recorded the delivery twice — the exact ground-side
-   * case 0013 was written for.
-   *
-   * The id is keyed on the delivery itself rather than held blindly, and that
-   * distinction is the whole correctness argument:
-   *
-   *   Same delivery resent. A failed send never calls `applyState`, so the
-   *   striker, non-striker and bowler are unchanged and tapping 4 again
-   *   composes a byte-identical ball. Same signature, same id — and if the
-   *   first attempt had in fact committed, the server answers with the
-   *   success whose response was lost, which is precisely right.
-   *
-   *   A different delivery. New signature, new id. Reusing one here would be
-   *   the dangerous failure: the server would recognise the old id and return
-   *   the earlier ball's state, silently swallowing the new delivery.
-   *
-   * Success clears it, so two identical dot balls in a row are two balls.
-   */
-  const pending = useRef<PendingDelivery | null>(null);
 
   /*
    * Re-read from the server, and stop preferring the copy we already had.
@@ -190,6 +168,24 @@ export default function Scorer() {
     setMidOverBowlerId(null);
   }, []);
 
+  /*
+   * The last thing the server said, and the deliveries it has not seen.
+   *
+   * The console shows `project(serverState, pending)` and nothing else. That
+   * is not an optimistic guess: `packages/scoring` is a workspace dependency
+   * of both this app and the API, so folding a ball here runs the server's own
+   * arithmetic on the server's own last answer. See lib/outbox.ts.
+   *
+   * Every ball used to be a blocking POST with the whole keypad disabled for
+   * the round trip, which on a ground with one bar is a console that freezes
+   * after every delivery — and with no bars is not a scoring app at all.
+   */
+  const outbox = useOutbox({
+    matchId: id,
+    token,
+    onSynced: (next) => applyState(next),
+  });
+
   // A finished match is a result, not a console. Redirected rather than
   // rendered inline so the back stack does not return to a scoring screen
   // that can no longer accept a ball.
@@ -216,7 +212,12 @@ export default function Scorer() {
   }
 
   const data = query.data;
-  const state = live ?? (data.state as MatchState);
+  const serverState = live ?? (data.state as MatchState);
+
+  // One definition of what is on the screen. Nothing else in this file is
+  // allowed to compute a score.
+  const projection = project(serverState, outbox.pending);
+  const state = projection.state;
   const inn = state.currentInnings;
 
   // Safely look up the correcting ball.
@@ -292,15 +293,41 @@ export default function Scorer() {
 
   const completed = inn.status === 'completed';
 
-  async function send(ball: BallEventInput): Promise<MatchState | null> {
-    pending.current = requestIdFor(pending.current, JSON.stringify(ball));
-    const { requestId } = pending.current;
-
-    const next = await mutation.run((t) => api.postBall(t, id, ball, requestId));
-    if (next) {
-      pending.current = null;
-      applyState(next);
+  /**
+   * Record a delivery.
+   *
+   * Queued, not sent. It lands on disk and on the screen immediately and the
+   * drain loop deals with the network — so a tap is never waiting on a
+   * signal, and six overs scored in a dead spot are six overs safely recorded.
+   *
+   * Returns the state the delivery produces, because callers ask questions of
+   * it — `scoreWicket` needs to know whether that wicket ended the innings
+   * before it names the next batter.
+   */
+  function send(ball: BallEventInput): MatchState | null {
+    /*
+     * Folded before it is queued, and the fold is allowed to refuse.
+     *
+     * The engine now runs on this device, which means an unlawful delivery
+     * throws *here* rather than coming back as a 400. Unguarded that is a
+     * crashed console mid-over — strictly worse than the round trip it
+     * replaced. So the refusal is caught and shown, which is also a better
+     * answer than the server's was: it arrives before the ball is queued, so
+     * nothing has to be undone.
+     */
+    let next: MatchState;
+    try {
+      // Folded from `state`, this render's projection, which is the only
+      // definition of where the match has got to.
+      next = applyBall(state, ball);
+    } catch (error) {
+      setLocalRefusal(error instanceof Error ? error.message : 'That delivery cannot be recorded.');
+      return null;
     }
+
+    setLocalRefusal(null);
+    const { requestId } = requestIdFor(null, JSON.stringify(ball));
+    void outbox.add(ball, requestId);
     return next;
   }
 
@@ -359,7 +386,18 @@ export default function Scorer() {
     if (done) router.replace({ pathname: '/matches/[id]/result', params: { id } });
   }
 
+  /**
+   * Take back the last delivery.
+   *
+   * A ball this device queued and the server has not seen is simply removed —
+   * no network, no round trip, and while offline that is every ball, so the
+   * ground-side case is covered completely. Only a delivery the server has
+   * already stored needs asking, and by definition there was a signal when it
+   * was recorded.
+   */
   async function undo() {
+    if (await outbox.undoLast()) return;
+
     const next = await mutation.run((t) => api.undoBall(t, id));
     if (next) applyState(next);
   }
@@ -465,7 +503,7 @@ export default function Scorer() {
     });
   }
 
-  async function scoreWicket(entry: WicketEntry) {
+  function scoreWicket(entry: WicketEntry) {
     const { type, outBatterId, fielderId, nextBatterId, runs, delivery } = entry;
 
     setShowWicket(false);
@@ -486,7 +524,7 @@ export default function Scorer() {
 
     // Through `send`, so a wicket gets the same retry protection every other
     // delivery has — it was the one path that bypassed it.
-    const next = await send({
+    const next = send({
       inningsId: inn.id,
       eventType,
       runsOffBat,
@@ -765,6 +803,14 @@ export default function Scorer() {
           </View>
         ) : null}
 
+        {/* Refused before it was queued, so there is nothing to undo — just
+            something to do differently. */}
+        {localRefusal ? (
+          <Pressable onPress={() => setLocalRefusal(null)} className="px-4 pb-2">
+            <ErrorBanner message={localRefusal} />
+          </Pressable>
+        ) : null}
+
         {/* Not an error — the server was ahead of the screen, and now is not. */}
         {conflictNote ? (
           <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
@@ -793,6 +839,11 @@ export default function Scorer() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* What has and has not reached the server, next to the thumb that is
+          about to add to it. This replaces a static "Live" square that meant
+          nothing and said so even after an hour of nobody scoring. */}
+      <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
 
       {/* The console — pinned, thumb-reachable, one-handed */}
       {!completed ? (
@@ -1069,6 +1120,75 @@ export default function Scorer() {
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/**
+ * The state of the queue, in a sentence.
+ *
+ * Silent when there is nothing outstanding, which is most of the time — a
+ * permanent "Saved" badge is noise, and the thing worth interrupting a scorer
+ * for is the opposite.
+ *
+ * The wording matters more than usual here. Somebody who has just scored six
+ * overs in a dead spot needs to know their afternoon is not at risk, and
+ * "waiting" plus "safe on this phone" is the difference between carrying on
+ * and starting a paper scorebook.
+ */
+function SyncBar({
+  sync,
+  onRetry,
+  onDiscard,
+}: {
+  sync: SyncState;
+  onRetry: () => void;
+  onDiscard: () => void;
+}) {
+  if (sync.kind === 'synced') return null;
+
+  if (sync.kind === 'blocked') {
+    return (
+      <View className="border-destructive bg-destructive/10 mx-3 mb-2 border p-3">
+        <Text className="text-destructive font-heading text-[13px]">
+          {sync.count} {sync.count === 1 ? 'ball' : 'balls'} could not be saved
+        </Text>
+        <Text className="text-foreground/75 mt-1 text-[12.5px] leading-[17px]">{sync.message}</Text>
+        <View className="mt-2.5 flex-row gap-2">
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRetry}
+            className="border-input h-11 justify-center border px-3 active:opacity-70"
+          >
+            <Text className="text-foreground font-heading text-[12.5px]">Try again</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Discard the balls that could not be saved"
+            onPress={onDiscard}
+            className="border-input h-11 justify-center border px-3 active:opacity-70"
+          >
+            <Text className="text-destructive font-heading text-[12.5px]">Discard them</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const waiting = sync.kind === 'waiting';
+  return (
+    <View
+      accessibilityRole="alert"
+      className={`mx-3 mb-2 flex-row items-center gap-2 border px-3 py-2 ${
+        waiting ? 'border-steel-400 bg-steel-100' : 'border-border bg-neutral-100'
+      }`}
+    >
+      <View className={`h-2 w-2 shrink-0 ${waiting ? 'bg-steel-600' : 'bg-primary'}`} />
+      <Text className="text-foreground/80 min-w-0 flex-1 text-[12.5px]" numberOfLines={2}>
+        {waiting
+          ? `${sync.count} ${sync.count === 1 ? 'ball' : 'balls'} waiting for a signal — safe on this phone, and sent the moment there is one.`
+          : `Saving ${sync.count}…`}
+      </Text>
+    </View>
+  );
+}
 
 /** Column widths for the batting table, matching the design's grid. */
 const COL = ['w-[34px]', 'w-[30px]', 'w-[26px]', 'w-[30px]', 'w-[42px]'] as const;
