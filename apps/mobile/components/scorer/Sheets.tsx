@@ -5,7 +5,19 @@
 import { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import type { WicketTypeValue } from '@open-innings/shared';
-import { EXTRA_LABELS, EXTRA_TOTALS, type ExtraKind } from '../../lib/deliveries';
+import {
+  FREE_HIT_VALID_WICKETS,
+  NO_BALL_VALID_WICKETS,
+  NON_DELIVERY_WICKETS,
+  WIDE_VALID_WICKETS,
+} from '@open-innings/scoring';
+import {
+  EXTRA_LABELS,
+  EXTRA_TOTALS,
+  wicketDeliveryFor,
+  type ExtraKind,
+  type WicketDelivery,
+} from '../../lib/deliveries';
 import { Button } from '../ui';
 
 function hapticFeedback() {
@@ -199,20 +211,96 @@ const WICKET_TYPES: { value: WicketTypeValue; label: string }[] = [
 ];
 
 /**
- * Law 21.18 — on a free hit the striker can only go the ways a no-ball allows.
+ * Which dismissals this delivery could have produced.
  *
- * Offering the rest would be offering a delivery the engine refuses: the tap
- * lands, the request fails, and the scorer is left reading an error about a
- * law instead of being shown it. Retirements are not outcomes of the delivery
- * at all, so they stay available.
+ * Asked of the engine rather than restated here. The previous version was a
+ * hand-written `FREE_HIT_ALLOWED` array that had already drifted — it omitted
+ * `handled_ball` and `double_hit`, the two spellings the 2017 Code folded into
+ * `obstructing_field` and `hit_the_ball_twice`, so two dismissals the engine
+ * accepts on a free hit could not be reached from the sheet. `rules.ts` says
+ * outright that anything needing to describe a legal dismissal should ask, not
+ * restate; this now does.
+ *
+ * Offering a dismissal the engine refuses is the failure worth avoiding: the
+ * tap lands, the request fails, and the scorer reads an error about a law
+ * instead of being shown it. Retirements and timed out are not outcomes of the
+ * delivery at all — the engine skips them in `validateWicketAgainstDelivery` —
+ * so they stay available whatever the delivery was.
  */
-const FREE_HIT_ALLOWED: WicketTypeValue[] = [
-  'run_out',
-  'obstructing_field',
-  'hit_the_ball_twice',
-  'retired_hurt',
-  'retired_out',
+function allowedWickets(delivery: WicketDelivery, isFreeHit: boolean): typeof WICKET_TYPES {
+  return WICKET_TYPES.filter(({ value }) => {
+    if (NON_DELIVERY_WICKETS.has(value)) return true;
+    if (delivery === 'wide' && !WIDE_VALID_WICKETS.has(value)) return false;
+    if (delivery === 'no_ball' && !NO_BALL_VALID_WICKETS.has(value)) return false;
+    if (isFreeHit && !FREE_HIT_VALID_WICKETS.has(value)) return false;
+    return true;
+  });
+}
+
+/**
+ * How the delivery is described where it is not a fair ball.
+ *
+ * A dismissal off an extra is that extra's delivery carrying a wicket, not a
+ * separate kind of event — which is why the engine validates one against the
+ * other. A stumping off a wide is the common case and used to be unrecordable:
+ * arming Wide and tapping W sent a plain wicket and dropped the penalty run.
+ */
+const DELIVERIES: { value: WicketDelivery; label: string }[] = [
+  { value: 'fair', label: 'Fair ball' },
+  { value: 'wide', label: 'Wide' },
+  { value: 'no_ball', label: 'No ball' },
+  { value: 'bye', label: 'Bye' },
+  { value: 'leg_bye', label: 'Leg bye' },
 ];
+
+/** What the runs on this delivery are, in the scorer's own words. */
+const RUNS_LABEL: Record<WicketDelivery, string> = {
+  fair: 'Runs completed before the run out',
+  wide: 'Runs completed, on top of the wide',
+  no_ball: 'Runs off the bat, on top of the no ball',
+  bye: 'Byes run',
+  leg_bye: 'Leg byes run',
+};
+
+const EXTRA_NOUN: Record<ExtraKind, string> = {
+  wide: 'wides',
+  no_ball: 'the no ball',
+  bye: 'byes',
+  leg_bye: 'leg byes',
+};
+
+/**
+ * What this dismissal puts on the board, before it goes on the board.
+ *
+ * Built from `wicketDeliveryFor` rather than described independently, so the
+ * sentence and the payload cannot disagree. Describing it twice is how the
+ * no-ball split was got wrong the first time.
+ */
+function describeWicketRuns(delivery: WicketDelivery, runs: number): string {
+  const built = wicketDeliveryFor(delivery, runs);
+  if (built.totalRuns === 0) return 'Nothing goes on the board.';
+
+  const parts: string[] = [];
+  if (built.runsOffBat > 0) parts.push(`${built.runsOffBat} to the batter`);
+  if (built.extraRuns > 0 && delivery !== 'fair') {
+    parts.push(`${built.extraRuns} as ${EXTRA_NOUN[delivery]}`);
+  }
+
+  const total = `${built.totalRuns} run${built.totalRuns === 1 ? '' : 's'} to the total`;
+  return parts.length > 0 ? `${total} — ${parts.join(', ')}.` : `${total}.`;
+}
+
+/** Everything one tap of "Record wicket" asserts. */
+export type WicketEntry = {
+  type: WicketTypeValue;
+  outBatterId: string;
+  fielderId?: string;
+  nextBatterId?: string;
+  /** Runs completed, or struck off a no ball, before the dismissal. */
+  runs: number;
+  /** What the delivery was. A stumping off a wide is still a wide. */
+  delivery: WicketDelivery;
+};
 
 /** Dismissals where a fielder is credited. */
 const NEEDS_FIELDER: WicketTypeValue[] = ['caught', 'caught_behind', 'stumped', 'run_out'];
@@ -228,6 +316,7 @@ export function WicketSheet({
   fielders,
   nextBatters,
   isFreeHit = false,
+  initialDelivery = 'fair',
   onConfirm,
   onCancel,
 }: {
@@ -241,20 +330,23 @@ export function WicketSheet({
   fielders: { id: string; fullName: string }[];
   /** Who can come in. Empty when the innings is about to end. */
   nextBatters: { id: string; fullName: string }[];
-  onConfirm: (
-    type: WicketTypeValue,
-    outBatterId: string,
-    fielderId?: string,
-    nextBatterId?: string,
-    runsCompleted?: number,
-  ) => void;
+  /**
+   * What the scorer had armed on the console when they tapped W.
+   *
+   * Carried in rather than discarded, which is the whole point: the console
+   * used to null it and send a plain wicket, so a stumping off a wide lost the
+   * penalty run and nobody was told.
+   */
+  initialDelivery?: WicketDelivery;
+  onConfirm: (entry: WicketEntry) => void;
   onCancel: () => void;
 }) {
-  const allowed = isFreeHit
-    ? WICKET_TYPES.filter((w) => FREE_HIT_ALLOWED.includes(w.value))
-    : WICKET_TYPES;
+  const [delivery, setDelivery] = useState<WicketDelivery>(initialDelivery);
+  const allowed = allowedWickets(delivery, isFreeHit);
 
-  const [type, setType] = useState<WicketTypeValue>(isFreeHit ? 'run_out' : 'bowled');
+  const [type, setType] = useState<WicketTypeValue>(
+    allowedWickets(initialDelivery, isFreeHit)[0]?.value ?? 'run_out',
+  );
   const [outBatterId, setOutBatterId] = useState(strikerId);
   const [fielderId, setFielderId] = useState<string | null>(null);
   const [nextBatterId, setNextBatterId] = useState<string | null>(null);
@@ -264,6 +356,26 @@ export function WicketSheet({
 
   const needsFielder = NEEDS_FIELDER.includes(type);
   const canBeNonStriker = CAN_DISMISS_NON_STRIKER.includes(type);
+
+  // Runs accompany a run-out on any delivery, and accompany an extra whatever
+  // the dismissal was — a wide the keeper missed is a wide plus whatever they
+  // ran. A fair-ball bowled is the one case that can carry nothing.
+  const takesRuns = type === 'run_out' || delivery !== 'fair';
+
+  /**
+   * Changing the delivery can invalidate the dismissal already chosen.
+   *
+   * Switching to Wide after picking "bowled" leaves a selection the engine
+   * would refuse — Law 22.6 — so it moves to the first dismissal the new
+   * delivery does allow rather than being sent and rejected.
+   */
+  function chooseDelivery(next: WicketDelivery) {
+    setDelivery(next);
+    const stillAllowed = allowedWickets(next, isFreeHit);
+    if (!stillAllowed.some((w) => w.value === type)) {
+      choose(stillAllowed[0]?.value ?? 'run_out');
+    }
+  }
 
   // Bowled, caught, LBW and the rest can only take the batter on strike. If
   // the scorer had chosen the non-striker for a run-out and then switched to
@@ -298,17 +410,32 @@ export function WicketSheet({
         <Button
           label="Record wicket"
           onPress={() =>
-            onConfirm(
+            onConfirm({
               type,
-              effectiveOutId,
-              needsFielder && fielderId ? fielderId : undefined,
-              nextBatterId ?? undefined,
-              type === 'run_out' ? runsCompleted : 0,
-            )
+              outBatterId: effectiveOutId,
+              fielderId: needsFielder && fielderId ? fielderId : undefined,
+              nextBatterId: nextBatterId ?? undefined,
+              runs: takesRuns ? runsCompleted : 0,
+              delivery,
+            })
           }
         />
       }
     >
+      <View className="gap-2">
+        <Label>The delivery</Label>
+        <View className="flex-row flex-wrap gap-1.5">
+          {DELIVERIES.map((d) => (
+            <Chip
+              key={d.value}
+              label={d.label}
+              selected={delivery === d.value}
+              onPress={() => chooseDelivery(d.value)}
+            />
+          ))}
+        </View>
+      </View>
+
       <View className="gap-2">
         <Label>Dismissal</Label>
         <View className="flex-row flex-wrap gap-1.5">
@@ -323,10 +450,9 @@ export function WicketSheet({
         </View>
       </View>
 
-      {/* Law 38 Run Out: option to specify completed runs before dismissal */}
-      {type === 'run_out' ? (
+      {takesRuns ? (
         <View className="border-border border-t pt-3.5">
-          <Label>Runs completed before run-out</Label>
+          <Label>{RUNS_LABEL[delivery]}</Label>
           <View className="mt-2 flex-row gap-1.5">
             {[0, 1, 2, 3].map((r) => (
               <Chip
@@ -338,6 +464,12 @@ export function WicketSheet({
               />
             ))}
           </View>
+          {/* What goes on the board, before it goes on the board. The penalty
+              is the delivery's and the runs are theirs, and a scorer should
+              not have to hold that distinction in their head. */}
+          <Text className="text-foreground/65 mt-2.5 text-[12.5px] leading-[18px]">
+            {describeWicketRuns(delivery, runsCompleted)}
+          </Text>
         </View>
       ) : null}
 

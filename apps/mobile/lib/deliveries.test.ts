@@ -20,7 +20,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { patchBallSchema, consistentBallEventSchema } from '@open-innings/shared';
-import { splitExtra, deliveryFor, EXTRA_TOTALS, type ExtraKind } from './deliveries';
+import {
+  splitExtra,
+  deliveryFor,
+  wicketDeliveryFor,
+  EXTRA_TOTALS,
+  type ExtraKind,
+  type WicketDelivery,
+} from './deliveries';
 
 const KINDS: ExtraKind[] = ['wide', 'no_ball', 'bye', 'leg_bye'];
 
@@ -157,5 +164,117 @@ describe('every payload a keypad can build is one the server accepts', () => {
     };
     const parsed = consistentBallEventSchema.safeParse(penaltyPayload);
     expect(parsed.success).toBe(true);
+  });
+});
+
+/**
+ * A dismissal off an extra.
+ *
+ * The bug these were written for: the scorer armed Wide, tapped W, and the
+ * console sent `eventType: 'wicket'` with `extraRuns: 0`. The stumping was
+ * recorded and the wide's penalty run vanished — silently, on a scorecard
+ * that had already been shared, for one of the commonest dismissals in club
+ * cricket. The engine had accepted a dismissal off a wide the whole time;
+ * only the client threw it away.
+ */
+describe('wicketDeliveryFor', () => {
+  const ids = {
+    batsmanId: '11111111-1111-4111-8111-111111111111',
+    nonStrikerId: '22222222-2222-4222-8222-222222222222',
+    bowlerId: '33333333-3333-4333-8333-333333333333',
+  };
+
+  it('keeps the wide penalty on a stumping off a wide', () => {
+    // The delivery this whole thing exists for. One run to the side, none to
+    // anybody's bat, and the ball is not a legal one.
+    expect(wicketDeliveryFor('wide', 0)).toEqual({
+      eventType: 'wide',
+      runsOffBat: 0,
+      extraRuns: 1,
+      totalRuns: 1,
+    });
+  });
+
+  it('adds runs completed to the wide penalty on a run out', () => {
+    expect(wicketDeliveryFor('wide', 2)).toEqual({
+      eventType: 'wide',
+      runsOffBat: 0,
+      extraRuns: 3,
+      totalRuns: 3,
+    });
+  });
+
+  it('gives a struck no-ball to the batter and keeps the penalty as the extra', () => {
+    // The same split `splitExtra` enforces — asserted here too, because this
+    // is a second caller and the first copy of that rule was wrong.
+    expect(wicketDeliveryFor('no_ball', 1)).toEqual({
+      eventType: 'no_ball',
+      runsOffBat: 1,
+      extraRuns: 1,
+      totalRuns: 2,
+    });
+  });
+
+  it('carries no penalty on a bye or a leg bye', () => {
+    expect(wicketDeliveryFor('bye', 2)).toEqual({
+      eventType: 'bye',
+      runsOffBat: 0,
+      extraRuns: 2,
+      totalRuns: 2,
+    });
+    expect(wicketDeliveryFor('leg_bye', 1)).toEqual({
+      eventType: 'leg_bye',
+      runsOffBat: 0,
+      extraRuns: 1,
+      totalRuns: 1,
+    });
+  });
+
+  it('collapses a nought-run bye back to a fair delivery', () => {
+    // Nothing was run, so nothing was conceded — it was never a bye. The
+    // shared schema agrees: an extra scores at least one extra, so the
+    // alternative here is a payload the server refuses.
+    expect(wicketDeliveryFor('bye', 0).eventType).toBe('wicket');
+    expect(wicketDeliveryFor('leg_bye', 0).eventType).toBe('wicket');
+  });
+
+  it('credits runs completed to the batter on a fair delivery', () => {
+    expect(wicketDeliveryFor('fair', 2)).toEqual({
+      eventType: 'wicket',
+      runsOffBat: 2,
+      extraRuns: 0,
+      totalRuns: 2,
+    });
+  });
+
+  it('is the plain wicket it always was when nothing was run', () => {
+    expect(wicketDeliveryFor('fair', 0)).toEqual({
+      eventType: 'wicket',
+      runsOffBat: 0,
+      extraRuns: 0,
+      totalRuns: 0,
+    });
+  });
+
+  it('builds a payload the server accepts, for every delivery and run count', () => {
+    // The assertion that matters, in the shape the rest of this file uses:
+    // a wicket sheet that can build something the server would refuse fails
+    // here rather than in someone's hand at a ground.
+    const deliveries: WicketDelivery[] = ['fair', 'wide', 'no_ball', 'bye', 'leg_bye'];
+
+    for (const delivery of deliveries) {
+      for (const runs of [0, 1, 2, 3, 4, 6]) {
+        const built = wicketDeliveryFor(delivery, runs);
+        const parsed = consistentBallEventSchema.safeParse({
+          ...built,
+          overthrowRuns: 0,
+          wicketType: 'run_out',
+          wicketPlayerId: ids.batsmanId,
+          fielderId: ids.bowlerId,
+          ...ids,
+        });
+        expect(parsed.success, `${delivery} +${runs} → ${JSON.stringify(built)}`).toBe(true);
+      }
+    }
   });
 });

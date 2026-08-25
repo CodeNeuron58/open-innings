@@ -15,13 +15,8 @@ import {
   type MatchState,
   type PlayerId,
 } from '@open-innings/scoring';
-import type {
-  BallCorrectionChange,
-  PatchBallInput,
-  ScorerResponse,
-  WicketTypeValue,
-} from '@open-innings/shared';
-import { EXTRA_LABELS, splitExtra } from '../../../../lib/deliveries';
+import type { BallCorrectionChange, PatchBallInput, ScorerResponse } from '@open-innings/shared';
+import { EXTRA_LABELS, splitExtra, wicketDeliveryFor } from '../../../../lib/deliveries';
 import { api } from '../../../../lib/api';
 import { requestIdFor, type PendingDelivery } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
@@ -38,6 +33,7 @@ import {
   OverthrowSheet,
   WicketSheet,
   type ExtraKind,
+  type WicketEntry,
 } from '../../../../components/scorer/Sheets';
 
 export default function Scorer() {
@@ -410,24 +406,34 @@ export default function Scorer() {
     });
   }
 
-  async function scoreWicket(
-    type: WicketTypeValue,
-    outBatterId: string,
-    fielderId?: string,
-    nextBatterId?: string,
-    runsCompleted: number = 0,
-  ) {
+  async function scoreWicket(entry: WicketEntry) {
+    const { type, outBatterId, fielderId, nextBatterId, runs, delivery } = entry;
+
     setShowWicket(false);
     setPendingExtra(null);
+
+    /*
+     * The delivery the dismissal happened off, carried through rather than
+     * dropped.
+     *
+     * This used to send a flat `eventType: 'wicket'` with no extras, whatever
+     * the scorer had armed. A stumping off a wide — one of the commonest
+     * dismissals there is — recorded the stumping and lost the wide's penalty
+     * run, silently, on a card that had already been shared. The engine has
+     * validated dismissals against wides and no-balls all along; only this
+     * screen threw the answer away.
+     */
+    const { eventType, runsOffBat, extraRuns, totalRuns } = wicketDeliveryFor(delivery, runs);
+
     // Through `send`, so a wicket gets the same retry protection every other
     // delivery has — it was the one path that bypassed it.
     const next = await send({
       inningsId: inn.id,
-      eventType: 'wicket',
-      runsOffBat: runsCompleted,
+      eventType,
+      runsOffBat,
       overthrowRuns: 0,
-      extraRuns: 0,
-      totalRuns: runsCompleted,
+      extraRuns,
+      totalRuns,
       batsmanId: effStriker,
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
@@ -847,10 +853,12 @@ export default function Scorer() {
           fielders={data.bowlingSquad}
           nextBatters={batterCandidates}
           // Law 21.18 narrows the sheet rather than letting the tap be refused.
-          isFreeHit={inn.isFreeHitNext || pendingExtra === 'no_ball'}
-          onConfirm={(type, outId, fielderId, nextId, runsCompleted) =>
-            void scoreWicket(type, outId, fielderId, nextId, runsCompleted)
-          }
+          // Only the innings' own free-hit state now — a no-ball chosen inside
+          // the sheet narrows it there, through the same rule sets.
+          isFreeHit={inn.isFreeHitNext}
+          // Whatever was armed on the keypad opens the sheet already set to it.
+          initialDelivery={pendingExtra ?? 'fair'}
+          onConfirm={(entry) => void scoreWicket(entry)}
           onCancel={() => setShowWicket(false)}
         />
       ) : null}
