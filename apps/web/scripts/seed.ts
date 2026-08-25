@@ -12,7 +12,15 @@
  * `pnpm db:reset`.
  */
 import { db } from '../lib/db/client';
-import { users, players, teams, teamMembers, matches, innings } from '../lib/db/schema';
+import {
+  users,
+  players,
+  teams,
+  teamMembers,
+  matches,
+  matchSquads,
+  innings,
+} from '../lib/db/schema';
 import { hashPassword, newSalt } from '../lib/auth/password';
 import { isLocalConnection } from '../lib/db/ssl';
 import { eq } from 'drizzle-orm';
@@ -170,6 +178,7 @@ async function getOrCreateSampleMatch(
   strikerId: string,
   nonStrikerId: string,
   bowlerId: string,
+  playerIdsByName: Record<string, string>,
 ): Promise<string> {
   const existing = await db
     .select({ id: matches.id })
@@ -212,6 +221,31 @@ async function getOrCreateSampleMatch(
     maxWickets: Math.min(10, Math.max(1, TEAM_A_PLAYERS.length - 1)),
   });
 
+  /*
+   * Name both XIs, so dev data goes down the path that matters.
+   *
+   * `squadFor` falls back to the club's whole roster when a match has no rows
+   * in `match_squads` — the compatibility contract for every match created
+   * before migration 0018. The seeded teams happen to contain exactly the
+   * players who play, so the fallback would give the right answer here and the
+   * new path would never be exercised locally. Saying it explicitly means the
+   * seed demonstrates the feature rather than the exemption.
+   */
+  await db.insert(matchSquads).values([
+    ...TEAM_A_PLAYERS.map((p, i) => ({
+      matchId,
+      teamId: teamAId,
+      playerId: playerIdsByName[p.fullName]!,
+      battingOrder: i + 1,
+    })),
+    ...TEAM_B_PLAYERS.map((p, i) => ({
+      matchId,
+      teamId: teamBId,
+      playerId: playerIdsByName[p.fullName]!,
+      battingOrder: i + 1,
+    })),
+  ]);
+
   return matchId;
 }
 
@@ -251,6 +285,7 @@ async function main() {
     playerIdsByName['Virat Kohli']!,
     playerIdsByName['Rohit Sharma']!,
     playerIdsByName['Pat Cummins']!,
+    playerIdsByName,
   );
   console.log(`✓ Sample match: /matches/${matchId}/score`);
   console.log('\n🎉 Seed complete. Sign in at /login with:');
