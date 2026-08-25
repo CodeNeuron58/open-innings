@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 23
+**Branch:** `pivot` · **Commits:** 24
 **Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
 **Smoke:** 376 checks green against a real database
 (score 51 · api 283 · p1 19 · xi 6 · correct 10 · browse 7)
-**Findings:** 61 total — **40 closed**, 1 part done, 20 open
+**Findings:** 61 total — **41 closed**, 1 part done, 19 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -271,6 +271,16 @@ Three things want smoking on hardware:
       only previous acknowledgement was `Last: 4` in small grey type at the
       foot of the console.
 
+### `welcome` A button says what it does
+
+- [x] **A5** "Start a match" opened a signup form. An account is genuinely
+      needed before a ball can be scored, but the first thing the app did was
+      promise one thing and do another — on the screen where somebody is
+      deciding whether to trust it.
+- [x] The guest path is named for what it now offers. "Look around first" was
+      honest about the limitation and vague about the offer, because the offer
+      was a box asking for a URL. There is live cricket behind it now.
+
 ---
 
 ## Part done
@@ -284,8 +294,6 @@ Three things want smoking on hardware:
 ## Open
 
 ### Cold start
-
-- [ ] **A5** — _Major._ "Start a match" on the welcome screen opens a signup form.
 
 ### Match setup
 

@@ -93,17 +93,31 @@ export default function Welcome() {
         <View className="grow" />
 
         <View className="mt-8">
-          <Button label="Start a match" onPress={() => router.push('/signup')} />
+          {/*
+            A button says what happens when it is pressed.
+
+            This read "Start a match" and opened a signup form. Nothing about
+            it was untrue in the long run — an account is genuinely needed
+            before a ball can be scored — but the first thing the app did was
+            promise one thing and do another, on the screen where somebody is
+            deciding whether to trust it.
+          */}
+          <Button label="Create an account" onPress={() => router.push('/signup')} />
+          <Text className="text-foreground/70 mt-2 text-center text-[13.5px] leading-[18px]">
+            Scoring needs one — a scorebook has to belong to someone. Watching does not.
+          </Text>
 
           {/*
             The escape hatch, and the reason this screen is not a wall.
-            "Look around" rather than "score without an account": a guest can
-            read every public surface but cannot keep a record, and the label
-            has to say which of those it is.
+
+            It used to say "Look around first", which was honest about the
+            limitation and vague about the offer, because at the time the offer
+            was a box asking for a URL. There is live cricket behind it now, so
+            the label can name it.
           */}
-          <View className="mt-2">
+          <View className="mt-4">
             <Button
-              label="Look around first"
+              label="Watch live cricket"
               variant="secondary"
               onPress={async () => {
                 await continueAsGuest();
