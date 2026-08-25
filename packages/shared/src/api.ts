@@ -113,9 +113,37 @@ export type MatchSummary = {
   watching: number;
 };
 
+/** One innings, as far as it has got. Read from the innings cache. */
+export type MatchScoreLine = {
+  inningsNumber: number;
+  battingTeamId: string;
+  runs: number;
+  wickets: number;
+  ballsBowled: number;
+  target: number | null;
+  status: string;
+};
+
+/**
+ * A match in the list, with enough of it to be worth listing.
+ *
+ * `MatchSummary` carries team **ids** and no score, so a row could say who was
+ * playing only if the match had been given a title — and could never say where
+ * it had got to. A list of live matches that cannot show a live score is not
+ * answering the question it exists for.
+ *
+ * `innings` is empty for a match that has not started, and holds one line per
+ * innings after that, in order.
+ */
+export type MatchListItem = MatchSummary & {
+  teamAName: string | null;
+  teamBName: string | null;
+  innings: MatchScoreLine[];
+};
+
 /** `GET /api/matches` */
 export type MatchListResponse = {
-  matches: MatchSummary[];
+  matches: MatchListItem[];
 };
 
 /** A player as the API returns it. Structural subset of the `players` row. */

@@ -517,6 +517,65 @@ export async function getMatch(id: string): Promise<Match | null> {
   return rows[0] ?? null;
 }
 
+/** Team names for a list of ids, in one query. */
+export async function teamNamesFor(teamIds: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(teamIds)];
+  if (unique.length === 0) return new Map();
+
+  const rows = await db
+    .select({ id: teams.id, name: teams.name })
+    .from(teams)
+    .where(inArray(teams.id, unique));
+
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+/**
+ * Where each match has got to, for the whole list in one query.
+ *
+ * Read from the innings cache rather than replayed. Every figure here is also
+ * derivable from `ball_events` and the scorecard does derive it — but that is
+ * a replay per match, and this is a list. The cache columns exist for exactly
+ * this: see the note on the `innings` table.
+ */
+export type MatchScoreLine = {
+  inningsNumber: number;
+  battingTeamId: string;
+  runs: number;
+  wickets: number;
+  ballsBowled: number;
+  target: number | null;
+  status: string;
+};
+
+export async function inningsLinesFor(matchIds: string[]): Promise<Map<string, MatchScoreLine[]>> {
+  const unique = [...new Set(matchIds)];
+  if (unique.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      matchId: inningsTable.matchId,
+      inningsNumber: inningsTable.inningsNumber,
+      battingTeamId: inningsTable.battingTeamId,
+      runs: inningsTable.runs,
+      wickets: inningsTable.wickets,
+      ballsBowled: inningsTable.ballsBowled,
+      target: inningsTable.target,
+      status: inningsTable.status,
+    })
+    .from(inningsTable)
+    .where(inArray(inningsTable.matchId, unique))
+    .orderBy(asc(inningsTable.inningsNumber));
+
+  const byMatch = new Map<string, MatchScoreLine[]>();
+  for (const { matchId, ...line } of rows) {
+    const existing = byMatch.get(matchId);
+    if (existing) existing.push(line);
+    else byMatch.set(matchId, [line]);
+  }
+  return byMatch;
+}
+
 export async function createMatch(input: {
   title?: string;
   venue?: string;
