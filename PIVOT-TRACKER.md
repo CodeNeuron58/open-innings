@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 29
+**Branch:** `pivot` · **Commits:** 31
 **Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
 **Smoke:** 378 checks green against a real database
 (score 51 · api 283 · p1 19 · xi 6 · correct 12 · browse 7)
-**Findings:** 61 total — **49 closed**, 1 part done, 11 open
+**Findings:** 61 total — **50 closed**, 11 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -322,13 +322,21 @@ Three things want smoking on hardware:
       parts, which migration 0017's CHECK refused. The correction was
       impossible; the reason was three files from the error.
 
----
+### `49b8db2` The wizard stops sending people away
 
-## Part done
-
-- [ ] **A1** — _Critical._ Cold start. Inline player creation and real empty
-      states landed, but there is still no single guided "first match" flow that
-      creates teams and players without leaving the wizard.
+- [x] **A1** Nothing in match setup navigates away any more. A "+ New team"
+      chip drops a new side straight into the slot that asked for it, and
+      "+ Add a player" is a sheet whose player is ticked into the XI on the way
+      out. The only `router` call left in the file opens the scorer.
+- [x] Not a guided first-run flow, deliberately. A tour helps once; the same
+      wall is there next season the first time a club plays a new opponent —
+      and a parallel onboarding path would be a second implementation of match
+      setup, drifting from the real one.
+- [x] `lib/use-player-finder.ts` holds the search-before-create rule the
+      add-player screen already knew and the wizard would have had to learn:
+      debounced search, squad members filtered out, and create offered only
+      once the server has answered. A second copy would have got one of those
+      wrong, and the cost is a split career that cannot be rejoined.
 
 ---
 
