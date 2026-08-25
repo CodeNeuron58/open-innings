@@ -668,3 +668,72 @@ describe('a shared over still binds the bowler who started it', () => {
     expect(codeFor(() => bowl(s, { bowlerId: asPlayerId('w1') }))).toBeNull();
   });
 });
+
+describe('a retirement does not use up a delivery', () => {
+  it('does not advance the over', () => {
+    /*
+     * The bug: `isLegalDelivery(eventType)` answers for the delivery, and a
+     * retirement is recorded as `eventType: 'wicket'`, which looks like a fair
+     * ball from the event type alone. So a batter retiring hurt between
+     * deliveries advanced `ballsBowled` and the over ended one ball early — a
+     * ball the batting side never got, which in a tight chase decides matches.
+     */
+    const before = seedWith();
+    const after = bowl(before, {
+      eventType: 'wicket',
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    expect(after.currentInnings.ballsBowled).toBe(before.currentInnings.ballsBowled);
+  });
+
+  it('is recorded, but not as a legal delivery', () => {
+    // It still belongs in the ball log — that is the only place it can be
+    // attached to. What it must not do is count.
+    const after = bowl(seedWith(), {
+      eventType: 'wicket',
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    expect(after.balls).toHaveLength(1);
+    expect(after.balls[0]!.isLegalDelivery).toBe(false);
+  });
+
+  it('does not credit the bowler with a ball either', () => {
+    // Their economy is runs per over bowled, and they did not bowl this one.
+    const after = bowl(seedWith(), {
+      eventType: 'wicket',
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    expect(after.bowling[String(after.currentInnings.currentBowlerId)]?.balls ?? 0).toBe(0);
+  });
+
+  it('applies to retired out and timed out for the same reason', () => {
+    // NON_DELIVERY_WICKETS is the whole list, and it is the engine's own.
+    for (const wicketType of ['retired_out', 'timed_out'] as const) {
+      const after = bowl(seedWith(), {
+        eventType: 'wicket',
+        wicketType,
+        wicketPlayerId: asPlayerId('b1'),
+      });
+      expect(after.currentInnings.ballsBowled, wicketType).toBe(0);
+    }
+  });
+
+  it('still counts an ordinary dismissal as a delivery', () => {
+    // The guard is narrow on purpose: being bowled uses up the ball it
+    // happened on, and nothing about this change may touch that.
+    const after = bowl(seedWith(), {
+      eventType: 'wicket',
+      wicketType: 'bowled',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+
+    expect(after.currentInnings.ballsBowled).toBe(1);
+    expect(after.balls[0]!.isLegalDelivery).toBe(true);
+  });
+});

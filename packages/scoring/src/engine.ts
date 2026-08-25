@@ -170,7 +170,27 @@ type ComposeContext = {
  * Does NOT modify the input — returns a new event.
  */
 function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
-  const legal = isLegalDelivery(input.eventType);
+  /*
+   * A retirement is not a delivery, so it does not use one up.
+   *
+   * `isLegalDelivery(eventType)` answers for the *delivery* — it excludes
+   * wides, no-balls and penalties. It cannot answer for a retirement, because
+   * a retirement is recorded as `eventType: 'wicket'` and looks like a fair
+   * ball from the event type alone.
+   *
+   * The cost was a ball off the over every time. A batter retiring hurt
+   * between deliveries advanced `ballsBowled`, so the over ended one ball
+   * early — and in a tight chase that is a ball the batting side never got.
+   * Timed out is the same: Law 40 is about a batter who did not arrive, and
+   * nothing was bowled.
+   *
+   * It has to be derived here rather than sent. `ballEventSchema` strips
+   * `isLegalDelivery` from client payloads on purpose — accepting it would let
+   * a client mark an ordinary delivery illegal and stop the over ever
+   * advancing — so the only place that can know this is the engine.
+   */
+  const nonDelivery = input.wicketType !== undefined && NON_DELIVERY_WICKETS.has(input.wicketType);
+  const legal = !nonDelivery && isLegalDelivery(input.eventType);
 
   const overthrowRuns = input.overthrowRuns ?? 0;
 
