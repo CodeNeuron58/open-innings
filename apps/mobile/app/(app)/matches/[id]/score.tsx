@@ -581,6 +581,18 @@ export default function Scorer() {
   const nonStrikerStats = state.batting[String(effNonStriker)];
   const bowlerStats = state.bowling[String(effBowler)];
 
+  /*
+   * Who bowled from the end the next over comes from.
+   *
+   * The over just finished is `currentOver - 1`; the one before it came from
+   * the other end, which is the same end as the over about to start. Most
+   * sides rotate five or six bowlers in a fixed pattern from two ends, so this
+   * is the answer far more often than not — and the end-of-over list used to
+   * be the whole side in roster order with no memory of the rotation at all.
+   */
+  const previousEndBowlerId =
+    state.balls.find((b) => b.overNumber === currentOver - 2)?.bowlerId ?? null;
+
   // What "undo" is about to take off the board, in the notation the over strip
   // already uses — so the button and the chip it removes say the same thing.
   const undoTarget = lastBall ? ballMark(lastBall).label : '';
@@ -608,11 +620,11 @@ export default function Scorer() {
         </Pressable>
         <View className="min-w-0 flex-1">
           <Text className="text-foreground font-heading text-[15px]" numberOfLines={1}>
-            {data.battingTeamName} <Text className="text-foreground/45">v</Text>{' '}
+            {data.battingTeamName} <Text className="text-foreground/60">v</Text>{' '}
             {data.bowlingTeamName}
           </Text>
           <Text
-            className="font-heading text-[9px] uppercase tracking-[1.3px] text-neutral-600"
+            className="font-heading text-[11px] uppercase tracking-[1.3px] text-neutral-700"
             numberOfLines={1}
           >
             {state.match.oversPerInnings} overs {' · '} {inn.inningsNumber === 1 ? '1st' : '2nd'}{' '}
@@ -663,13 +675,13 @@ export default function Scorer() {
               <Text className="text-scoreboard-text font-heading text-[19px] leading-[19px] opacity-90">
                 {formatOvers(inn.ballsBowled)}
               </Text>
-              <Text className="text-scoreboard-text font-heading mt-0.5 text-[9px] uppercase tracking-[1.3px] opacity-60">
+              <Text className="text-scoreboard-text font-heading mt-0.5 text-[11px] uppercase tracking-[1.3px] opacity-60">
                 Overs
               </Text>
             </View>
             {inn.target !== undefined ? (
               <View className="ml-auto shrink-0 items-end pb-1">
-                <Text className="text-scoreboard-text font-heading text-[9px] uppercase tracking-[1.3px] opacity-60">
+                <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
                   Target
                 </Text>
                 <Text className="text-scoreboard-text font-heading text-[19px] leading-[22px]">
@@ -684,7 +696,7 @@ export default function Scorer() {
             {runsNeeded !== undefined && !completed ? (
               <>
                 <Rate label="RRR" value={rate(runsNeeded, ballsLeft)} />
-                <Text className="text-scoreboard-text font-heading ml-auto shrink-0 text-[14px]">
+                <Text className="text-scoreboard-text font-heading ml-auto shrink-0 text-[15px]">
                   Need {runsNeeded} off {ballsLeft}
                 </Text>
               </>
@@ -695,11 +707,11 @@ export default function Scorer() {
             <View className="mt-3 flex-row items-center justify-between border border-amber-400/60 bg-amber-400/20 px-3 py-2">
               <View className="flex-row items-center gap-2">
                 <View className="h-2 w-2 bg-amber-400" />
-                <Text className="font-heading text-[12px] font-bold uppercase tracking-[1.8px] text-amber-300">
+                <Text className="font-heading text-[13.5px] font-bold uppercase tracking-[1.8px] text-amber-300">
                   FREE HIT
                 </Text>
               </View>
-              <Text className="font-heading text-[10px] uppercase tracking-[1.2px] text-amber-200/90">
+              <Text className="font-heading text-[11px] uppercase tracking-[1.2px] text-amber-200/90">
                 Only Run Out & Obstruction (Law 21.18)
               </Text>
             </View>
@@ -709,13 +721,13 @@ export default function Scorer() {
         {/* Batters */}
         <View className="border-border border-b px-4">
           <View className="border-border flex-row border-b pb-1.5 pt-2">
-            <Text className="font-heading flex-1 text-[9px] uppercase tracking-[1.3px] text-neutral-600">
+            <Text className="font-heading flex-1 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
               Batting
             </Text>
             {['R', 'B', '4s', '6s', 'SR'].map((h, i) => (
               <Text
                 key={h}
-                className={`font-heading text-right text-[9px] uppercase tracking-[1.3px] text-neutral-600 ${COL[i]}`}
+                className={`font-heading text-right text-[11px] uppercase tracking-[1.3px] text-neutral-700 ${COL[i]}`}
               >
                 {h}
               </Text>
@@ -737,10 +749,10 @@ export default function Scorer() {
           disabled={!overInProgress || completed || mutation.busy}
           className="border-border flex-row items-center gap-2.5 border-b px-4 py-2 active:opacity-70"
         >
-          <Text className="font-heading shrink-0 text-[9px] uppercase tracking-[1.3px] text-neutral-600">
+          <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
             Bowling
           </Text>
-          <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
+          <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
             {nameOf(effBowler)}
             {midOverBowlerId ? (
               <Text className="text-steel-700 font-heading text-[11px]">
@@ -751,7 +763,7 @@ export default function Scorer() {
           </Text>
           {overInProgress && !completed && !midOverBowlerId ? (
             <View className="border-steel-400 bg-steel-100 border px-1.5 py-0.5">
-              <Text className="text-steel-800 font-heading text-[9px] uppercase tracking-[1px]">
+              <Text className="text-steel-800 font-heading text-[11px] uppercase tracking-[1px]">
                 Change
               </Text>
             </View>
@@ -760,7 +772,7 @@ export default function Scorer() {
             {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
             {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}
           </Text>
-          <Text className="text-foreground/60 font-heading shrink-0 text-[12px]">
+          <Text className="text-foreground/60 font-heading shrink-0 text-[13.5px]">
             {rate(bowlerStats?.runs ?? 0, bowlerStats?.balls ?? 0)}
           </Text>
         </Pressable>
@@ -768,10 +780,10 @@ export default function Scorer() {
         {/* This over */}
         <View className="px-4 pb-3.5 pt-3">
           <View className="mb-2 flex-row items-baseline">
-            <Text className="text-steel-700 font-heading shrink-0 text-[9px] uppercase tracking-[1.3px]">
+            <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
               {overLabel}
             </Text>
-            <Text className="text-foreground/55 font-heading ml-auto shrink-0 text-[12px]">
+            <Text className="text-foreground/70 font-heading ml-auto shrink-0 text-[13.5px]">
               {runsThisOver} run{runsThisOver === 1 ? '' : 's'} this over
             </Text>
           </View>
@@ -815,7 +827,7 @@ export default function Scorer() {
         {conflictNote ? (
           <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
             <View className="border-steel-300 bg-steel-100 border p-2.5">
-              <Text className="text-steel-900 text-[12.5px]">{conflictNote}</Text>
+              <Text className="text-steel-900 text-[13.5px]">{conflictNote}</Text>
             </View>
           </Pressable>
         ) : null}
@@ -916,7 +928,7 @@ export default function Scorer() {
                   mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
                 }`}
               >
-                <Text className="text-foreground font-heading text-[14.5px]">
+                <Text className="text-foreground font-heading text-[15px]">
                   ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
                 </Text>
               </Pressable>
@@ -928,7 +940,7 @@ export default function Scorer() {
                   onPress={() => setShowExtraRunsSheet(true)}
                   className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
                 >
-                  <Text className="text-steel-800 font-heading text-[12.5px]" numberOfLines={2}>
+                  <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
                     {EXTRA_LABELS[pendingExtra]} armed — tap the runs
                   </Text>
                 </Pressable>
@@ -1107,6 +1119,9 @@ export default function Scorer() {
             fullName: p.fullName,
             stats: state.bowling[p.id],
           }))}
+          // Ends alternate, so whoever bowled two overs ago was at the end the
+          // next over comes from. In an ordinary rotation that is who bowls it.
+          previousBowlerId={previousEndBowlerId}
           strikerName={nameOf(inn.strikerId)}
           strikerRuns={state.batting[String(inn.strikerId)]?.runs ?? 0}
           strikerBalls={state.batting[String(inn.strikerId)]?.balls ?? 0}
@@ -1147,17 +1162,17 @@ function SyncBar({
   if (sync.kind === 'blocked') {
     return (
       <View className="border-destructive bg-destructive/10 mx-3 mb-2 border p-3">
-        <Text className="text-destructive font-heading text-[13px]">
+        <Text className="text-destructive font-heading text-[13.5px]">
           {sync.count} {sync.count === 1 ? 'ball' : 'balls'} could not be saved
         </Text>
-        <Text className="text-foreground/75 mt-1 text-[12.5px] leading-[17px]">{sync.message}</Text>
+        <Text className="text-foreground/75 mt-1 text-[13.5px] leading-[17px]">{sync.message}</Text>
         <View className="mt-2.5 flex-row gap-2">
           <Pressable
             accessibilityRole="button"
             onPress={onRetry}
             className="border-input h-11 justify-center border px-3 active:opacity-70"
           >
-            <Text className="text-foreground font-heading text-[12.5px]">Try again</Text>
+            <Text className="text-foreground font-heading text-[13.5px]">Try again</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1165,7 +1180,7 @@ function SyncBar({
             onPress={onDiscard}
             className="border-input h-11 justify-center border px-3 active:opacity-70"
           >
-            <Text className="text-destructive font-heading text-[12.5px]">Discard them</Text>
+            <Text className="text-destructive font-heading text-[13.5px]">Discard them</Text>
           </Pressable>
         </View>
       </View>
@@ -1181,7 +1196,7 @@ function SyncBar({
       }`}
     >
       <View className={`h-2 w-2 shrink-0 ${waiting ? 'bg-steel-600' : 'bg-primary'}`} />
-      <Text className="text-foreground/80 min-w-0 flex-1 text-[12.5px]" numberOfLines={2}>
+      <Text className="text-foreground/80 min-w-0 flex-1 text-[13.5px]" numberOfLines={2}>
         {waiting
           ? `${sync.count} ${sync.count === 1 ? 'ball' : 'balls'} waiting for a signal — safe on this phone, and sent the moment there is one.`
           : `Saving ${sync.count}…`}
@@ -1190,8 +1205,14 @@ function SyncBar({
   );
 }
 
-/** Column widths for the batting table, matching the design's grid. */
-const COL = ['w-[34px]', 'w-[30px]', 'w-[26px]', 'w-[30px]', 'w-[42px]'] as const;
+/**
+ * Column widths for the batting table.
+ *
+ * Widened with the type. The figures must never wrap or shrink — a strike rate
+ * that ellipsises is worse than no strike rate — so every cell is fixed and the
+ * name takes what is left.
+ */
+const COL = ['w-[38px]', 'w-[32px]', 'w-[28px]', 'w-[32px]', 'w-[46px]'] as const;
 
 // Run keys for the scorer keypad.
 type RunKey = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -1248,10 +1269,10 @@ function strikeRate(runs: number, balls: number): string {
 function Rate({ label, value }: { label: string; value: string }) {
   return (
     <View className="shrink-0 flex-row items-baseline gap-1">
-      <Text className="text-scoreboard-text font-heading text-[9px] uppercase tracking-[1.3px] opacity-60">
+      <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
         {label}
       </Text>
-      <Text className="text-scoreboard-text font-heading text-[14px]">{value}</Text>
+      <Text className="text-scoreboard-text font-heading text-[15px]">{value}</Text>
     </View>
   );
 }
@@ -1279,7 +1300,7 @@ function BatterRow({
     <View className="flex-row items-center py-2">
       {/* The name may legitimately be long — let it ellipsise. The figures
           must never shrink, so every cell is shrink-0. */}
-      <Text className="text-foreground min-w-0 flex-1 text-[13.5px]" numberOfLines={1}>
+      <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
         {name}
         {onStrike ? ' *' : ''}
       </Text>
@@ -1287,8 +1308,8 @@ function BatterRow({
         <Text
           key={i}
           className={`font-heading shrink-0 text-right ${COL[i]} ${
-            c.strong ? 'text-foreground text-[15px]' : 'text-foreground/60'
-          } ${c.small ? 'text-[12px]' : c.strong ? '' : 'text-[13px]'}`}
+            c.strong ? 'text-foreground text-[18px]' : 'text-foreground/75'
+          } ${c.small ? 'text-[13.5px]' : c.strong ? '' : 'text-[14.5px]'}`}
         >
           {c.v}
         </Text>

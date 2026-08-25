@@ -49,7 +49,7 @@ function Row({ item }: { item: Item }) {
         >
           {item.label}
         </Text>
-        <Text className="text-foreground/65 mt-0.5 text-[12.5px] leading-[17px]">
+        <Text className="text-foreground/65 mt-0.5 text-[13.5px] leading-[17px]">
           {item.unavailable ?? item.note}
         </Text>
       </View>

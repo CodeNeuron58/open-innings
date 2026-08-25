@@ -56,7 +56,7 @@ export function SheetShell({
             <View className="min-w-0 flex-1">
               <Text className="text-foreground font-heading text-[21px]">{title}</Text>
               {subtitle ? (
-                <Text className="text-foreground/65 mt-0.5 text-[12.5px]">{subtitle}</Text>
+                <Text className="text-foreground/65 mt-0.5 text-[13.5px]">{subtitle}</Text>
               ) : null}
             </View>
             {onDismiss ? (
@@ -71,7 +71,7 @@ export function SheetShell({
                 // opened this by accident should not have to aim at a glyph.
                 className="shrink-0 px-1 py-1 active:opacity-60"
               >
-                <Text className="font-heading text-[11px] uppercase tracking-[1.4px] text-neutral-600">
+                <Text className="font-heading text-[11px] uppercase tracking-[1.4px] text-neutral-700">
                   Cancel
                 </Text>
               </Pressable>
@@ -118,7 +118,7 @@ function Chip({
       } ${selected ? 'bg-scoreboard border-scoreboard' : 'border-input bg-transparent'} active:opacity-70`}
     >
       <Text
-        className={`font-heading text-[13px] ${
+        className={`font-heading text-[13.5px] ${
           selected ? 'text-scoreboard-text' : 'text-foreground'
         }`}
         numberOfLines={1}
@@ -131,7 +131,7 @@ function Chip({
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <Text className="font-heading text-[9.5px] uppercase tracking-[1.5px] text-neutral-600">
+    <Text className="font-heading text-[11px] uppercase tracking-[1.5px] text-neutral-700">
       {children}
     </Text>
   );
@@ -489,7 +489,7 @@ export function WicketSheet({
           {/* What goes on the board, before it goes on the board. The penalty
               is the delivery's and the runs are theirs, and a scorer should
               not have to hold that distinction in their head. */}
-          <Text className="text-foreground/65 mt-2.5 text-[12.5px] leading-[18px]">
+          <Text className="text-foreground/65 mt-2.5 text-[13.5px] leading-[18px]">
             {describeWicketRuns(delivery, runsCompleted)}
           </Text>
         </View>
@@ -515,7 +515,7 @@ export function WicketSheet({
 
       <View className="border-border border-t pt-3.5">
         <View className="flex-row items-center gap-2">
-          <Text className="font-heading shrink-0 text-[9.5px] uppercase tracking-[1.5px] text-neutral-600">
+          <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.5px] text-neutral-700">
             Out
           </Text>
 
@@ -552,7 +552,7 @@ export function WicketSheet({
           >
             <Text
               className={`font-heading text-[15px] ${
-                nextName ? 'text-steel-700' : 'text-foreground/45'
+                nextName ? 'text-steel-700' : 'text-foreground/60'
               }`}
               numberOfLines={1}
             >
@@ -659,7 +659,7 @@ export function NextPlayerSheet({
                 {c.label}
               </Text>
               {c.tag ? (
-                <Text className="font-heading shrink-0 text-[10px] uppercase tracking-[1.3px] text-neutral-600">
+                <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
                   {c.tag}
                 </Text>
               ) : null}
@@ -776,7 +776,7 @@ export function OpenersSheet({
 
       {error ? (
         <View className="border-destructive/40 bg-destructive/5 border p-2.5">
-          <Text className="text-foreground text-[12.5px]">{error}</Text>
+          <Text className="text-foreground text-[13.5px]">{error}</Text>
         </View>
       ) : null}
 
@@ -853,7 +853,7 @@ export function OverthrowSheet({
       </View>
 
       <View className="border-border border-t pt-3.5">
-        <Text className="text-foreground/70 text-[13px] leading-[19px]">
+        <Text className="text-foreground/70 text-[13.5px] leading-[19px]">
           {runsOffBat} run{runsOffBat === 1 ? '' : 's'} credited to batter. {overthrowRuns}{' '}
           overthrow runs credited to team total and excluded from batter boundary count.
         </Text>
