@@ -1072,6 +1072,21 @@ export async function replaceBallSequence(
     overNumber: number;
     eventType: BallEvent['eventType'];
     runsOffBat: number;
+    /*
+     * Declared, and written below.
+     *
+     * This was neither. The route has always passed `overthrowRuns` and the
+     * type never mentioned it — excess properties survive `.map()` inference,
+     * so it compiled — and the UPDATE never set it. Correcting a delivery into
+     * one that carries overthrows therefore wrote `runs_off_bat` and
+     * `total_runs` while leaving `overthrow_runs` at its old value, and
+     * migration 0017's `total_runs = runs_off_bat + overthrow_runs +
+     * extra_runs` refused the row. The correction failed and there was no way
+     * to make it succeed.
+     */
+    overthrowRuns: number;
+    shotAngle?: number | null;
+    shotDistance?: number | null;
     extraRuns: number;
     totalRuns: number;
     isLegalDelivery: boolean;
@@ -1115,6 +1130,7 @@ export async function replaceBallSequence(
           overNumber: ball.overNumber,
           eventType: ball.eventType,
           runsOffBat: ball.runsOffBat,
+          overthrowRuns: ball.overthrowRuns,
           extraRuns: ball.extraRuns,
           totalRuns: ball.totalRuns,
           isLegalDelivery: ball.isLegalDelivery,
@@ -1127,6 +1143,12 @@ export async function replaceBallSequence(
           fielderId: ball.fielderId,
           bowlerReplacedMidOver: ball.bowlerReplacedMidOver,
           commentary: ball.commentary,
+          // Carried rather than recomputed — a replay does not know where the
+          // ball went, so an UPDATE that omitted these would leave the
+          // placement of a rewritten delivery describing the shot it used to
+          // be. See migration 0019.
+          shotAngle: ball.shotAngle ?? null,
+          shotDistance: ball.shotDistance ?? null,
         })
         .where(and(eq(ballEvents.id, ball.id), eq(ballEvents.inningsId, inningsId)))
         .returning({ id: ballEvents.id });

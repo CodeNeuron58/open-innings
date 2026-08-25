@@ -381,6 +381,23 @@ export const ballEventSchema = z.object({
   fielderId: idSchema.optional(),
 
   /**
+   * Where the ball went, for a wagon wheel. Reserved — see migration 0019.
+   *
+   * Degrees clockwise from straight down the ground, from the striker's own
+   * point of view, and how far it carried as a percentage of the way to the
+   * rope. Handedness is a property of the player and is applied when the wheel
+   * is drawn, not stored per delivery.
+   *
+   * Nothing sends these yet. They are accepted now so that the day the console
+   * learns to capture placement, the column is already there and already
+   * validated — a wagon wheel added after the fact starts empty for every
+   * delivery already recorded, and nobody remembers where a cover drive went
+   * three seasons ago.
+   */
+  shotAngle: z.coerce.number().int().min(0).max(359).optional(),
+  shotDistance: z.coerce.number().int().min(0).max(100).optional(),
+
+  /**
    * Law 17.4 — the bowler changed part-way through this over because the
    * previous one could not continue.
    *
@@ -442,6 +459,8 @@ type BallShape = {
   runsOffBat: number;
   overthrowRuns?: number;
   extraRuns: number;
+  shotAngle?: number;
+  shotDistance?: number;
 };
 
 /**
@@ -513,6 +532,17 @@ const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
         message: `A '${v.eventType}' is never off the bat`,
       });
     }
+  }
+
+  // An angle with no distance is half a point and cannot be plotted; a
+  // distance with no angle is a length in no direction. The database says the
+  // same thing in `ball_events_shot_placement_pair`.
+  if ((v.shotAngle === undefined) !== (v.shotDistance === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['shotDistance'],
+      message: 'Give both the angle and the distance, or neither',
+    });
   }
 
   // 'wicket' is left alone: a run-out can happen after any number of runs.

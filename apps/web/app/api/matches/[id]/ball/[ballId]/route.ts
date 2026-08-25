@@ -100,6 +100,12 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
         fielderId: b.fielderId ? String(b.fielderId) : null,
         bowlerReplacedMidOver: b.bowlerReplacedMidOver ?? false,
         commentary: b.commentary ?? null,
+        // A correction rewrites every delivery after the one being corrected,
+        // and a field left out of the rewrite is a field deleted. Placement is
+        // not recomputed by the replay — it is carried — so it has to be
+        // written back or one correction erases the wagon wheel behind it.
+        shotAngle: b.shotAngle ?? null,
+        shotDistance: b.shotDistance ?? null,
       })),
       {
         runs: updated.runs,

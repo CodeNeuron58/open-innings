@@ -72,7 +72,13 @@ type Inn = {
   runs: number;
   wickets: number;
 };
-type Ball = { id: string; eventType: string; wicketType?: string; totalRuns: number };
+type Ball = {
+  id: string;
+  eventType: string;
+  wicketType?: string;
+  totalRuns: number;
+  overthrowRuns?: number;
+};
 type State = { currentInnings: Inn; balls: Ball[] };
 
 async function main(): Promise<void> {
@@ -264,7 +270,39 @@ async function main(): Promise<void> {
     !removed.body.state?.balls.some((b) => b.wicketType === 'bowled'),
   );
 
-  // ── 4. A correction reports what it moved ─────────────────────────────────
+  // ── 4. Correcting a delivery into one that carries overthrows ────────
+  //
+  // `replaceBallSequence` listed the columns it updates and `overthrow_runs`
+  // was not among them, while the route had always passed it — excess
+  // properties survive `.map()` inference, so nothing complained. The UPDATE
+  // wrote `runs_off_bat` and `total_runs` and left `overthrow_runs` alone, and
+  // migration 0017's `total_runs = runs_off_bat + overthrow_runs + extra_runs`
+  // refused the row. This correction was simply impossible.
+  const withOverthrow = await patch(fourId, {
+    eventType: '1',
+    runsOffBat: 1,
+    overthrowRuns: 4,
+    extraRuns: 0,
+    bowlerId: bowl[0],
+  });
+  check(
+    'a delivery can be corrected into one carrying overthrows',
+    withOverthrow.status === 200,
+    withOverthrow.body,
+  );
+  /*
+   * Asserted on the delivery, not on the innings total.
+   *
+   * Three corrections have already moved that total, so a number checked
+   * against it would be testing this script's bookkeeping rather than the
+   * server's. The delivery is what the bug was about: `overthrow_runs` was
+   * never written, so `total_runs` and its parts disagreed and migration
+   * 0017's CHECK refused the row.
+   */
+  const corrected = withOverthrow.body.state?.balls.find((b) => b.id === fourId);
+  check('the delivery reads 5 — 1 struck, 4 thrown away', corrected?.totalRuns === 5, corrected);
+
+  // ── 5. A correction reports what it moved ─────────────────────────────────
   check(
     'the server says what the correction changed',
     Array.isArray(removed.body.changes),

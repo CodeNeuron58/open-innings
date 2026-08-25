@@ -3,13 +3,7 @@
  * Replayed entirely from `ball_events` to ensure correctness after corrections.
  */
 import 'server-only';
-import {
-  replayInnings,
-  buildScorecard,
-  asInningsId,
-  asPlayerId,
-  type MatchState,
-} from '@open-innings/scoring';
+import { replayInnings, buildScorecard, type MatchState } from '@open-innings/scoring';
 import {
   getMatch,
   getInnings,
@@ -18,6 +12,7 @@ import {
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
 import { notFound } from './errors';
+import { toBallEventInputs } from '@/lib/ball-input';
 import { getUserId } from '@/lib/auth/local';
 
 /**
@@ -98,22 +93,9 @@ function oversOf(balls: number): string {
   return `${Math.floor(balls / 6)}.${balls % 6}`;
 }
 
-type BallRow = Awaited<ReturnType<typeof listBallEvents>>[number];
-
 /** DB rows → engine event inputs: branded ids, null → undefined. */
-function toEvents(rows: BallRow[]) {
-  return rows.map((row) => ({
-    ...row,
-    inningsId: asInningsId(row.inningsId),
-    batsmanId: asPlayerId(row.batsmanId),
-    nonStrikerId: asPlayerId(row.nonStrikerId),
-    bowlerId: asPlayerId(row.bowlerId),
-    wicketPlayerId: row.wicketPlayerId ? asPlayerId(row.wicketPlayerId) : undefined,
-    fielderId: row.fielderId ? asPlayerId(row.fielderId) : undefined,
-    wicketType: row.wicketType ?? undefined,
-    commentary: row.commentary ?? undefined,
-  }));
-}
+// One mapper for the whole app — see lib/ball-input.ts for why.
+const toEvents = toBallEventInputs;
 
 /**
  * Loads a match and folds every ball into per-player batting and bowling

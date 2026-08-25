@@ -12,12 +12,7 @@ import type {
   UpdateMatchInput,
 } from '@open-innings/shared';
 import { resolveBattingSides } from '@open-innings/shared';
-import {
-  SUPER_OVER_MAX_WICKETS,
-  asInningsId,
-  asPlayerId,
-  replayInnings,
-} from '@open-innings/scoring';
+import { SUPER_OVER_MAX_WICKETS, replayInnings } from '@open-innings/scoring';
 import type { Innings } from '@/lib/db/schema';
 import {
   createMatch,
@@ -39,6 +34,7 @@ import {
   updateMatchDetails,
   listBallEvents,
 } from '@/lib/db/queries';
+import { toBallEventInputs } from '@/lib/ball-input';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { invalid, notFound, unauthorized } from './errors';
@@ -492,17 +488,8 @@ export async function recomputeInningsCaches(matchId: string): Promise<void> {
         target: inn.target ?? undefined,
         maxOversPerBowler: match.maxOversPerBowler ?? undefined,
       },
-      balls.map((b) => ({
-        ...b,
-        inningsId: asInningsId(b.inningsId),
-        batsmanId: asPlayerId(b.batsmanId),
-        nonStrikerId: asPlayerId(b.nonStrikerId),
-        bowlerId: asPlayerId(b.bowlerId),
-        wicketPlayerId: b.wicketPlayerId ? asPlayerId(b.wicketPlayerId) : undefined,
-        fielderId: b.fielderId ? asPlayerId(b.fielderId) : undefined,
-        wicketType: b.wicketType ?? undefined,
-        commentary: b.commentary ?? undefined,
-      })),
+      // One mapper for every replay — see lib/ball-input.ts.
+      toBallEventInputs(balls),
     );
 
     await updateInningCache(inn.id, {

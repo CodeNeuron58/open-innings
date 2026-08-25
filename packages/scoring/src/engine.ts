@@ -228,6 +228,11 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
     wicketType: input.wicketType,
     wicketPlayerId: input.wicketPlayerId,
     fielderId: input.fielderId,
+    // Carried, not reasoned about. Placement changes no score, ends no over
+    // and dismisses nobody — it is a fact about the shot rather than about the
+    // delivery's outcome. See migration 0019.
+    shotAngle: input.shotAngle,
+    shotDistance: input.shotDistance,
     // Carried through rather than dropped: replay re-validates every stored
     // delivery, so an over that lawfully changed bowler mid-way would stop
     // replaying the moment this was lost.

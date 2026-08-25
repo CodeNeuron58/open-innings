@@ -8,8 +8,9 @@ import {
   listBallEvents,
   getPlayerNamesByIds,
 } from '@/lib/db/queries';
+import { toBallEventInputs } from '@/lib/ball-input';
 import { formatOvers } from '@/lib/utils';
-import { replayInnings, asInningsId, asPlayerId, type MatchState } from '@open-innings/scoring';
+import { replayInnings, type MatchState } from '@open-innings/scoring';
 import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';
@@ -40,19 +41,8 @@ function inningsLabel(inningsNumber: number): string {
 }
 
 /** DB rows → engine event inputs (branded ids, null → undefined). */
-function toEvents(rows: BallRow[]) {
-  return rows.map((row) => ({
-    ...row,
-    inningsId: asInningsId(row.inningsId),
-    batsmanId: asPlayerId(row.batsmanId),
-    nonStrikerId: asPlayerId(row.nonStrikerId),
-    bowlerId: asPlayerId(row.bowlerId),
-    wicketPlayerId: row.wicketPlayerId ? asPlayerId(row.wicketPlayerId) : undefined,
-    fielderId: row.fielderId ? asPlayerId(row.fielderId) : undefined,
-    wicketType: row.wicketType ?? undefined,
-    commentary: row.commentary ?? undefined,
-  }));
-}
+// One mapper for the whole app — see lib/ball-input.ts for why.
+const toEvents = toBallEventInputs;
 
 function replayInningsRow(
   match: {

@@ -595,6 +595,21 @@ export const ballEvents = pgTable(
      * Zero on every ordinary delivery. Added in migration 0015.
      */
     overthrowRuns: smallint('overthrow_runs').notNull().default(0),
+
+    /**
+     * Where the ball went. Reserved — see migration 0019.
+     *
+     * `shotAngle` is degrees clockwise from straight down the ground, from the
+     * striker's own point of view; handedness lives on the player and is
+     * applied when the wheel is drawn. `shotDistance` is how far it carried as
+     * a percentage of the way to the rope, because grounds differ and a scorer
+     * tapping a diagram is estimating a fraction of a picture.
+     *
+     * Null is the ordinary case and has to stay expressible: a dot ball has no
+     * placement, a wide has no placement, and capturing it at all is opt-in.
+     */
+    shotAngle: smallint('shot_angle'),
+    shotDistance: smallint('shot_distance'),
     extraRuns: smallint('extra_runs').notNull().default(0), // wides/no-balls/bye runs
     totalRuns: smallint('total_runs').notNull().default(0), // runsOffBat + overthrowRuns + extraRuns
     isLegalDelivery: boolean('is_legal_delivery').notNull().default(true),

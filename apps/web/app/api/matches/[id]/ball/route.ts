@@ -141,6 +141,11 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         wicketType: newBall.wicketType ?? null,
         wicketPlayerId: newBall.wicketPlayerId ?? null,
         fielderId: newBall.fielderId ?? null,
+        // Reserved. Nothing sends these yet — see migration 0019 — but the
+        // path from client to column is wired now so that adding the capture
+        // is a screen rather than a migration plus a schema plus a route.
+        shotAngle: newBall.shotAngle ?? null,
+        shotDistance: newBall.shotDistance ?? null,
         bowlerReplacedMidOver: newBall.bowlerReplacedMidOver ?? false,
         commentary: newBall.commentary ?? null,
         requestId: parsed.requestId ?? null,

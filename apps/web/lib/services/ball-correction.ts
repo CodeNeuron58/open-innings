@@ -31,6 +31,8 @@ export type StoredBall = {
   eventType: string;
   runsOffBat: number;
   overthrowRuns?: number;
+  shotAngle?: number | null;
+  shotDistance?: number | null;
   extraRuns: number;
   totalRuns: number;
   isLegalDelivery: boolean;
@@ -139,7 +141,24 @@ export function correctBall(
     ...baseInput(edited),
     eventType: patch.eventType as BallEventInput['eventType'],
     runsOffBat: patch.runsOffBat,
+    /*
+     * The patch's overthrows, not the old ball's.
+     *
+     * This was absent, so `baseInput(edited)` supplied the *stored* value and
+     * the one the scorer sent was discarded. `patchBallSchema` has always
+     * accepted `overthrowRuns`, the console's overthrow sheet has always been
+     * able to produce one, and correcting a delivery into one that carried
+     * overthrows silently kept the old figure — which then disagreed with the
+     * recomputed `total_runs` and, when the row was written back, was refused
+     * by migration 0017's CHECK. The correction was impossible and the reason
+     * was three files away from the error.
+     */
+    overthrowRuns: patch.overthrowRuns ?? 0,
     extraRuns: patch.extraRuns,
+    // Placement is a fact about the shot, so a correction that describes a
+    // different shot replaces it rather than inheriting it.
+    shotAngle: patch.shotAngle,
+    shotDistance: patch.shotDistance,
     batsmanId: asPlayerId(pair.strikerId),
     nonStrikerId: asPlayerId(pair.nonStrikerId),
     bowlerId: asPlayerId(patch.bowlerId),
@@ -450,6 +469,12 @@ function toInput(row: StoredBall): BallEventInput {
     eventType: row.eventType as BallEventInput['eventType'],
     runsOffBat: row.runsOffBat,
     overthrowRuns: row.overthrowRuns ?? 0,
+    // Carried through the replay. Without this a correction would blank the
+    // placement of every delivery after the one being corrected — the balls
+    // are rebuilt from these rows, and a field left out of the rebuild is a
+    // field deleted.
+    shotAngle: row.shotAngle ?? undefined,
+    shotDistance: row.shotDistance ?? undefined,
     extraRuns: row.extraRuns,
     totalRuns: row.totalRuns,
     isLegalDelivery: row.isLegalDelivery,

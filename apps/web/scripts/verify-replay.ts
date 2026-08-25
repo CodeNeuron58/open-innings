@@ -32,6 +32,7 @@
  */
 import { asc, inArray } from 'drizzle-orm';
 import { replayInnings, type BallViolation } from '@open-innings/scoring';
+import { toBallEventInputs } from '../lib/ball-input';
 import { db } from '../lib/db/client';
 import { matches, innings as inningsTable, ballEvents } from '../lib/db/schema';
 
@@ -139,17 +140,9 @@ async function main() {
               target: inn.target ?? undefined,
               maxOversPerBowler: match.maxOversPerBowler ?? undefined,
             },
-            balls.map((b) => ({
-              ...b,
-              inningsId: b.inningsId as never,
-              batsmanId: b.batsmanId as never,
-              nonStrikerId: b.nonStrikerId as never,
-              bowlerId: b.bowlerId as never,
-              wicketPlayerId: (b.wicketPlayerId ?? undefined) as never,
-              fielderId: (b.fielderId ?? undefined) as never,
-              wicketType: b.wicketType ?? undefined,
-              commentary: b.commentary ?? undefined,
-            })),
+            // The same mapper the app replays with. A verifier that read the
+            // ball log differently from the app would verify a different match.
+            toBallEventInputs(balls),
           );
         } catch (error) {
           /*

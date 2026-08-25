@@ -4,8 +4,9 @@
  * State is replayed server-side to provide a single source of truth.
  */
 import { NextResponse } from 'next/server';
-import { replayInnings, asInningsId, asPlayerId, type BallEventInput } from '@open-innings/scoring';
+import { replayInnings, type BallEventInput } from '@open-innings/scoring';
 import { HTTP } from '@open-innings/shared';
+import { toBallEventInputs } from '@/lib/ball-input';
 import { loadMatchInProgress, getTeam, getInnings } from '@/lib/db/queries';
 import { squadFor } from '@/lib/services/matches';
 import { getUserId } from '@/lib/auth/local';
@@ -35,18 +36,8 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
     getInnings(id),
   ]);
 
-  // DB rows → engine input: brand the ids, and null → undefined.
-  const events: BallEventInput[] = balls.map((row) => ({
-    ...row,
-    inningsId: asInningsId(row.inningsId),
-    batsmanId: asPlayerId(row.batsmanId),
-    nonStrikerId: asPlayerId(row.nonStrikerId),
-    bowlerId: asPlayerId(row.bowlerId),
-    wicketPlayerId: row.wicketPlayerId ? asPlayerId(row.wicketPlayerId) : undefined,
-    fielderId: row.fielderId ? asPlayerId(row.fielderId) : undefined,
-    wicketType: row.wicketType ?? undefined,
-    commentary: row.commentary ?? undefined,
-  }));
+  // DB rows → engine input. One mapper, shared — see lib/ball-input.ts.
+  const events: BallEventInput[] = toBallEventInputs(balls);
 
   const state = replayInnings(
     {

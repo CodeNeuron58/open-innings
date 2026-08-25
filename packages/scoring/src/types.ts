@@ -93,6 +93,20 @@ export type BallEvent = {
    */
   overthrowRuns: number;
 
+  /**
+   * Where the ball went, when anybody recorded it.
+   *
+   * The engine carries these and does nothing with them. Placement changes no
+   * score, ends no over and dismisses nobody — it is a fact about the shot
+   * rather than about the delivery's outcome — so it rides along in the ball
+   * log and is read by whatever draws a wagon wheel.
+   *
+   * Degrees clockwise from straight down the ground, and distance as a
+   * percentage of the way to the rope. See migration 0019.
+   */
+  shotAngle?: number;
+  shotDistance?: number;
+
   isFreeHit: boolean; // this ball IS a free hit (after a no-ball)
 
   batsmanId: PlayerId; // striker
@@ -280,6 +294,9 @@ export type BallEventInput = {
   extraRuns: number;
   /** Runs that crossed after a deflection — not credited to the batter. Defaults to 0. */
   overthrowRuns?: number;
+  /** Carried through untouched. See `BallEvent`. */
+  shotAngle?: number;
+  shotDistance?: number;
   totalRuns?: number; // auto-computed if not provided
   isLegalDelivery?: boolean; // auto-derived from eventType if not provided
   isFreeHit?: boolean; // auto-taken from state.isFreeHitNext if not provided
