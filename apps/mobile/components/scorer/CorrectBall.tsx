@@ -78,6 +78,7 @@ export function CorrectBallSheet({
   changes,
   onCorrect,
   onCorrectToWicket,
+  onUndoToHere,
   onDismiss,
 }: {
   ball: BallEvent;
@@ -90,6 +91,15 @@ export function CorrectBallSheet({
   onCorrect: (patch: Omit<PatchBallInput, 'bowlerId'>) => void;
   /** Hands over to the wicket sheet, which knows how to gather a dismissal. */
   onCorrectToWicket: () => void;
+  /**
+   * Take this delivery and everything after it off the board.
+   *
+   * The other kind of correction, and the one undo could not express: a scorer
+   * who realises three balls ago was wrong had to tap undo three times and
+   * hope they stopped in the right place. Absent when this is already the last
+   * delivery, where plain undo is the same thing and says so better.
+   */
+  onUndoToHere?: () => void;
   onDismiss: () => void;
 }) {
   const [picked, setPicked] = useState<number | null>(null);
@@ -245,6 +255,20 @@ export function CorrectBallSheet({
                   Anything after this ball is re-checked against the laws. If the correction makes a
                   later delivery impossible, nothing is saved and you will be told which one.
                 </Text>
+
+                {onUndoToHere && !busy ? (
+                  <View className="border-border border-t pt-3.5">
+                    <Button
+                      label={`Undo ball ${position} and everything after`}
+                      variant="secondary"
+                      onPress={onUndoToHere}
+                    />
+                    <Text className="text-foreground/65 mt-2 text-[13.5px] leading-[18px]">
+                      Takes them off the board rather than changing them. Use this when the last few
+                      deliveries went in wrongly and it is quicker to score them again.
+                    </Text>
+                  </View>
+                ) : null}
 
                 {busy ? (
                   <View className="flex-row items-center gap-2">

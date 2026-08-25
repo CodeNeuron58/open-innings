@@ -94,6 +94,15 @@ export type BallEvent = {
   overthrowRuns: number;
 
   /**
+   * When this delivery was last corrected, as an ISO string.
+   *
+   * Carried and never acted on — an edited four scores the same as an
+   * unedited one. It exists so a card can say which figures were decided
+   * afterwards rather than watched. See migration 0021.
+   */
+  correctedAt?: string;
+
+  /**
    * Did the batters cross? Undefined derives it from run parity.
    *
    * See `shouldSwapStrike`. Set only when the scorer overrules the
@@ -302,6 +311,8 @@ export type BallEventInput = {
   extraRuns: number;
   /** Runs that crossed after a deflection — not credited to the batter. Defaults to 0. */
   overthrowRuns?: number;
+  /** Carried through untouched. See `BallEvent`. */
+  correctedAt?: string;
   /** The scorer's answer to "did they cross". See `BallEvent`. */
   battersCrossed?: boolean;
   /** Carried through untouched. See `BallEvent`. */

@@ -39,6 +39,7 @@ export function toBallEventInput(row: BallRow): BallEventInput {
     // The scorer's strike override. Dropping it on replay would put the wrong
     // batter on strike for every delivery after it. See migration 0020.
     battersCrossed: row.battersCrossed ?? undefined,
+    correctedAt: row.correctedAt?.toISOString(),
     // Reserved, and carried. A replay that dropped these would erase the
     // placement of every delivery it touched. See migration 0019.
     shotAngle: row.shotAngle ?? undefined,

@@ -78,6 +78,7 @@ type Ball = {
   wicketType?: string;
   totalRuns: number;
   overthrowRuns?: number;
+  correctedAt?: string;
 };
 type State = { currentInnings: Inn; balls: Ball[] };
 
@@ -302,7 +303,19 @@ async function main(): Promise<void> {
   const corrected = withOverthrow.body.state?.balls.find((b) => b.id === fourId);
   check('the delivery reads 5 — 1 struck, 4 thrown away', corrected?.totalRuns === 5, corrected);
 
-  // ── 5. A correction reports what it moved ─────────────────────────────────
+  // ── 5. A corrected delivery says it was corrected ─────────────────
+  //
+  // The claim this product makes is that the ball log is the record. An edit
+  // that leaves no trace undercuts it: somebody who watched the match and
+  // remembers a four where the card shows a single cannot tell whether they
+  // misremembered or the scorer changed it.
+  check(
+    'a corrected delivery is marked as corrected',
+    Boolean(corrected?.correctedAt),
+    corrected?.correctedAt,
+  );
+
+  // ── 6. A correction reports what it moved ─────────────────────────────────
   check(
     'the server says what the correction changed',
     Array.isArray(removed.body.changes),

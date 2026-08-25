@@ -136,10 +136,26 @@ export function correctBall(
   const bowlerChanged = patch.bowlerId !== edited.bowlerId;
   const editedOver = edited.overNumber;
 
+  /*
+   * One stamp for the whole correction.
+   *
+   * Every delivery this rewrites was decided afterwards rather than watched —
+   * the edited one because the scorer changed it, and the ones after it
+   * because their ends and figures moved with it. They share a timestamp
+   * because they are one act.
+   *
+   * Set on the *inputs* rather than only in the database write, so the state
+   * this returns already carries the mark. The route replies with this state
+   * rather than re-reading, and a client that had to refetch to see which
+   * deliveries were edited would show them unmarked until it did.
+   */
+  const correctedAt = new Date().toISOString();
+
   // ── The edited delivery ────────────────────────────────────────────────
   const pair = derivePair(state, edited, patch.batsmanId, patch.nonStrikerId);
   const editedInput: BallEventInput = {
     ...baseInput(edited),
+    correctedAt,
     eventType: patch.eventType as BallEventInput['eventType'],
     runsOffBat: patch.runsOffBat,
     /*
@@ -185,6 +201,8 @@ export function correctBall(
 
     const input: BallEventInput = {
       ...baseInput(row),
+      // Rewritten by this correction, so marked by it. See `correctedAt`.
+      correctedAt,
       eventType: row.eventType as BallEventInput['eventType'],
       runsOffBat: row.runsOffBat,
       extraRuns: row.extraRuns,

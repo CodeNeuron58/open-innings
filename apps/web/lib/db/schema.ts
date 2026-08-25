@@ -597,6 +597,15 @@ export const ballEvents = pgTable(
     overthrowRuns: smallint('overthrow_runs').notNull().default(0),
 
     /**
+     * When this delivery was last edited. See migration 0021.
+     *
+     * Null means never. A corrected ball used to be indistinguishable from one
+     * that was right first time, which quietly undercuts the claim this whole
+     * product makes — that the ball log is the record.
+     */
+    correctedAt: timestamp('corrected_at', { withTimezone: true }),
+
+    /**
      * The scorer's answer to "did the batters cross". See migration 0020.
      *
      * Null derives it from run parity, which is what every delivery recorded

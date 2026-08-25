@@ -105,6 +105,19 @@ export function BallChip({
       ? 'border-2 border-scoreboard-accent'
       : 'border-2 border-primary'
     : style.border;
+
+  /*
+   * A delivery that was decided afterwards rather than watched.
+   *
+   * A corrected ball used to look exactly like one that was right first time,
+   * which quietly undercuts the claim this product makes — that the ball log
+   * is the record. Somebody who remembers a four where the card shows a single
+   * had no way to tell whether they misremembered or the scorer changed it.
+   *
+   * A corner mark rather than a colour or a border: both of those are already
+   * carrying something on this chip.
+   */
+  const corrected = Boolean(ball.correctedAt);
   const box = `${style.bg} ${edge} h-11 min-w-11 items-center justify-center border px-2`;
 
   /*
@@ -114,22 +127,39 @@ export function BallChip({
    * chip that looks pressable and does nothing is worse than one that does
    * not — so the affordance follows the handler rather than the component.
    */
+  const mark = corrected ? (
+    <View
+      pointerEvents="none"
+      className={`absolute right-0 top-0 h-1.5 w-1.5 ${
+        onDark ? 'bg-scoreboard-accent' : 'bg-steel-600'
+      }`}
+    />
+  ) : null;
+
   if (!onPress) {
-    return <View className={box}>{body}</View>;
+    return (
+      <View className={box}>
+        {body}
+        {mark}
+      </View>
+    );
   }
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={
-        latest
-          ? `Last ball, ${label}. Tap to correct it.`
-          : `Correct this delivery — currently ${label}`
-      }
+      accessibilityLabel={[
+        latest ? `Last ball, ${label}.` : `Delivery ${label}.`,
+        corrected ? 'Corrected.' : null,
+        'Tap to correct it.',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onPress={onPress}
       className={`${box} active:opacity-60`}
     >
       {body}
+      {mark}
     </Pressable>
   );
 }

@@ -24,6 +24,7 @@ import {
   recordBall,
   removeLastBall,
 } from '@/lib/db/queries';
+import { toBallEventInputs } from '@/lib/ball-input';
 import { getUserId } from '@/lib/auth/local';
 import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { consistentBallEventSchema } from '@open-innings/shared';
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       const already = await ballByRequestId(currentInnings.id, parsed.requestId);
       if (already) {
         return NextResponse.json({
-          state: replayEvents(buildSeed(match, currentInnings), ballsToInputs(balls)),
+          state: replayEvents(buildSeed(match, currentInnings), toBallEventInputs(balls)),
         });
       }
     }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
     const seed = buildSeed(match, currentInnings);
     let state: MatchState;
     try {
-      state = replayEvents(seed, ballsToInputs(balls));
+      state = replayEvents(seed, toBallEventInputs(balls));
     } catch (err) {
       console.error('Replay failed', err);
       return NextResponse.json({ error: 'Failed to replay state' }, { status: 500 });
@@ -142,6 +143,9 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         wicketPlayerId: newBall.wicketPlayerId ?? null,
         fielderId: newBall.fielderId ?? null,
         battersCrossed: newBall.battersCrossed ?? null,
+        // A delivery being recorded for the first time has never been
+        // corrected. Only `replaceBallSequence` stamps this.
+        correctedAt: null,
         // Reserved. Nothing sends these yet — see migration 0019 — but the
         // path from client to column is wired now so that adding the capture
         // is a screen rather than a migration plus a schema plus a route.
@@ -269,7 +273,7 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
     const last = balls[balls.length - 1]!;
     const remaining = balls.slice(0, -1);
     const seed = buildSeed(match, currentInnings);
-    const state = replayEvents(seed, ballsToInputs(remaining));
+    const state = replayEvents(seed, toBallEventInputs(remaining));
 
     // Reopen match if undoing the winning run.
     const reopenMatchId =
@@ -312,43 +316,3 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-function ballsToInputs(
-  balls: Array<{
-    inningsId: string;
-    eventType: string;
-    runsOffBat: number;
-    extraRuns: number;
-    totalRuns: number;
-    isLegalDelivery: boolean;
-    isFreeHit: boolean;
-    batsmanId: string;
-    nonStrikerId: string;
-    bowlerId: string;
-    wicketType: string | null;
-    wicketPlayerId: string | null;
-    fielderId: string | null;
-    bowlerReplacedMidOver: boolean;
-    commentary: string | null;
-    id: string;
-  }>,
-): BallEventInput[] {
-  return balls.map((b) => ({
-    inningsId: asInningsId(b.inningsId),
-    eventType: b.eventType as BallEventInput['eventType'],
-    runsOffBat: b.runsOffBat,
-    extraRuns: b.extraRuns,
-    totalRuns: b.totalRuns,
-    isLegalDelivery: b.isLegalDelivery,
-    isFreeHit: b.isFreeHit,
-    batsmanId: asPlayerId(b.batsmanId),
-    nonStrikerId: asPlayerId(b.nonStrikerId),
-    bowlerId: asPlayerId(b.bowlerId),
-    wicketType: (b.wicketType ?? undefined) as BallEventInput['wicketType'],
-    wicketPlayerId: b.wicketPlayerId ? asPlayerId(b.wicketPlayerId) : undefined,
-    fielderId: b.fielderId ? asPlayerId(b.fielderId) : undefined,
-    bowlerReplacedMidOver: b.bowlerReplacedMidOver,
-    commentary: b.commentary ?? undefined,
-    id: b.id,
-  }));
-}

@@ -101,6 +101,7 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
         bowlerReplacedMidOver: b.bowlerReplacedMidOver ?? false,
         commentary: b.commentary ?? null,
         battersCrossed: b.battersCrossed ?? null,
+        correctedAt: b.correctedAt ? new Date(b.correctedAt) : null,
         // A correction rewrites every delivery after the one being corrected,
         // and a field left out of the rewrite is a field deleted. Placement is
         // not recomputed by the replay — it is carried — so it has to be

@@ -417,6 +417,47 @@ export default function Scorer() {
    * already stored needs asking, and by definition there was a signal when it
    * was recorded.
    */
+  /**
+   * Take a delivery and everything after it off the board.
+   *
+   * Undo removes the last ball, so rewinding to a mistake three balls back was
+   * three taps with nothing to stop the scorer overshooting. This counts how
+   * many are involved, asks once, and then undoes exactly that many.
+   *
+   * Sequential rather than parallel, and it stops on the first refusal: each
+   * undo is defined against the ball that is currently last, so firing them
+   * together would have three requests all claiming to remove the same one.
+   */
+  async function undoToHere(ballId: string) {
+    const index = state.balls.findIndex((b) => String(b.id) === ballId);
+    if (index === -1) return;
+
+    const count = state.balls.length - index;
+    const plural = count === 1 ? 'delivery' : 'deliveries';
+
+    Alert.alert(
+      `Undo ${count} ${plural}?`,
+      count === 1
+        ? 'The last delivery comes off the board.'
+        : `That delivery and the ${count - 1} after it come off the board. You can score them again.`,
+      [
+        { text: 'Keep them', style: 'cancel' },
+        {
+          text: `Undo ${count}`,
+          style: 'destructive',
+          onPress: async () => {
+            closeCorrection();
+            for (let i = 0; i < count; i += 1) {
+              const next = await mutation.run((t) => api.undoBall(t, id));
+              if (!next) return;
+              applyState(next);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   async function undo() {
     if (await outbox.undoLast()) return;
 
@@ -1210,6 +1251,13 @@ export default function Scorer() {
           changes={correctionChanges}
           onCorrect={(patch) => void correctBall(patch)}
           onCorrectToWicket={() => setCorrectingWicket(true)}
+          // Not offered on the last delivery: plain undo is the same action
+          // and the button beside the keypad already says so.
+          onUndoToHere={
+            lastBall && String(lastBall.id) === correcting
+              ? undefined
+              : () => void undoToHere(correcting!)
+          }
           onDismiss={closeCorrection}
         />
       ) : null}

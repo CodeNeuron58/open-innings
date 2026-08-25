@@ -230,6 +230,8 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
     fielderId: input.fielderId,
     // The one override the engine does act on — see `shouldSwapStrike`.
     battersCrossed: input.battersCrossed,
+    // Carried so a card can mark it. The engine does not care.
+    correctedAt: input.correctedAt,
     // Carried, not reasoned about. Placement changes no score, ends no over
     // and dismisses nobody — it is a fact about the shot rather than about the
     // delivery's outcome. See migration 0019.

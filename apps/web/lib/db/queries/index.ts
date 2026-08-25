@@ -1086,6 +1086,8 @@ export async function replaceBallSequence(
      */
     overthrowRuns: number;
     battersCrossed?: boolean | null;
+    /** When this correction happened. See migration 0021. */
+    correctedAt?: Date | null;
     shotAngle?: number | null;
     shotDistance?: number | null;
     extraRuns: number;
@@ -1145,6 +1147,20 @@ export async function replaceBallSequence(
           bowlerReplacedMidOver: ball.bowlerReplacedMidOver,
           commentary: ball.commentary,
           battersCrossed: ball.battersCrossed ?? null,
+          /*
+           * Stamped on every delivery this rewrite touches.
+           *
+           * A correction replays the innings and writes back the ball that
+           * changed *and* every one after it, because their ends and figures
+           * may have moved with it. All of them were decided afterwards rather
+           * than watched, and the card is entitled to say so.
+           *
+           * The caller's timestamp, not a fresh one: `correctBall` already put
+           * it on the state it returns, and two `new Date()` calls would have
+           * the response and the row disagree by a few milliseconds about when
+           * the same act happened.
+           */
+          correctedAt: ball.correctedAt ?? new Date(),
           // Carried rather than recomputed — a replay does not know where the
           // ball went, so an UPDATE that omitted these would leave the
           // placement of a rewritten delivery describing the shot it used to
