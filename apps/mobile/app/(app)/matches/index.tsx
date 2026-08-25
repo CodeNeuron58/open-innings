@@ -81,22 +81,33 @@ function LiveMatch({
           ? `Resume ${titleOf(match)} — ${lineOf(match, current)}${chase ? `. ${chase}` : ''}`
           : `Resume ${titleOf(match)}`
       }
-      accessibilityHint="Hold to edit, abandon or delete"
+      accessibilityHint="Hold for options, or use the options button"
       onPress={onPress}
       onLongPress={onLongPress}
       className="border-border border p-4 active:opacity-70"
     >
       <View className="flex-row items-center gap-2">
         <View className="bg-primary h-1.5 w-1.5" />
-        <Text className="text-steel-700 font-heading text-[10px] uppercase tracking-[1.5px]">
+        <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.5px]">
           Live
         </Text>
         {/* Shows active watchers, hidden if < 2. */}
         {match.watching >= 2 ? (
-          <Text className="text-foreground/55 font-heading ml-auto text-[10px] uppercase tracking-[1.3px]">
+          <Text className="text-foreground/70 font-heading ml-auto text-[11px] uppercase tracking-[1.3px]">
             {match.watching} watching
           </Text>
         ) : null}
+
+        {/* Settings, edit, abandon and delete used to live *only* behind a
+            long-press. That gesture is not discoverable — it was named in an
+            accessibilityHint and nowhere a sighted user would find it — so a
+            match started by mistake could not be got rid of. The hold still
+            works; it is a shortcut now rather than the only door. */}
+        <MoreButton
+          label={`Options for ${titleOf(match)}`}
+          onPress={onLongPress}
+          className={match.watching >= 2 ? '' : 'ml-auto'}
+        />
       </View>
 
       <Text className="text-foreground font-heading mt-3 text-[17px]" numberOfLines={1}>
@@ -110,14 +121,14 @@ function LiveMatch({
             {lineOf(match, current)}
           </Text>
           {chase ? (
-            <Text className="text-steel-700 font-heading mt-1 text-[13px]">{chase}</Text>
+            <Text className="text-steel-700 font-heading mt-1 text-[13.5px]">{chase}</Text>
           ) : null}
         </View>
       ) : (
-        <Text className="text-foreground/60 mt-2 text-[13px]">Not a ball bowled yet</Text>
+        <Text className="text-foreground/60 mt-2 text-[13.5px]">Not a ball bowled yet</Text>
       )}
 
-      <Text className="text-foreground/70 font-heading mt-2.5 text-[12px] uppercase tracking-[1.2px]">
+      <Text className="text-foreground/70 font-heading mt-2.5 text-[13.5px] uppercase tracking-[1.2px]">
         {[formatLabel(match.format), `${match.oversPerInnings} overs a side`, match.venue]
           .filter(Boolean)
           .join('  ·  ')}
@@ -139,14 +150,17 @@ function FinishedMatch({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={titleOf(match)}
-      accessibilityHint="Hold to edit or delete"
+      accessibilityHint="Hold for options, or use the options button"
       onPress={onPress}
       onLongPress={onLongPress}
       className="border-border border-b py-4 active:opacity-70"
     >
-      <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
-        {titleOf(match)}
-      </Text>
+      <View className="flex-row items-center gap-2">
+        <Text className="text-foreground font-heading min-w-0 flex-1 text-[16px]" numberOfLines={1}>
+          {titleOf(match)}
+        </Text>
+        <MoreButton label={`Options for ${titleOf(match)}`} onPress={onLongPress} />
+      </View>
       <Text
         className="text-foreground/60 font-heading mt-1.5 text-[11px] uppercase tracking-[1.2px]"
         numberOfLines={1}
@@ -159,6 +173,34 @@ function FinishedMatch({
           .filter(Boolean)
           .join('  ·  ')}
       </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The way in to a match's settings that does not require knowing a gesture.
+ *
+ * Sized to the kit's own 44pt minimum and given a real label, because "⋯"
+ * tells a screen reader nothing on its own.
+ */
+function MoreButton({
+  label,
+  onPress,
+  className = '',
+}: {
+  label: string;
+  onPress: () => void;
+  className?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      className={`border-border h-11 w-11 shrink-0 items-center justify-center border active:opacity-70 ${className}`}
+    >
+      <Text className="text-foreground font-heading text-[17px] leading-[17px]">⋯</Text>
     </Pressable>
   );
 }
@@ -239,7 +281,7 @@ export default function Matches() {
           live.length === 0 && !query.error ? (
             <View className="border-border mt-2 border p-5">
               <Kicker>No matches yet</Kicker>
-              <Text className="text-foreground/75 mt-3 text-[14px] leading-5">
+              <Text className="text-foreground/75 mt-3 text-[15px] leading-5">
                 Start one and the scorecard, the commentary and everyone&rsquo;s career records
                 build themselves from the balls you tap.
               </Text>
@@ -258,7 +300,7 @@ export default function Matches() {
                 onPress={() => router.push('/teams')}
                 className="mt-3 h-11 justify-center active:opacity-60"
               >
-                <Text className="text-steel-700 font-heading text-[12px] uppercase tracking-[1.3px]">
+                <Text className="text-steel-700 font-heading text-[13.5px] uppercase tracking-[1.3px]">
                   Set up teams and players first
                 </Text>
               </Pressable>
