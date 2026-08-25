@@ -3,13 +3,14 @@
  * Global search prioritizes existing players to maintain unified career records,
  * falling back to creation if not found.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { PlayerRole, PlayerSearchResult } from '@open-innings/shared';
+import type { PlayerRole } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
-import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
+import { useApiQuery } from '../../../../lib/use-api';
+import { careerLine, usePlayerFinder } from '../../../../lib/use-player-finder';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../../components/ui';
 
 /**
@@ -25,100 +26,43 @@ const ROLES: { value: PlayerRole; label: string }[] = [
   { value: 'wicket_keeper_batsman', label: 'Keeper-bat' },
 ];
 
-/** The server refuses anything shorter, so there is no point asking. */
-const MIN_QUERY = 2;
-
-/**
- * A career in one line, from what the search already returned.
- *
- * Deliberately not a second request. The old screen fetched briefs for
- * whatever was on screen; the search now carries the same figures, so the
- * round trip is gone rather than moved.
- */
-function careerLine(p: PlayerSearchResult): string {
-  const parts: string[] = [];
-  if (p.matches > 0) parts.push(`${p.matches} ${p.matches === 1 ? 'match' : 'matches'}`);
-  if (p.runs > 0) parts.push(`${p.runs} runs`);
-  if (p.wickets > 0) parts.push(`${p.wickets} wkts`);
-  if (parts.length === 0) return 'No matches yet';
-  return parts.join('  ·  ');
-}
-
 export default function AddPlayer() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
   const team = useApiQuery((t, signal) => api.team(t, id, signal), [id]);
-  const mutation = useApiMutation();
 
-  const [search, setSearch] = useState('');
-  const [query, setQuery] = useState('');
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<PlayerRole | null>(null);
   const [added, setAdded] = useState<Set<string>>(new Set());
 
-  /*
-   * Debounced, because this now leaves the phone.
-   *
-   * Typing a name is six or seven keystrokes and each one used to filter an
-   * array. Firing a request per keystroke on ground-side mobile data would
-   * make the screen feel worse than the version that could not find anybody.
-   */
-  useEffect(() => {
-    const trimmed = search.trim();
-    const timer = setTimeout(() => setQuery(trimmed), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const results = useApiQuery(
-    (t, signal) =>
-      query.length >= MIN_QUERY
-        ? api.searchPlayers(t, query, { scope: 'all', limit: 10, signal })
-        : Promise.resolve({ players: [], scope: 'all' as const, truncated: false }),
-    [query],
-  );
-
   const squadIds = useMemo(() => new Set((team.data?.members ?? []).map((m) => m.id)), [team.data]);
 
-  // Somebody already in this squad is not a search result, they are the
-  // answer to a question nobody asked.
-  const matches = useMemo(
-    () => (results.data?.players ?? []).filter((p) => !squadIds.has(p.id)),
-    [results.data, squadIds],
-  );
+  /*
+   * The search-before-create rule, shared with the match wizard.
+   *
+   * This screen had it and the wizard had none, because the wizard could not
+   * create a player at all — it navigated here and left the draft behind. Now
+   * both ask the same question and get the same answer, which matters because
+   * the answer decides whether a cricketer gets a second row and a split
+   * career. See lib/use-player-finder.ts.
+   */
+  const finder = usePlayerFinder({
+    teamId: id,
+    squadIds,
+    onAdded: (playerId) => {
+      setAdded((prev) => new Set(prev).add(playerId));
+      setNewName('');
+      setNewRole(null);
+      void team.refresh();
+    },
+  });
+
+  const { search, setSearch, matches } = finder;
 
   if (team.isLoading) return <LoadingScreen />;
 
-  async function addExisting(player: PlayerSearchResult) {
-    const result = await mutation.run((t) => api.addTeamMember(t, id, player.id));
-    if (result !== null) {
-      setAdded((prev) => new Set(prev).add(player.id));
-      await team.refresh();
-    }
-  }
-
-  async function createAndAdd() {
-    const name = newName.trim();
-    if (name.length === 0) return;
-
-    const created = await mutation.run((t) =>
-      api.createPlayer(t, { fullName: name, ...(newRole ? { role: newRole } : {}) }),
-    );
-    if (!created) return;
-
-    const result = await mutation.run((t) => api.addTeamMember(t, id, created.player.id));
-    if (result !== null) {
-      setNewName('');
-      setNewRole(null);
-      setSearch('');
-      await team.refresh();
-    }
-  }
-
-  const searching = query.length >= MIN_QUERY && results.isLoading;
-  // "Nothing found" only once the server has actually answered. Offering to
-  // create while a request is still out is how duplicates get made.
-  const noMatches = query.length >= MIN_QUERY && !searching && matches.length === 0;
+  const { searching, noMatches } = finder;
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -142,7 +86,7 @@ export default function AddPlayer() {
       </View>
 
       <ScrollView contentContainerClassName="px-4 pb-6" keyboardShouldPersistTaps="handled">
-        {mutation.error ? <ErrorBanner message={mutation.error} /> : null}
+        {finder.error ? <ErrorBanner message={finder.error} /> : null}
 
         <View className="pt-1">
           <Field
@@ -218,8 +162,8 @@ export default function AddPlayer() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Add ${p.fullName} to the squad`}
-                      onPress={() => void addExisting(p)}
-                      disabled={justAdded || mutation.busy}
+                      onPress={() => void finder.addExisting(p.id)}
+                      disabled={justAdded || finder.busy}
                       className={`shrink-0 border px-3 py-2 ${
                         justAdded ? 'border-border opacity-50' : 'border-input active:opacity-70'
                       }`}
@@ -290,15 +234,15 @@ export default function AddPlayer() {
             <View className="pt-4">
               <Button
                 label="Add to squad"
-                loading={mutation.busy}
+                loading={finder.busy}
                 disabled={(newName || search).trim().length === 0}
-                onPress={() => void createAndAdd()}
+                onPress={() => void finder.createAndAdd(newName, newRole)}
               />
             </View>
           </View>
         ) : null}
 
-        {results.data?.truncated ? (
+        {finder.truncated ? (
           <Text className="text-foreground/60 pt-3 text-[12px] leading-[17px]">
             More than ten people match that. Add a surname or an initial to narrow it.
           </Text>

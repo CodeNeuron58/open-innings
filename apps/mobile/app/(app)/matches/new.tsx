@@ -26,6 +26,7 @@ import { checkOpeners } from '../../../lib/openers';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { useTheme } from '../../../lib/use-theme';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
+import { AddPlayerSheet, NewTeamSheet } from '../../../components/SetupSheets';
 
 /**
  * The formats offered at the toss.
@@ -110,6 +111,25 @@ function Chips<T extends string>({
   );
 }
 
+/**
+ * The way to add a side without leaving the match.
+ *
+ * Drawn dashed rather than filled, so it reads as "there could be another one
+ * here" instead of competing with the teams that exist.
+ */
+function NewTeamChip({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Add a new team"
+      onPress={onPress}
+      className="border-input h-11 shrink-0 justify-center border border-dashed px-3 active:opacity-70"
+    >
+      <Text className="text-steel-700 font-heading text-[13.5px]">+ New team</Text>
+    </Pressable>
+  );
+}
+
 function StepHeader({ step, title, onBack }: { step: number; title: string; onBack: () => void }) {
   return (
     <View className="border-border flex-row items-center gap-2 border-b px-5 py-3">
@@ -154,6 +174,16 @@ export default function NewMatch() {
   const [squadAway, setSquadAway] = useState<Set<string>>(new Set());
   const [picking, setPicking] = useState<'home' | 'away'>('home');
   const [search, setSearch] = useState('');
+
+  /*
+   * Creating what the match needs, without leaving the match.
+   *
+   * Both of these used to be `router.push` to another screen — which is the
+   * cold-start problem entire: the answer to "I do not have that yet" was
+   * always leave, do it elsewhere, come back and find your place again.
+   */
+  const [newTeamFor, setNewTeamFor] = useState<'home' | 'away' | null>(null);
+  const [addingPlayer, setAddingPlayer] = useState(false);
 
   // Step 3
   const [strikerId, setStrikerId] = useState<string | null>(null);
@@ -240,6 +270,21 @@ export default function NewMatch() {
   // Both XIs in one request, so the three pickers on step 3 share a fetch.
   const briefs = usePlayerBriefs([...homeXI.map((p) => p.id), ...awayXI.map((p) => p.id)]);
 
+  /** Create a team and put it straight into the slot that asked for it. */
+  async function createTeam(name: string) {
+    const slot = newTeamFor;
+    if (!slot) return;
+
+    const created = await mutation.run((t) => api.createTeam(t, { name }));
+    if (!created) return;
+
+    setNewTeamFor(null);
+    if (slot === 'home') setHomeId(created.team.id);
+    else setAwayId(created.team.id);
+    resetSelections();
+    await teamsQuery.refresh();
+  }
+
   async function submit() {
     setError(null);
     const parsed = createMatchSchema.safeParse({
@@ -276,6 +321,41 @@ export default function NewMatch() {
   }
 
   if (teamsQuery.isLoading) return <LoadingScreen />;
+
+  /*
+   * Rendered from every step, because either can be the one that needs it: the
+   * team sheet belongs to step 1 and the player sheet to step 2, and returning
+   * them from one branch would unmount the other's draft.
+   */
+  const sheets = (
+    <>
+      {newTeamFor ? (
+        <NewTeamSheet
+          onCreate={(name) => void createTeam(name)}
+          onDismiss={() => setNewTeamFor(null)}
+          busy={mutation.busy}
+          error={mutation.error}
+        />
+      ) : null}
+
+      {addingPlayer ? (
+        <AddPlayerSheet
+          teamId={picking === 'home' ? homeId : awayId}
+          teamName={nameOf(picking === 'home' ? homeId : awayId)}
+          squadIds={new Set((picking === 'home' ? homePlayers : awayPlayers).map((p) => p.id))}
+          onAdded={(playerId) => {
+            // Straight into the XI. Somebody added here turned out today —
+            // making the scorer tick them a second time is asking a question
+            // they have already answered.
+            const setter = picking === 'home' ? setSquadHome : setSquadAway;
+            setter((prev) => new Set(prev).add(playerId));
+            void (picking === 'home' ? homeRoster.refresh() : awayRoster.refresh());
+          }}
+          onDismiss={() => setAddingPlayer(false)}
+        />
+      ) : null}
+    </>
+  );
 
   // ── Step 1 — the match ──────────────────────────────────────────────────
   if (step === 1) {
@@ -379,11 +459,11 @@ export default function NewMatch() {
                   No teams on your books yet
                 </Text>
                 <Text className="text-foreground/70 mt-1.5 text-[13.5px] leading-[19px]">
-                  A match is between two of them, so this is the first thing to set up. It takes a
-                  name and a handful of players.
+                  A match is between two of them. Name them here and add who turned out — nothing
+                  needs setting up first.
                 </Text>
                 <View className="mt-3.5">
-                  <Button label="Set up a team" onPress={() => router.push('/teams')} />
+                  <Button label="Name the home side" onPress={() => setNewTeamFor('home')} />
                 </View>
               </View>
             ) : (
@@ -392,7 +472,7 @@ export default function NewMatch() {
                   <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
                     Home
                   </Text>
-                  <View className="mt-1.5">
+                  <View className="mt-1.5 gap-2">
                     <Chips
                       options={teams
                         .filter((t) => t.id !== awayId)
@@ -407,13 +487,14 @@ export default function NewMatch() {
                         resetSelections();
                       }}
                     />
+                    <NewTeamChip onPress={() => setNewTeamFor('home')} />
                   </View>
                 </View>
                 <View>
                   <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
                     Away
                   </Text>
-                  <View className="mt-1.5">
+                  <View className="mt-1.5 gap-2">
                     <Chips
                       options={teams
                         .filter((t) => t.id !== homeId)
@@ -428,6 +509,7 @@ export default function NewMatch() {
                         resetSelections();
                       }}
                     />
+                    <NewTeamChip onPress={() => setNewTeamFor('away')} />
                   </View>
                 </View>
               </View>
@@ -524,6 +606,7 @@ export default function NewMatch() {
             />
           </View>
         </ScrollView>
+        {sheets}
       </SafeAreaView>
     );
   }
@@ -671,9 +754,7 @@ export default function NewMatch() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Add a player to ${nameOf(teamId)}`}
-              onPress={() =>
-                router.push({ pathname: '/teams/[id]/add', params: { id: teamId ?? '' } })
-              }
+              onPress={() => setAddingPlayer(true)}
               className="border-input mt-4 h-12 items-center justify-center border border-dashed active:opacity-70"
             >
               <Text className="text-steel-700 font-heading text-[12.5px] uppercase tracking-[1.3px]">
@@ -694,6 +775,7 @@ export default function NewMatch() {
           </Text>
           <Button label="Openers & bowler" disabled={!squadsReady} onPress={() => setStep(3)} />
         </View>
+        {sheets}
       </SafeAreaView>
     );
   }
@@ -773,6 +855,7 @@ export default function NewMatch() {
           />
         </View>
       </ScrollView>
+      {sheets}
     </SafeAreaView>
   );
 }
