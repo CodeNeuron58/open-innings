@@ -10,7 +10,8 @@ import { createPlayerSchema, type PlayerSummary } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { useSession } from '../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
-import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Field, Kicker } from '../../../components/ui';
+import { SkeletonScreen } from '../../../components/Skeleton';
 
 export default function Players() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function Players() {
     if (done !== null) await refreshSession();
   }
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) return <SkeletonScreen rows={5} />;
 
   const players = data?.players ?? [];
 

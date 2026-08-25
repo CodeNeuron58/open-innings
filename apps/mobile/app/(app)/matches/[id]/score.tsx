@@ -33,7 +33,8 @@ import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
 import { project } from '../../../../lib/outbox';
 import { useOutbox, type SyncState } from '../../../../lib/use-outbox';
-import { Button, ErrorBanner, LoadingScreen } from '../../../../components/ui';
+import { Button, ErrorBanner } from '../../../../components/ui';
+import { SkeletonConsole } from '../../../../components/Skeleton';
 import { BallChip } from '../../../../components/scorer/BallChip';
 import { CorrectBallSheet } from '../../../../components/scorer/CorrectBall';
 import { EndOfOver } from '../../../../components/scorer/EndOfOver';
@@ -211,7 +212,14 @@ export default function Scorer() {
     if (matchCompleted) router.replace({ pathname: '/matches/[id]/result', params: { id } });
   }, [matchCompleted, id, router]);
 
-  if (query.isLoading) return <LoadingScreen />;
+  /*
+   * The console's own shape, not a spinner.
+   *
+   * This is the screen most often opened on a ground's connection, and the one
+   * where a blank screen is most alarming: a scorer who taps into a match and
+   * sees nothing does not know whether the match is still there.
+   */
+  if (query.isLoading) return <SkeletonConsole />;
 
   if (query.error || !query.data) {
     return (
@@ -961,14 +969,30 @@ export default function Scorer() {
             {data.matchSummary ? (
               <Text className="text-steel-700 mt-1 text-base">{data.matchSummary}</Text>
             ) : null}
+            {/*
+              The action that carries on, first.
+
+              These were stacked Refresh / See the result / Back to matches, in
+              that order, which leads with a developer's escape hatch and buries
+              the only thing a scorer wants. Refresh is still here — this screen
+              can genuinely be looking at state the server has moved past — but
+              it is the last resort it always was, not the headline.
+            */}
             <View className="mt-4 gap-2">
-              <Button label="Refresh" variant="secondary" onPress={() => void reload()} />
               <Button
                 label="See the result"
-                variant="secondary"
                 onPress={() => router.push({ pathname: '/matches/[id]/result', params: { id } })}
               />
-              <Button label="Back to matches" onPress={() => router.replace('/matches')} />
+              <Button
+                label="Back to matches"
+                variant="secondary"
+                onPress={() => router.replace('/matches')}
+              />
+              <Button
+                label="Reload from the server"
+                variant="ghost"
+                onPress={() => void reload()}
+              />
             </View>
           </View>
         ) : null}

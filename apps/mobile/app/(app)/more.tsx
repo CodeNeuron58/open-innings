@@ -54,13 +54,13 @@ function Row({
           {label}
         </Text>
         {disabledNote ? (
-          <Text className="text-foreground/55 mt-0.5 text-[11px]" numberOfLines={1}>
+          <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={1}>
             {disabledNote}
           </Text>
         ) : null}
       </View>
       {value ? (
-        <Text className="font-heading shrink-0 text-[9.5px] uppercase tracking-[1.2px] text-neutral-600">
+        <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.2px] text-neutral-700">
           {value}
         </Text>
       ) : null}
@@ -87,7 +87,7 @@ function ToggleRow({
       <View className="min-w-0 flex-1">
         <Text className="text-foreground text-[15px]">{label}</Text>
         {note ? (
-          <Text className="text-foreground/55 mt-0.5 text-[11px]" numberOfLines={2}>
+          <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={2}>
             {note}
           </Text>
         ) : null}
@@ -180,7 +180,7 @@ export default function More() {
               {displayName}
             </Text>
             <Text
-              className="font-heading mt-0.5 text-[9px] uppercase tracking-[1.2px] text-neutral-600"
+              className="font-heading mt-0.5 text-[11px] uppercase tracking-[1.2px] text-neutral-700"
               numberOfLines={1}
             >
               {user?.email
@@ -200,7 +200,7 @@ export default function More() {
           <View className="border-steel-300 bg-steel-100 mt-3 flex-row items-center justify-between border p-3.5">
             <View className="min-w-0 flex-1">
               <Text className="text-steel-900 font-heading text-[15px]">Supporter active</Text>
-              <Text className="text-steel-800/75 mt-0.5 text-[12px]">
+              <Text className="text-steel-800/75 mt-0.5 text-[13.5px]">
                 Ads are disabled across the app
               </Text>
             </View>
@@ -212,7 +212,7 @@ export default function More() {
               }
               className="border-steel-400 border px-2.5 py-1.5 active:opacity-60"
             >
-              <Text className="text-steel-900 font-heading text-[9.5px] uppercase tracking-[1.2px]">
+              <Text className="text-steel-900 font-heading text-[11px] uppercase tracking-[1.2px]">
                 Manage
               </Text>
             </Pressable>
@@ -226,11 +226,11 @@ export default function More() {
           >
             <View className="min-w-0 flex-1">
               <Text className="text-steel-900 font-heading text-[15px]">Remove ads</Text>
-              <Text className="text-steel-800/75 mt-0.5 text-[12px]">
+              <Text className="text-steel-800/75 mt-0.5 text-[13.5px]">
                 Everything else stays free
               </Text>
             </View>
-            <Text className="text-steel-700 font-heading shrink-0 text-[9.5px] uppercase tracking-[1.3px]">
+            <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
               See plan
             </Text>
           </Pressable>
@@ -240,7 +240,7 @@ export default function More() {
         {isGuest ? (
           <View className="border-border mt-3 border p-3.5">
             <Text className="text-foreground font-heading text-[15px]">Keep a record</Text>
-            <Text className="text-foreground/70 mt-1 text-[12.5px] leading-[18px]">
+            <Text className="text-foreground/70 mt-1 text-[13.5px] leading-[18px]">
               Reading is free and always will be. Scoring a match needs an account, because a
               scorebook has to belong to someone.
             </Text>
@@ -253,10 +253,10 @@ export default function More() {
         {/* Email verification prompt for unverified accounts. */}
         {user && !isGuest && !user.emailVerifiedAt ? (
           <View className="border-steel-300 bg-steel-100 mb-5 border p-3.5">
-            <Text className="text-steel-900 font-heading text-[13px] uppercase tracking-[1.2px]">
+            <Text className="text-steel-900 font-heading text-[13.5px] uppercase tracking-[1.2px]">
               Confirm your email
             </Text>
-            <Text className="text-foreground/75 mt-1.5 text-[13px] leading-[19px]">
+            <Text className="text-foreground/75 mt-1.5 text-[13.5px] leading-[19px]">
               {verifyState === 'sent'
                 ? `Sent to ${user.email}.`
                 : verifyState === 'unavailable'
@@ -270,7 +270,7 @@ export default function More() {
                 disabled={verifyState === 'sending'}
                 className="border-steel-400 mt-3 self-start border px-3 py-2 active:opacity-70"
               >
-                <Text className="text-steel-900 font-heading text-[10px] uppercase tracking-[1.3px]">
+                <Text className="text-steel-900 font-heading text-[11px] uppercase tracking-[1.3px]">
                   {verifyState === 'sending' ? 'Sending' : 'Send the code'}
                 </Text>
               </Pressable>
@@ -310,20 +310,25 @@ export default function More() {
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/players')}
           />
-          <Row label="Matches I follow" disabledNote="Following isn't built yet" value="Soon" />
-          <Row label="Coach stats" disabledNote="Not built yet" value="Soon" />
         </Group>
 
+        {/*
+          Four rows here used to advertise features that do not exist —
+          "Matches I follow · Soon", "Coach stats · Soon", "Sound on each ball ·
+          Not built yet" — and a fifth, "Live match links · Always on", was a
+          statement of fact wearing the shape of a control.
+
+          Half the list did nothing, which teaches people not to read the other
+          half. They come back when they work; the one true thing among them is
+          said as a sentence at the foot of the screen instead.
+        */}
         <Group title="Scoring">
-          {/* Scorecards are always public by design. */}
-          <Row label="Live match links" value="Always on" />
           <ToggleRow
             label="Keep screen awake"
             note="While you're on the scoring console"
             value={keepAwakeWhileScoring}
             onChange={(next) => set('keepAwakeWhileScoring', next)}
           />
-          <Row label="Sound on each ball" disabledNote="Not built yet" value="Off" />
           {/* Export lives on the match card. */}
           <Row label="Export scorebook" value="CSV, JSON" onPress={() => router.push('/matches')} />
         </Group>
@@ -342,7 +347,11 @@ export default function More() {
           <DeleteAccount token={token} email={user.email} onDeleted={() => void signOut()} />
         ) : null}
 
-        <Text className="text-foreground/50 pt-6 text-[11.5px] leading-[17px]">
+        <Text className="text-foreground/75 pt-6 text-[13.5px] leading-[19px]">
+          Every scorecard is public and always has been. That link is the thing worth sharing, and
+          it needs no account to read.
+        </Text>
+        <Text className="text-foreground/65 pt-3 text-[13.5px] leading-[19px]">
           AGPL-3.0. Every figure in this app is derived from ball logs, so nothing is typed twice
           and a corrected ball corrects a career.
         </Text>

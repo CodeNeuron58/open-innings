@@ -14,7 +14,8 @@ import {
 } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
-import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Field, Kicker } from '../../../components/ui';
+import { SkeletonScreen } from '../../../components/Skeleton';
 
 export default function Teams() {
   const router = useRouter();
@@ -80,7 +81,7 @@ export default function Teams() {
     }
   }
 
-  if (teams.isLoading || players.isLoading) return <LoadingScreen />;
+  if (teams.isLoading || players.isLoading) return <SkeletonScreen rows={4} />;
 
   const allPlayers = players.data?.players ?? [];
   const teamList = teams.data?.teams ?? [];

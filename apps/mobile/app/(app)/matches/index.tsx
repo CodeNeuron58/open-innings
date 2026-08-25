@@ -5,7 +5,8 @@ import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import type { MatchListResponse } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { useApiQuery } from '../../../lib/use-api';
-import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../components/ui';
+import { Button, ErrorBanner, Kicker } from '../../../components/ui';
+import { SkeletonScreen } from '../../../components/Skeleton';
 import { MatchSettings } from '../../../components/MatchSettings';
 // The rows themselves live beside the public feed's, so the two lists cannot
 // come to describe the same match differently. See components/MatchCard.tsx.
@@ -25,7 +26,8 @@ export default function Matches() {
   // Corrections and settings are accessed via long press.
   const [settingsFor, setSettingsFor] = useState<MatchRow | null>(null);
 
-  if (query.isLoading) return <LoadingScreen />;
+  // The shape of the list, so nothing jumps when it arrives.
+  if (query.isLoading) return <SkeletonScreen rows={3} tall />;
 
   const matches = query.data?.matches ?? [];
   const live = matches.filter(isLive);
