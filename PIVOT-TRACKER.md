@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 27
+**Branch:** `pivot` · **Commits:** 29
 **Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
-**Smoke:** 376 checks green against a real database
-(score 51 · api 283 · p1 19 · xi 6 · correct 10 · browse 7)
-**Findings:** 61 total — **48 closed**, 1 part done, 12 open
+**Smoke:** 378 checks green against a real database
+(score 51 · api 283 · p1 19 · xi 6 · correct 12 · browse 7)
+**Findings:** 61 total — **49 closed**, 1 part done, 11 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -17,8 +17,9 @@ and information architecture.
 
 ## Before any of this runs
 
-- [ ] `pnpm db:migrate` — migration 0018 creates `match_squads`. Additive and
-      idempotent; no existing table changes shape.
+- [ ] `pnpm db:migrate` — 0018 creates `match_squads`, 0019 adds two nullable
+      columns to `ball_events`. Both additive and idempotent; no existing
+      column changes shape.
 - [ ] `npx expo prebuild` and rebuild the dev client — offline scoring adds
       `expo-sqlite` and the haptics work adds `expo-haptics`. Both are native
       modules; a JS reload will not pick either up.
@@ -305,6 +306,22 @@ Three things want smoking on hardware:
       console. A quarter-second after tapping a key nobody is looking at the top
       of the scroll view.
 
+### `f2c8e35` Shot placement reserved, and two correction bugs
+
+- [x] **C14** `shot_angle` / `shot_distance` (migration 0019), reserved rather
+      than used. A wagon wheel added later starts empty for every delivery
+      already recorded, and nobody remembers where a cover drive went three
+      seasons ago.
+- [x] Five byte-identical row-to-event mappers become one (`lib/ball-input.ts`).
+      Each is a replay, and a field missing from one copy is a field silently
+      dropped on whatever it renders.
+- [x] **Not in the audit** — `correctBall` built the edited delivery from the
+      _stored_ ball and never took `overthrowRuns` from the patch, and
+      `replaceBallSequence` never wrote that column. Correcting a delivery into
+      one carrying overthrows produced a `total_runs` disagreeing with its own
+      parts, which migration 0017's CHECK refused. The correction was
+      impossible; the reason was three files from the error.
+
 ---
 
 ## Part done
@@ -330,8 +347,6 @@ Three things want smoking on hardware:
 ### Scoring console
 
 - [ ] **C11** — _Minor._ No manual strike swap.
-- [ ] **C14** — _Minor._ No shot direction captured, so no wagon wheel is possible
-      later. Worth reserving a field on the ball schema now.
 - [ ] **C18** — _Minor._ Law citations printed on the live console.
 
 ### Fixing mistakes
