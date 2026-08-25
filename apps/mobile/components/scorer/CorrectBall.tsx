@@ -33,11 +33,14 @@ function hapticFeedback() {
 /**
  * What one delivery can be corrected to.
  *
- * Runs and the four common extras. A **wicket** is deliberately absent: it
- * needs a dismissal type, a batter and often a fielder, which is the wicket
- * sheet's whole job — and half a wicket recorded from here would be worse
- * than the mistake being fixed. Removing a wicket is expressible (correct it
- * to whatever actually happened) and that is the direction people need.
+ * Runs, the four common extras, and a wicket.
+ *
+ * The wicket used to be missing, on the grounds that half a dismissal recorded
+ * from here would be worse than the mistake being fixed. That reasoning was
+ * right and the conclusion was wrong: it left the most consequential mis-tap on
+ * the console — wrong dismissal, wrong fielder, wrong batter out — with no fix
+ * short of undoing every ball since. The answer is not half a wicket sheet
+ * here, it is the wicket sheet, which is what `W` opens.
  *
  * The payloads come from `deliveryFor`, the same function the scorer's own
  * keypad uses. They were hand-written here first, and the no-ball case was
@@ -45,7 +48,13 @@ function hapticFeedback() {
  */
 type Choice =
   | { kind: 'runs'; runs: number; label: string }
-  | { kind: 'extra'; extra: ExtraKind; label: string };
+  | { kind: 'extra'; extra: ExtraKind; label: string }
+  /**
+   * A dismissal needs a type, a batter and often a fielder, which is the
+   * wicket sheet's whole job — so this choice hands over to it rather than
+   * growing a second, worse copy of it here.
+   */
+  | { kind: 'wicket'; label: string };
 
 const CHOICES: Choice[] = [
   { kind: 'runs', runs: 0, label: '•' },
@@ -59,6 +68,7 @@ const CHOICES: Choice[] = [
   { kind: 'extra', extra: 'no_ball', label: 'nb' },
   { kind: 'extra', extra: 'bye', label: 'b' },
   { kind: 'extra', extra: 'leg_bye', label: 'lb' },
+  { kind: 'wicket', label: 'W' },
 ];
 
 /** How the delivery currently reads, so the scorer can see what they are replacing. */
@@ -87,6 +97,7 @@ export function CorrectBallSheet({
   error,
   changes,
   onCorrect,
+  onCorrectToWicket,
   onDismiss,
 }: {
   ball: BallEvent;
@@ -97,6 +108,8 @@ export function CorrectBallSheet({
   /** Non-null once the server has replied — switches this to the receipt. */
   changes: BallCorrectionChange[] | null;
   onCorrect: (patch: Omit<PatchBallInput, 'bowlerId'>) => void;
+  /** Hands over to the wicket sheet, which knows how to gather a dismissal. */
+  onCorrectToWicket: () => void;
   onDismiss: () => void;
 }) {
   const [picked, setPicked] = useState<number | null>(null);
@@ -107,6 +120,10 @@ export function CorrectBallSheet({
 
   function confirm() {
     if (!choice) return;
+    if (choice.kind === 'wicket') {
+      onCorrectToWicket();
+      return;
+    }
     onCorrect(
       choice.kind === 'runs'
         ? deliveryFor({ kind: 'runs', runs: choice.runs })
@@ -257,7 +274,11 @@ export function CorrectBallSheet({
                     </Text>
                   </View>
                 ) : (
-                  <Button label="Correct it" disabled={picked === null} onPress={confirm} />
+                  <Button
+                    label={choice?.kind === 'wicket' ? 'Describe the wicket' : 'Correct it'}
+                    disabled={picked === null}
+                    onPress={confirm}
+                  />
                 )}
               </>
             )}

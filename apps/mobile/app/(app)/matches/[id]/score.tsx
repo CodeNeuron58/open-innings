@@ -127,6 +127,10 @@ export default function Scorer() {
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
   const [correctionChanges, setCorrectionChanges] = useState<BallCorrectionChange[] | null>(null);
+  // Correcting the delivery to a dismissal: the wicket sheet takes over from
+  // the correction sheet rather than opening on top of it. Nested modals are
+  // unreliable on Android, and this is one question at a time either way.
+  const [correctingWicket, setCorrectingWicket] = useState(false);
   const [pendingExtra, setPendingExtra] = useState<ExtraKind | null>(null);
 
   // Replacements chosen in the mandatory sheets. These ride along with the
@@ -436,6 +440,34 @@ export default function Scorer() {
     setCorrecting(null);
     setCorrectionError(null);
     setCorrectionChanges(null);
+    setCorrectingWicket(false);
+  }
+
+  /**
+   * Replace a delivery with a dismissal.
+   *
+   * The same `correctBall` every other correction goes through — the only
+   * difference is that the payload carries the wicket fields, which
+   * `patchBallSchema` has accepted all along.
+   *
+   * The batters are deliberately not sent. A patch treats them as optional and
+   * derives them when absent, and who was at the crease is a consequence of
+   * every ball before this one — so asserting it from memory is how a
+   * correction puts somebody at the wrong end.
+   */
+  async function correctToWicket(entry: WicketEntry) {
+    setCorrectingWicket(false);
+    const { eventType, runsOffBat, extraRuns } = wicketDeliveryFor(entry.delivery, entry.runs);
+
+    await correctBall({
+      eventType,
+      runsOffBat,
+      overthrowRuns: 0,
+      extraRuns,
+      wicketType: entry.type,
+      wicketPlayerId: entry.outBatterId,
+      fielderId: entry.fielderId,
+    });
   }
 
   function scoreRuns(runsOffBat: RunKey) {
@@ -951,7 +983,7 @@ export default function Scorer() {
       ) : null}
 
       {/* Sheets */}
-      {correctingBall ? (
+      {correctingBall && !correctingWicket ? (
         <CorrectBallSheet
           ball={correctingBall}
           position={positionOf(state, correcting!)}
@@ -959,7 +991,27 @@ export default function Scorer() {
           error={correctionError}
           changes={correctionChanges}
           onCorrect={(patch) => void correctBall(patch)}
+          onCorrectToWicket={() => setCorrectingWicket(true)}
           onDismiss={closeCorrection}
+        />
+      ) : null}
+
+      {/* The wicket sheet, pointed at a delivery already in the log. The
+          batters are the pair who were actually at the crease for *that* ball,
+          not whoever is there now. */}
+      {correctingBall && correctingWicket ? (
+        <WicketSheet
+          strikerId={String(correctingBall.batsmanId)}
+          strikerName={nameOf(correctingBall.batsmanId)}
+          nonStrikerId={String(correctingBall.nonStrikerId)}
+          nonStrikerName={nameOf(correctingBall.nonStrikerId)}
+          fielders={data.bowlingSquad}
+          nextBatters={[]}
+          showNextBatter={false}
+          isFreeHit={correctingBall.isFreeHit}
+          confirmLabel={`Correct ball ${positionOf(state, correcting!)}`}
+          onConfirm={(entry) => void correctToWicket(entry)}
+          onCancel={() => setCorrectingWicket(false)}
         />
       ) : null}
 

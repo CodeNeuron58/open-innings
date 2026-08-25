@@ -318,6 +318,8 @@ export function WicketSheet({
   isFreeHit = false,
   initialDelivery = 'fair',
   mode = 'wicket',
+  showNextBatter = true,
+  confirmLabel,
   onConfirm,
   onCancel,
 }: {
@@ -350,6 +352,17 @@ export function WicketSheet({
    * question.
    */
   mode?: 'wicket' | 'retirement';
+  /**
+   * Hidden when correcting a delivery already in the log.
+   *
+   * Who came in is recorded on the balls after this one, and the server
+   * re-derives the pair when it replays them — so asking again here would be
+   * asking the scorer to re-assert something the ball log already knows, and
+   * to get it right from memory.
+   */
+  showNextBatter?: boolean;
+  /** "Record wicket" when scoring; something else when correcting. */
+  confirmLabel?: string;
   onConfirm: (entry: WicketEntry) => void;
   onCancel: () => void;
 }) {
@@ -428,7 +441,7 @@ export function WicketSheet({
       onDismiss={onCancel}
       footer={
         <Button
-          label={retiring ? 'Record the retirement' : 'Record wicket'}
+          label={confirmLabel ?? (retiring ? 'Record the retirement' : 'Record wicket')}
           onPress={() =>
             onConfirm({
               type,
@@ -539,27 +552,31 @@ export function WicketSheet({
             </Text>
           </Pressable>
 
-          <Text className="text-foreground/40 shrink-0 text-[15px]">→</Text>
+          {showNextBatter ? (
+            <Text className="text-foreground/40 shrink-0 text-[15px]">→</Text>
+          ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              nextName ? `Next batter: ${nextName}. Tap to change.` : 'Choose the next batter'
-            }
-            onPress={() => nextBatters.length > 0 && setPickingNext((v) => !v)}
-            disabled={nextBatters.length === 0}
-            className="min-w-0 flex-1"
-          >
-            <Text
-              className={`font-heading text-[15px] ${
-                nextName ? 'text-steel-700' : 'text-foreground/60'
-              }`}
-              numberOfLines={1}
+          {showNextBatter ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                nextName ? `Next batter: ${nextName}. Tap to change.` : 'Choose the next batter'
+              }
+              onPress={() => nextBatters.length > 0 && setPickingNext((v) => !v)}
+              disabled={nextBatters.length === 0}
+              className="min-w-0 flex-1"
             >
-              {nextBatters.length === 0 ? 'Last wicket' : (nextName ?? 'Next batter ▾')}
-              {nextName ? ' ▾' : ''}
-            </Text>
-          </Pressable>
+              <Text
+                className={`font-heading text-[15px] ${
+                  nextName ? 'text-steel-700' : 'text-foreground/60'
+                }`}
+                numberOfLines={1}
+              >
+                {nextBatters.length === 0 ? 'Last wicket' : (nextName ?? 'Next batter ▾')}
+                {nextName ? ' ▾' : ''}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {pickingOut ? (
@@ -585,7 +602,7 @@ export function WicketSheet({
           </View>
         ) : null}
 
-        {pickingNext ? (
+        {pickingNext && showNextBatter ? (
           <View className="mt-2.5 flex-row flex-wrap gap-1.5">
             {nextBatters.map((p) => (
               <Chip

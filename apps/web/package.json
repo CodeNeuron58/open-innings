@@ -20,6 +20,7 @@
     "db:studio": "drizzle-kit studio",
     "smoke:api": "tsx scripts/api-smoke.ts",
     "db:verify": "tsx scripts/verify-replay.ts",
+    "smoke:correct": "tsx scripts/correct-smoke.ts",
     "smoke:xi": "tsx scripts/xi-smoke.ts",
     "smoke:auth": "tsx scripts/auth-smoke.ts"
   },
