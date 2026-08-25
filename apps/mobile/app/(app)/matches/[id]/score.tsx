@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Alert, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -25,6 +25,7 @@ import {
   splitExtra,
   wicketDeliveryFor,
 } from '../../../../lib/deliveries';
+import { feelForBall, tap } from '../../../../lib/haptics';
 import { api } from '../../../../lib/api';
 import { requestIdFor } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
@@ -718,7 +719,7 @@ export default function Scorer() {
           accessibilityRole="button"
           accessibilityLabel="Match options"
           onPress={() => {
-            hapticFeedback();
+            tap();
             setShowMenu(true);
           }}
           className="border-border h-11 w-11 shrink-0 items-center justify-center border active:opacity-70"
@@ -988,11 +989,11 @@ export default function Scorer() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: pendingExtra === kind }}
                   onPress={() => {
-                    hapticFeedback();
+                    tap();
                     setPendingExtra((prev) => (prev === kind ? null : kind));
                   }}
                   onLongPress={() => {
-                    hapticFeedback();
+                    tap();
                     setPendingExtra(kind);
                     setShowExtraRunsSheet(true);
                   }}
@@ -1046,7 +1047,7 @@ export default function Scorer() {
                   lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
                 }
                 onPress={() => {
-                  hapticFeedback();
+                  tap('undo');
                   void undo();
                 }}
                 disabled={mutation.busy || state.balls.length === 0}
@@ -1516,21 +1517,10 @@ function BatterRow({
   );
 }
 
-function hapticFeedback() {
-  try {
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(12);
-    } else {
-      Vibration.vibrate([0, 10]);
-    }
-  } catch {
-    /* ignore if vibration not supported */
-  }
-}
-
 function Key({
   label,
   sublabel,
+  runs,
   tone,
   text,
   onPress,
@@ -1539,6 +1529,7 @@ function Key({
   label: string;
   /** What this key will score, when an extra is armed. */
   sublabel?: string;
+  /** Undefined on the wicket key — which is how the feel is chosen. */
   runs?: number;
   tone: string;
   text: string;
@@ -1558,7 +1549,10 @@ function Key({
               : `${label} runs`
       }
       onPress={() => {
-        hapticFeedback();
+        // A wicket should not feel like a dot ball. Every one of these used to
+        // buzz identically, which told a scorer watching the cricket that
+        // *something* landed and nothing about what.
+        tap(runs === undefined ? 'wicket' : feelForBall(runs, false));
         onPress();
       }}
       disabled={disabled}

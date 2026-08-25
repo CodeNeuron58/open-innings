@@ -3,22 +3,11 @@
  * Shows the previous over, bowler figures, and remaining quotas. Blocking by design.
  */
 import { useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { formatOvers, type BallEvent, type BowlerStats } from '@open-innings/scoring';
+import { tap } from '../../lib/haptics';
 import { Button } from '../ui';
 import { BallChip } from './BallChip';
-
-function hapticFeedback() {
-  try {
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(12);
-    } else {
-      Vibration.vibrate([0, 10]);
-    }
-  } catch {
-    /* ignore if vibration not supported */
-  }
-}
 
 export type BowlerOption = {
   id: string;
@@ -346,7 +335,7 @@ function BowlerRow({
       accessibilityState={{ selected, disabled }}
       accessibilityLabel={`${name}, ${fig}, ${note}`}
       onPress={() => {
-        hapticFeedback();
+        tap();
         onPress();
       }}
       disabled={disabled}

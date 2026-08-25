@@ -3,7 +3,7 @@
  * Mandatory sheets (e.g., wicket) have no dismiss button to prevent invalid state.
  */
 import { useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import type { WicketTypeValue } from '@open-innings/shared';
 import {
   FREE_HIT_VALID_WICKETS,
@@ -18,21 +18,10 @@ import {
   type ExtraKind,
   type WicketDelivery,
 } from '../../lib/deliveries';
+import { tap } from '../../lib/haptics';
 import { checkOpeners, openersPayload } from '../../lib/openers';
 import { OpenersPicker } from './Openers';
 import { Button } from '../ui';
-
-function hapticFeedback() {
-  try {
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(12);
-    } else {
-      Vibration.vibrate([0, 10]);
-    }
-  } catch {
-    /* ignore if vibration not supported */
-  }
-}
 
 // ─── Shell ───────────────────────────────────────────────────────────────────
 
@@ -66,7 +55,7 @@ export function SheetShell({
                 accessibilityRole="button"
                 accessibilityLabel="Cancel"
                 onPress={() => {
-                  hapticFeedback();
+                  tap();
                   onDismiss();
                 }}
                 // A word, not an ✕. There is room for it, and a scorer who has
@@ -112,7 +101,7 @@ function Chip({
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       onPress={() => {
-        hapticFeedback();
+        tap();
         onPress();
       }}
       className={`h-11 items-center justify-center border px-3 ${
@@ -175,7 +164,7 @@ export function ExtraRunsSheet({
             accessibilityRole="button"
             accessibilityLabel={`${runs} run${runs === 1 ? '' : 's'} in total`}
             onPress={() => {
-              hapticFeedback();
+              tap();
               onConfirm(runs);
             }}
             className="border-border h-14 w-1/4 items-center justify-center border-b border-r active:opacity-70"

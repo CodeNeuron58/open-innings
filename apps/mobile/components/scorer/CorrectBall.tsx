@@ -3,32 +3,12 @@
  * Replaces a single delivery and shows the resulting changes to the innings.
  */
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  Vibration,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import type { BallEvent } from '@open-innings/scoring';
 import type { BallCorrectionChange, PatchBallInput } from '@open-innings/shared';
+import { tap } from '../../lib/haptics';
 import { EXTRA_TOTALS, deliveryFor, type ExtraKind } from '../../lib/deliveries';
 import { Button } from '../ui';
-
-function hapticFeedback() {
-  try {
-    if (Platform.OS === 'android') {
-      Vibration.vibrate(12);
-    } else {
-      Vibration.vibrate([0, 10]);
-    }
-  } catch {
-    /* ignore if vibration not supported */
-  }
-}
 
 /**
  * What one delivery can be corrected to.
@@ -203,7 +183,7 @@ export function CorrectBallSheet({
                         accessibilityRole="radio"
                         accessibilityState={{ selected: picked === i }}
                         onPress={() => {
-                          hapticFeedback();
+                          tap();
                           setPicked(i);
                           setTotal(1);
                         }}
@@ -235,7 +215,7 @@ export function CorrectBallSheet({
                           accessibilityRole="radio"
                           accessibilityState={{ selected: total === n }}
                           onPress={() => {
-                            hapticFeedback();
+                            tap();
                             setTotal(n);
                           }}
                           className={`h-11 w-[52px] items-center justify-center border ${
