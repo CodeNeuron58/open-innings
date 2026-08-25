@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 16
+**Branch:** `pivot` · **Commits:** 19
 **Tests:** 404 passing (shared 40 · scoring 179 · mobile 94 · web 91)
-**Smoke:** 369 checks green against a real database
-(score 51 · api 283 · p1 19 · xi 6 · correct 10)
-**Findings:** 61 total — **33 closed**, 1 part done, 27 open
+**Smoke:** 376 checks green against a real database
+(score 51 · api 283 · p1 19 · xi 6 · correct 10 · browse 7)
+**Findings:** 61 total — **37 closed**, 1 part done, 23 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -217,6 +217,29 @@ Three things want smoking on hardware:
       abandon and delete were reachable only by a long-press nothing advertised.
 - [x] The type scale and contrast floor reach the match list, which they had not.
 
+### `a759b52` A guest lands on cricket, not on a text field
+
+- [x] **A4** `GET /api/matches/public` — live matches first, abandoned ones
+      left out, capped at thirty. It discloses nothing new: `matches` is
+      publicly readable, `/m/<id>` is the link people send, and the card
+      endpoint takes no token. Only the listing was missing.
+- [x] The rows move to `components/MatchCard.tsx`, shared with the owner's
+      list. Two lists showing a live score is two chances to be wrong about the
+      same match.
+- [x] `smoke:browse` — seven checks: no session needed, somebody else's live
+      match visible, an abandoned one absent, live above finished, rows
+      carrying names and innings, listing capped.
+
+### `0b2019e` The plate answers, and the strip reaches back
+
+- [x] **C13** Extras, the current stand, and how the last wicket fell. All
+      three were already in state and shown nowhere.
+- [x] **C16** The over strip is the last eight overs, scrolled horizontally and
+      pinned to the newest, each labelled with its bowler.
+- [x] **C17** Every chip in it is correctable. The handler was wired only to
+      the current over, so a mistake noticed three overs later could not be
+      reached — though the server has always replayed from any delivery.
+
 ---
 
 ## Part done
@@ -231,8 +254,6 @@ Three things want smoking on hardware:
 
 ### Cold start
 
-- [ ] **A4** — _Critical._ A guest lands on a box asking them to paste a URL.
-      No discovery, no live matches, nothing to do without a link.
 - [ ] **A5** — _Major._ "Start a match" on the welcome screen opens a signup form.
 
 ### Match setup
@@ -247,11 +268,8 @@ Three things want smoking on hardware:
 
 - [ ] **C5** — _Minor._ Nothing confirms what was just recorded.
 - [ ] **C11** — _Minor._ No manual strike swap.
-- [ ] **C13** — _Minor._ No extras total, partnership or last wicket on the plate.
 - [ ] **C14** — _Minor._ No shot direction captured, so no wagon wheel is possible
       later. Worth reserving a field on the ball schema now.
-- [ ] **C16** — _Minor._ Ball history is six chips deep.
-- [ ] **C17** — _Minor._ Only the current over can be corrected.
 - [ ] **C18** — _Minor._ Law citations printed on the live console.
 - [ ] **C19** — _Minor._ Haptics are a raw `Vibration.vibrate`, duplicated in three
       files. Wants one helper over `expo-haptics` with different weights for a
@@ -291,18 +309,21 @@ Three things want smoking on hardware:
 
 Ranked by what each unblocks, not by size.
 
-1. **Guest discovery (A4)** — _Critical, and the last one._ The endpoints and
-   public scorecards already exist; only a listing is missing. A guest currently
-   opens the app to a box asking them to paste a URL. It is also the whole top
-   of the funnel.
-2. **The innings break (E3)** — three copies of the "who's on" interaction exist:
-   match creation, the innings break, and the Super Over sheet. One component.
-3. **Extras, partnership and last wicket on the plate (C13)** — the two questions
-   a scorer is asked most often, both derivable, neither shown.
-4. **Corrections beyond the current over (C16, C17)** — the server replays from
-   any ball; the UI can only reach six chips.
-5. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
-   the UI and jumps the layout.
+**No Critical findings remain open.**
+
+1. **The innings break (E3)** — three copies of the "who's on" interaction exist:
+   match creation, the innings break, and the Super Over sheet. Two of them are
+   the same chips with two different versions of the same validation rule.
+2. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
+   the UI and jumps the layout when data lands.
+3. **Confirming a ball (C5)** — nothing marks the delivery that just landed. The
+   chip could carry a brief emphasis, with undo attached to it.
+4. **Haptics (C19)** — an identical `Vibration.vibrate` helper is copied into
+   three files. One helper over `expo-haptics`, with different weights for a
+   run, a boundary and a wicket, is worth real accuracy when nobody is looking
+   at the screen.
+5. **Law citations on the console (C18)** — plain language while scoring; the
+   clause numbers belong in help, which does not exist yet either (F13).
 6. **The primary button's contrast** — `theme.test.ts` records paper-on-steel at
    3.71:1, under AA. Steel-700 reaches 6.1:1 and is one step down the same ramp.
    Left alone because the accent is yours to change, not the test's.
