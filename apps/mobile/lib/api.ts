@@ -183,6 +183,15 @@ export const api = {
   matches: (token: string, signal?: AbortSignal) =>
     apiFetch<MatchListResponse>('/api/matches', { token, signal }),
 
+  /**
+   * Matches anyone can watch, live ones first.
+   *
+   * Takes no token on purpose — this is what a guest sees, and every match on
+   * it is already readable without a session.
+   */
+  publicMatches: (signal?: AbortSignal) =>
+    apiFetch<MatchListResponse>('/api/matches/public', { signal }),
+
   match: (token: string, id: string, signal?: AbortSignal) =>
     apiFetch<MatchDetailResponse>(`/api/matches/${id}`, { token, signal }),
 

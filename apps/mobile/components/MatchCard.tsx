@@ -1,0 +1,216 @@
+/**
+ * A match, as a row in a list.
+ *
+ * Two lists show these now — the owner's own matches, and the public feed a
+ * guest lands on — and they have to say the same thing. A live score written
+ * two ways is two chances to be wrong about the same match, and the second
+ * list would be the one nobody noticed had drifted.
+ *
+ * The owner's list passes `onOptions`; the public one does not, and the button
+ * simply is not drawn. That is the only difference between them.
+ */
+import { Pressable, Text, View } from 'react-native';
+import { formatOvers } from '@open-innings/scoring';
+import type { MatchListResponse } from '@open-innings/shared';
+import { formatLabel } from '../lib/formats';
+
+export type MatchRow = MatchListResponse['matches'][number];
+
+export function isLive(m: MatchRow): boolean {
+  return m.status === 'live' || m.status === 'in_progress';
+}
+
+/**
+ * What to call a match that was never given a title.
+ *
+ * Every row used to read "Match", because the wizard had no field for a title
+ * and the list had only team ids to work with. Both are fixed; this is the
+ * fallback for the matches created in between, and for anyone who does not
+ * want to name their Sunday friendly.
+ */
+export function titleOf(m: MatchRow): string {
+  if (m.title) return m.title;
+  if (m.teamAName && m.teamBName) return `${m.teamAName} v ${m.teamBName}`;
+  return 'Match';
+}
+
+/** `142-6 (17.3)` — the innings, the way a scoreboard says it. */
+export function lineOf(m: MatchRow, innings: MatchRow['innings'][number]): string {
+  const name = innings.battingTeamId === m.teamAId ? (m.teamAName ?? '') : (m.teamBName ?? '');
+  // `formatOvers`, not a local `Math.floor(balls / 6)` — the app has one way
+  // of writing an over count and this is it.
+  return `${name} ${innings.runs}-${innings.wickets} (${formatOvers(innings.ballsBowled)})`;
+}
+
+/**
+ * How far off the chase is, where there is one.
+ *
+ * The single most useful sentence about a live match, and the list had nowhere
+ * to put it because it had no score to put it beside.
+ */
+export function chaseOf(m: MatchRow, innings: MatchRow['innings'][number]): string | null {
+  if (innings.target === null || innings.status === 'completed') return null;
+  const needed = Math.max(0, innings.target - innings.runs);
+  const ballsLeft = Math.max(0, m.oversPerInnings * 6 - innings.ballsBowled);
+  if (ballsLeft === 0) return null;
+  return `Need ${needed} off ${ballsLeft}`;
+}
+
+/** Format date as "8 Aug" */
+export function shortDate(value: string | Date | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }).toUpperCase();
+}
+
+export function LiveMatch({
+  match,
+  onPress,
+  onOptions,
+}: {
+  match: MatchRow;
+  onPress: () => void;
+  /** Omitted on a list of matches the reader does not own. */
+  onOptions?: () => void;
+}) {
+  // The innings being played now — the last one on the sheet.
+  const current = match.innings[match.innings.length - 1] ?? null;
+  const chase = current ? chaseOf(match, current) : null;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        current
+          ? `Resume ${titleOf(match)} — ${lineOf(match, current)}${chase ? `. ${chase}` : ''}`
+          : `Resume ${titleOf(match)}`
+      }
+      accessibilityHint={onOptions ? 'Hold for options, or use the options button' : undefined}
+      onPress={onPress}
+      onLongPress={onOptions}
+      className="border-border border p-4 active:opacity-70"
+    >
+      <View className="flex-row items-center gap-2">
+        <View className="bg-primary h-1.5 w-1.5" />
+        <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.5px]">
+          Live
+        </Text>
+        {/* Shows active watchers, hidden if < 2. */}
+        {match.watching >= 2 ? (
+          <Text className="text-foreground/70 font-heading ml-auto text-[11px] uppercase tracking-[1.3px]">
+            {match.watching} watching
+          </Text>
+        ) : null}
+
+        {/* Settings, edit, abandon and delete used to live *only* behind a
+            long-press. That gesture is not discoverable — it was named in an
+            accessibilityHint and nowhere a sighted user would find it — so a
+            match started by mistake could not be got rid of. The hold still
+            works; it is a shortcut now rather than the only door. */}
+        {onOptions ? (
+          <MoreButton
+            label={`Options for ${titleOf(match)}`}
+            onPress={onOptions}
+            className={match.watching >= 2 ? '' : 'ml-auto'}
+          />
+        ) : null}
+      </View>
+
+      <Text className="text-foreground font-heading mt-3 text-[17px]" numberOfLines={1}>
+        {titleOf(match)}
+      </Text>
+
+      {/* The score, which is the reason this row is on the screen. */}
+      {current ? (
+        <View className="mt-2.5">
+          <Text className="text-foreground font-heading text-[22px]" numberOfLines={1}>
+            {lineOf(match, current)}
+          </Text>
+          {chase ? (
+            <Text className="text-steel-700 font-heading mt-1 text-[13.5px]">{chase}</Text>
+          ) : null}
+        </View>
+      ) : (
+        <Text className="text-foreground/60 mt-2 text-[13.5px]">Not a ball bowled yet</Text>
+      )}
+
+      <Text className="text-foreground/70 font-heading mt-2.5 text-[13.5px] uppercase tracking-[1.2px]">
+        {[formatLabel(match.format), `${match.oversPerInnings} overs a side`, match.venue]
+          .filter(Boolean)
+          .join('  ·  ')}
+      </Text>
+    </Pressable>
+  );
+}
+
+export function FinishedMatch({
+  match,
+  onPress,
+  onOptions,
+}: {
+  match: MatchRow;
+  onPress: () => void;
+  /** Omitted on a list of matches the reader does not own. */
+  onOptions?: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={titleOf(match)}
+      accessibilityHint={onOptions ? 'Hold for options, or use the options button' : undefined}
+      onPress={onPress}
+      onLongPress={onOptions}
+      className="border-border border-b py-4 active:opacity-70"
+    >
+      <View className="flex-row items-center gap-2">
+        <Text className="text-foreground font-heading min-w-0 flex-1 text-[16px]" numberOfLines={1}>
+          {titleOf(match)}
+        </Text>
+        {onOptions ? (
+          <MoreButton label={`Options for ${titleOf(match)}`} onPress={onOptions} />
+        ) : null}
+      </View>
+      <Text
+        className="text-foreground/60 font-heading mt-1.5 text-[11px] uppercase tracking-[1.2px]"
+        numberOfLines={1}
+      >
+        {[
+          match.summary,
+          formatLabel(match.format) ?? `${match.oversPerInnings} ov`,
+          shortDate(match.startedAt ?? match.createdAt),
+        ]
+          .filter(Boolean)
+          .join('  ·  ')}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The way in to a match's settings that does not require knowing a gesture.
+ *
+ * Sized to the kit's own 44pt minimum and given a real label, because "⋯"
+ * tells a screen reader nothing on its own.
+ */
+function MoreButton({
+  label,
+  onPress,
+  className = '',
+}: {
+  label: string;
+  onPress: () => void;
+  className?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={6}
+      className={`border-border h-11 w-11 shrink-0 items-center justify-center border active:opacity-70 ${className}`}
+    >
+      <Text className="text-foreground font-heading text-[17px] leading-[17px]">⋯</Text>
+    </Pressable>
+  );
+}

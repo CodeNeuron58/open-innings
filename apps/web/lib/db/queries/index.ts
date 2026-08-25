@@ -512,6 +512,37 @@ export async function listMatches(): Promise<Match[]> {
     .orderBy(desc(matches.createdAt));
 }
 
+/**
+ * Matches anyone can look at, live ones first.
+ *
+ * Every match is already publicly readable — the RLS policy says so, `/m/<id>`
+ * is the thing people share, and `/api/matches/[id]/card` needs no session.
+ * This discloses nothing new; it makes findable what was already public, which
+ * is the same argument `searchPlayersByName` makes one table over.
+ *
+ * Without it a guest opened the app to a box asking them to paste a URL. If
+ * they had a link they did not need the screen, and if they did not they had
+ * nothing to do — which is a poor first minute for the one surface that exists
+ * to be shared.
+ *
+ * Abandoned matches are left out. A no result is a real outcome and it belongs
+ * on the club's own page, but it is not something to put in front of somebody
+ * who has never seen the app.
+ */
+export async function listPublicMatches(limit: number): Promise<Match[]> {
+  return db
+    .select()
+    .from(matches)
+    .where(inArray(matches.status, ['live', 'completed']))
+    .orderBy(
+      // Live first, whatever the dates say — a match being played now is the
+      // reason to open this screen.
+      sql`case when ${matches.status} = 'live' then 0 else 1 end`,
+      desc(sql`coalesce(${matches.startedAt}, ${matches.createdAt})`),
+    )
+    .limit(limit);
+}
+
 export async function getMatch(id: string): Promise<Match | null> {
   const rows = await db.select().from(matches).where(eq(matches.id, id)).limit(1);
   return rows[0] ?? null;
