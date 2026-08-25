@@ -77,8 +77,12 @@ export function BallChip({
 }) {
   const { label, tone } = describe(ball);
   const style = (onDark ? DARK_TONE_STYLES : TONE_STYLES)[tone];
-  const body = <Text className={`${style.text} font-heading text-[13px]`}>{label}</Text>;
-  const box = `${style.bg} ${style.border} h-9 min-w-9 items-center justify-center border px-2`;
+  const body = <Text className={`${style.text} font-heading text-[15px]`}>{label}</Text>;
+  // 44pt, because these are tap targets: a chip is how a delivery gets
+  // corrected. `components/ui.tsx` opens by promising 48pt minimums and the
+  // console broke it in six places, this being the one people actually aim at
+  // in sunlight, one-handed, while somebody asks them the score.
+  const box = `${style.bg} ${style.border} h-11 min-w-11 items-center justify-center border px-2`;
 
   /*
    * Tappable only where a correction is possible.

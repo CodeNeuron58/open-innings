@@ -4,11 +4,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   asPlayerId,
+  ballMark,
   formatOvers,
   type BallEventInput,
   type BallEventType,
@@ -35,6 +36,7 @@ import {
   type ExtraKind,
   type WicketEntry,
 } from '../../../../components/scorer/Sheets';
+import { ConsoleMenu } from '../../../../components/scorer/ConsoleMenu';
 
 export default function Scorer() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,6 +112,8 @@ export default function Scorer() {
   });
 
   const [showWicket, setShowWicket] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showRetirement, setShowRetirement] = useState(false);
   const [showOverthrow, setShowOverthrow] = useState(false);
   const [showExtraRunsSheet, setShowExtraRunsSheet] = useState(false);
   // State for correcting a previous delivery.
@@ -300,6 +304,61 @@ export default function Scorer() {
     return next;
   }
 
+  /*
+   * Five runs, behind a question.
+   *
+   * This used to be a button called "+5 Pen" sitting in the extras row beside
+   * Wide, firing on a single tap. It is one of the rarest awards in cricket and
+   * it was one accidental brush from being on the board, recoverable only by
+   * noticing and undoing.
+   */
+  function confirmPenalty() {
+    Alert.alert(
+      'Award 5 penalty runs?',
+      'Law 41/42 — a helmet on the field, the ball tampered with, or time wasted. Five runs go to the batting side and no ball is bowled.',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Award 5 runs',
+          onPress: () =>
+            void send({
+              inningsId: inn.id,
+              eventType: 'penalty',
+              runsOffBat: 0,
+              overthrowRuns: 0,
+              extraRuns: 5,
+              totalRuns: 5,
+              batsmanId: effStriker,
+              nonStrikerId: effNonStriker,
+              bowlerId: effBowler,
+              bowlerReplacedMidOver: midOverBowlerId !== null,
+            }),
+        },
+      ],
+    );
+  }
+
+  // Abandoning used to be reachable only by leaving the console, finding the
+  // match in the list, and knowing to long-press it — which is a lot to
+  // discover in the rain.
+  function confirmAbandon() {
+    Alert.alert(
+      'Abandon this match?',
+      'It will be recorded as a no result — not a tie, and not a win. Everything scored so far is kept.',
+      [
+        { text: 'Keep playing', style: 'cancel' },
+        { text: 'Rain / bad weather', onPress: () => void abandon('Rain') },
+        { text: 'Bad light', onPress: () => void abandon('Bad light') },
+        { text: 'Mutual agreement', onPress: () => void abandon('Mutual agreement') },
+      ],
+    );
+  }
+
+  async function abandon(reason: string) {
+    const done = await mutation.run((t) => api.abandonMatch(t, id, reason));
+    if (done) router.replace({ pathname: '/matches/[id]/result', params: { id } });
+  }
+
   async function undo() {
     const next = await mutation.run((t) => api.undoBall(t, id));
     if (next) applyState(next);
@@ -484,6 +543,10 @@ export default function Scorer() {
   const nonStrikerStats = state.batting[String(effNonStriker)];
   const bowlerStats = state.bowling[String(effBowler)];
 
+  // What "undo" is about to take off the board, in the notation the over strip
+  // already uses — so the button and the chip it removes say the same thing.
+  const undoTarget = lastBall ? ballMark(lastBall).label : '';
+
   const runsThisOver = overBalls.reduce((sum, b) => sum + b.totalRuns, 0);
   const legalThisOver = overBalls.filter(
     (b) => b.eventType !== 'wide' && b.eventType !== 'no_ball',
@@ -497,9 +560,11 @@ export default function Scorer() {
       <View className="border-border flex-row items-center gap-2.5 border-b px-3.5 py-2">
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to matches"
-          onPress={() => router.replace('/matches')}
-          className="h-10 w-8 items-center justify-center"
+          accessibilityLabel="Back"
+          // `replace` here threw the stack away and dumped the scorer on the
+          // global match list, so Android's hardware back became a guess.
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/matches'))}
+          className="h-12 w-11 items-center justify-center"
         >
           <Text className="text-foreground/70 text-xl">‹</Text>
         </Pressable>
@@ -516,14 +581,35 @@ export default function Scorer() {
             innings
           </Text>
         </View>
-        {!completed ? (
-          <View className="flex-row items-center gap-1.5">
-            <View className="bg-primary h-1.5 w-1.5" />
-            <Text className="text-steel-700 font-heading text-[9px] uppercase tracking-[1.3px]">
-              Live
-            </Text>
-          </View>
-        ) : null}
+        {/* The scorecard, one tap away.
+
+            It used to be unreachable from here: this screen never rendered the
+            match tabs, so checking the bowling figures a captain had just
+            asked for meant leaving the console, finding the match in the list,
+            opening Card, and navigating all the way back. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Full scorecard"
+          onPress={() => router.push({ pathname: '/matches/[id]/card', params: { id } })}
+          className="border-border h-11 shrink-0 items-center justify-center border px-3 active:opacity-70"
+        >
+          <Text className="text-foreground font-heading text-[11px] uppercase tracking-[1.2px]">
+            Card
+          </Text>
+        </Pressable>
+
+        {/* Everything that is not a delivery. See ConsoleMenu. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Match options"
+          onPress={() => {
+            hapticFeedback();
+            setShowMenu(true);
+          }}
+          className="border-border h-11 w-11 shrink-0 items-center justify-center border active:opacity-70"
+        >
+          <Text className="text-foreground font-heading text-[17px] leading-[17px]">⋯</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerClassName="pb-2">
@@ -665,7 +751,10 @@ export default function Scorer() {
             ))}
             {/* The balls not yet bowled — drawn, not filled. */}
             {Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
-              <View key={`empty-${i}`} className="border-border/40 h-9 w-9 border border-dashed" />
+              <View
+                key={`empty-${i}`}
+                className="border-border/40 h-11 w-11 border border-dashed"
+              />
             ))}
           </View>
         </View>
@@ -727,14 +816,14 @@ export default function Scorer() {
                     setShowExtraRunsSheet(true);
                   }}
                   disabled={mutation.busy}
-                  className={`h-9 flex-1 items-center justify-center border ${
+                  className={`h-12 flex-1 items-center justify-center border ${
                     pendingExtra === kind
                       ? 'bg-primary border-primary'
                       : 'border-border bg-transparent'
                   } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
                 >
                   <Text
-                    className={`font-heading text-[12px] ${
+                    className={`font-heading text-[13.5px] ${
                       pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
                     }`}
                   >
@@ -742,43 +831,6 @@ export default function Scorer() {
                   </Text>
                 </Pressable>
               ))}
-              {/* Law 19.8: Overthrow runs */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Record overthrow runs (Law 19.8)"
-                onPress={() => {
-                  hapticFeedback();
-                  setShowOverthrow(true);
-                }}
-                disabled={mutation.busy}
-                className={`border-border h-9 w-12 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
-              >
-                <Text className="text-steel-800 font-heading text-[11px]">+OT</Text>
-              </Pressable>
-              {/* Law 41/42: 5-run fielding penalty (helmet on field, ball tampering, etc.) */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Award 5 penalty runs (Law 41/42)"
-                onPress={() => {
-                  hapticFeedback();
-                  void send({
-                    inningsId: inn.id,
-                    eventType: 'penalty',
-                    runsOffBat: 0,
-                    overthrowRuns: 0,
-                    extraRuns: 5,
-                    totalRuns: 5,
-                    batsmanId: effStriker,
-                    nonStrikerId: effNonStriker,
-                    bowlerId: effBowler,
-                    bowlerReplacedMidOver: midOverBowlerId !== null,
-                  });
-                }}
-                disabled={mutation.busy}
-                className={`border-border h-9 w-14 items-center justify-center border bg-transparent ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
-              >
-                <Text className="font-heading text-[11px] text-amber-600">+5 Pen</Text>
-              </Pressable>
             </View>
 
             {/* 0–6 and W, on one hairline grid. */}
@@ -794,32 +846,39 @@ export default function Scorer() {
             </View>
 
             <View className="mt-2 flex-row items-center gap-2">
+              {/* Undo names what it will remove.
+                  It is the most-used correction in cricket scoring and it was
+                  a 36pt outline in the corner reading "Undo" — a gamble rather
+                  than a decision, because nothing said which ball was about to
+                  go. */}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Undo last ball"
+                accessibilityLabel={
+                  lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
+                }
                 onPress={() => {
                   hapticFeedback();
                   void undo();
                 }}
                 disabled={mutation.busy || state.balls.length === 0}
-                className={`border-border h-9 flex-row items-center justify-center border px-3 ${
+                className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
                   mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
                 }`}
               >
-                <Text className="text-foreground font-heading text-[13px]">↩ Undo</Text>
-              </Pressable>
-              {lastBall ? (
-                <Text className="font-heading text-[11.5px] text-neutral-600">
-                  Last: {lastBall.totalRuns}
+                <Text className="text-foreground font-heading text-[14.5px]">
+                  ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
                 </Text>
-              ) : null}
+              </Pressable>
+
               {pendingExtra ? (
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
                   onPress={() => setShowExtraRunsSheet(true)}
-                  className="ml-auto flex-row items-center gap-1"
+                  className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
                 >
-                  <Text className="text-steel-700 font-heading text-[9px] uppercase tracking-[1.3px]">
-                    {EXTRA_LABELS[pendingExtra]} armed (tap runs or tap here for sheet)
+                  <Text className="text-steel-800 font-heading text-[12.5px]" numberOfLines={2}>
+                    {EXTRA_LABELS[pendingExtra]} armed — tap the runs
                   </Text>
                 </Pressable>
               ) : null}
@@ -860,6 +919,57 @@ export default function Scorer() {
           initialDelivery={pendingExtra ?? 'fair'}
           onConfirm={(entry) => void scoreWicket(entry)}
           onCancel={() => setShowWicket(false)}
+        />
+      ) : null}
+
+      {showMenu ? (
+        <ConsoleMenu
+          overInProgress={overInProgress && !completed}
+          canAbandon={data.matchStatus === 'live'}
+          onScorecard={() => {
+            setShowMenu(false);
+            router.push({ pathname: '/matches/[id]/card', params: { id } });
+          }}
+          onReplaceBowler={() => {
+            setShowMenu(false);
+            setPickingMidOverBowler(true);
+          }}
+          onRetire={() => {
+            setShowMenu(false);
+            setShowRetirement(true);
+          }}
+          onOverthrow={() => {
+            setShowMenu(false);
+            setShowOverthrow(true);
+          }}
+          onPenalty={() => {
+            setShowMenu(false);
+            confirmPenalty();
+          }}
+          onAbandon={() => {
+            setShowMenu(false);
+            confirmAbandon();
+          }}
+          onDismiss={() => setShowMenu(false)}
+        />
+      ) : null}
+
+      {/* The same sheet as a dismissal, pointed at the three outcomes that are
+          not one. It shares the machinery because the engine does. */}
+      {showRetirement ? (
+        <WicketSheet
+          mode="retirement"
+          strikerId={String(effStriker)}
+          strikerName={nameOf(effStriker)}
+          nonStrikerId={String(effNonStriker)}
+          nonStrikerName={nameOf(effNonStriker)}
+          fielders={data.bowlingSquad}
+          nextBatters={batterCandidates}
+          onConfirm={(entry) => {
+            setShowRetirement(false);
+            void scoreWicket(entry);
+          }}
+          onCancel={() => setShowRetirement(false)}
         />
       ) : null}
 

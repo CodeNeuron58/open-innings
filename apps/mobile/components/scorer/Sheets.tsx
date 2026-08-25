@@ -34,7 +34,7 @@ function hapticFeedback() {
 
 // ─── Shell ───────────────────────────────────────────────────────────────────
 
-function SheetShell({
+export function SheetShell({
   title,
   subtitle,
   onDismiss,
@@ -317,6 +317,7 @@ export function WicketSheet({
   nextBatters,
   isFreeHit = false,
   initialDelivery = 'fair',
+  mode = 'wicket',
   onConfirm,
   onCancel,
 }: {
@@ -338,14 +339,31 @@ export function WicketSheet({
    * penalty run and nobody was told.
    */
   initialDelivery?: WicketDelivery;
+  /**
+   * `retirement` narrows this to the three that are not dismissals.
+   *
+   * A batter walking off cramping is not out, and asking a scorer to record it
+   * by tapping W and hunting through eleven dismissal chips is asking them to
+   * say something untrue about the match. The engine has always agreed —
+   * `NON_DELIVERY_WICKETS` is its own list, and it skips the delivery laws for
+   * exactly these — so this is the same machinery pointed at the right
+   * question.
+   */
+  mode?: 'wicket' | 'retirement';
   onConfirm: (entry: WicketEntry) => void;
   onCancel: () => void;
 }) {
+  const retiring = mode === 'retirement';
+
   const [delivery, setDelivery] = useState<WicketDelivery>(initialDelivery);
-  const allowed = allowedWickets(delivery, isFreeHit);
+  // A retirement happens between deliveries, so there is no delivery to
+  // describe and nothing for the laws of one to narrow.
+  const allowed = retiring
+    ? WICKET_TYPES.filter((w) => NON_DELIVERY_WICKETS.has(w.value))
+    : allowedWickets(delivery, isFreeHit);
 
   const [type, setType] = useState<WicketTypeValue>(
-    allowedWickets(initialDelivery, isFreeHit)[0]?.value ?? 'run_out',
+    retiring ? 'retired_hurt' : (allowedWickets(initialDelivery, isFreeHit)[0]?.value ?? 'run_out'),
   );
   const [outBatterId, setOutBatterId] = useState(strikerId);
   const [fielderId, setFielderId] = useState<string | null>(null);
@@ -360,7 +378,7 @@ export function WicketSheet({
   // Runs accompany a run-out on any delivery, and accompany an extra whatever
   // the dismissal was — a wide the keeper missed is a wide plus whatever they
   // ran. A fair-ball bowled is the one case that can carry nothing.
-  const takesRuns = type === 'run_out' || delivery !== 'fair';
+  const takesRuns = !retiring && (type === 'run_out' || delivery !== 'fair');
 
   /**
    * Changing the delivery can invalidate the dismissal already chosen.
@@ -399,16 +417,18 @@ export function WicketSheet({
 
   return (
     <SheetShell
-      title="Wicket"
+      title={retiring ? 'Retire a batter' : 'Wicket'}
       subtitle={
-        isFreeHit
-          ? 'Free hit — only a run out, obstruction or hitting the ball twice (Law 21.18)'
-          : undefined
+        retiring
+          ? 'Between deliveries. It costs no ball, and hurt is not out.'
+          : isFreeHit
+            ? 'Free hit — the striker can only go the ways a no ball allows'
+            : undefined
       }
       onDismiss={onCancel}
       footer={
         <Button
-          label="Record wicket"
+          label={retiring ? 'Record the retirement' : 'Record wicket'}
           onPress={() =>
             onConfirm({
               type,
@@ -422,22 +442,24 @@ export function WicketSheet({
         />
       }
     >
-      <View className="gap-2">
-        <Label>The delivery</Label>
-        <View className="flex-row flex-wrap gap-1.5">
-          {DELIVERIES.map((d) => (
-            <Chip
-              key={d.value}
-              label={d.label}
-              selected={delivery === d.value}
-              onPress={() => chooseDelivery(d.value)}
-            />
-          ))}
+      {retiring ? null : (
+        <View className="gap-2">
+          <Label>The delivery</Label>
+          <View className="flex-row flex-wrap gap-1.5">
+            {DELIVERIES.map((d) => (
+              <Chip
+                key={d.value}
+                label={d.label}
+                selected={delivery === d.value}
+                onPress={() => chooseDelivery(d.value)}
+              />
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       <View className="gap-2">
-        <Label>Dismissal</Label>
+        <Label>{retiring ? 'Why they are going off' : 'Dismissal'}</Label>
         <View className="flex-row flex-wrap gap-1.5">
           {allowed.map((w) => (
             <Chip
