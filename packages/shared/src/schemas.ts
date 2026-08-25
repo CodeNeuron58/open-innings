@@ -381,6 +381,20 @@ export const ballEventSchema = z.object({
   fielderId: idSchema.optional(),
 
   /**
+   * Did the batters cross?
+   *
+   * Omitted derives it from run parity, which is right almost always. Sent
+   * when the scorer overrules it — the commonest case being a run out where
+   * they crossed and no runs were completed, which parity reads as "no swap"
+   * and which puts the wrong batter on strike for everything after.
+   *
+   * Unlike `isLegalDelivery` and `isFreeHit`, which are stripped because a
+   * client asserting them could break the over or the law, this one is the
+   * scorer telling the engine something it genuinely cannot know.
+   */
+  battersCrossed: z.boolean().optional(),
+
+  /**
    * Where the ball went, for a wagon wheel. Reserved — see migration 0019.
    *
    * Degrees clockwise from straight down the ground, from the striker's own

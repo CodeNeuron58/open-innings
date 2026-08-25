@@ -94,6 +94,14 @@ export type BallEvent = {
   overthrowRuns: number;
 
   /**
+   * Did the batters cross? Undefined derives it from run parity.
+   *
+   * See `shouldSwapStrike`. Set only when the scorer overrules the
+   * arithmetic, which is rare and always deliberate.
+   */
+  battersCrossed?: boolean;
+
+  /**
    * Where the ball went, when anybody recorded it.
    *
    * The engine carries these and does nothing with them. Placement changes no
@@ -294,6 +302,8 @@ export type BallEventInput = {
   extraRuns: number;
   /** Runs that crossed after a deflection — not credited to the batter. Defaults to 0. */
   overthrowRuns?: number;
+  /** The scorer's answer to "did they cross". See `BallEvent`. */
+  battersCrossed?: boolean;
   /** Carried through untouched. See `BallEvent`. */
   shotAngle?: number;
   shotDistance?: number;

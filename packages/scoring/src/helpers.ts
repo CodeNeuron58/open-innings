@@ -133,8 +133,23 @@ export function shouldSwapStrike(args: {
   runsOffBat: number;
   totalRuns: number;
   isEndOfOver: boolean;
+  /**
+   * The scorer overruling the arithmetic.
+   *
+   * Parity is right almost always and cannot be right always. Two batters set
+   * off on a run out, one is sent back, and the ball goes to the other end:
+   * nought runs completed, and they crossed. Or they ran two and were out
+   * coming back: even runs, and they crossed. The scorer watched it happen and
+   * the run count did not.
+   *
+   * Undefined means "work it out", which is what every delivery recorded
+   * before this existed means. A boolean is a deliberate answer and replaces
+   * the parity half of the calculation — not the end-of-over half, because
+   * whether the over ended is not a thing anybody can be wrong about.
+   */
+  battersCrossed?: boolean;
 }): boolean {
-  const crossed = runsCrossed(args) % 2 === 1;
+  const crossed = args.battersCrossed ?? runsCrossed(args) % 2 === 1;
   // XOR: either one swaps, both cancel.
   return crossed !== args.isEndOfOver;
 }

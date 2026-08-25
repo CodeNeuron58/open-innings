@@ -221,7 +221,7 @@ export function EndOfOver({
             <BowlerRow
               name={lastBowlerName}
               figures={figures(lastBowlerStats)}
-              note="Bowled previous over (Law 16.2 restriction)"
+              note="Bowled the previous over"
               disabled
               selected={false}
               onPress={() => {}}
@@ -276,8 +276,8 @@ export function EndOfOver({
             <View className="border-border mx-4 mt-3 flex-row gap-2 border-t pt-3">
               <Text className="text-foreground/60 shrink-0 text-[13.5px]">ⓘ</Text>
               <Text className="text-foreground/70 min-w-0 flex-1 text-[13.5px] leading-[17px]">
-                Law 16.2 — a bowler may not bowl two overs in succession. {lastBowlerName} is held
-                out until this over is scored.
+                A bowler may not bowl two overs in succession. {lastBowlerName} is held out until
+                this over is scored.
               </Text>
             </View>
 

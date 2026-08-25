@@ -364,7 +364,7 @@ export default function Scorer() {
   function confirmPenalty() {
     Alert.alert(
       'Award 5 penalty runs?',
-      'Law 41/42 — a helmet on the field, the ball tampered with, or time wasted. Five runs go to the batting side and no ball is bowled.',
+      'A helmet left on the field, the ball tampered with, or time wasted. Five runs go to the batting side and no ball is bowled.',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -452,6 +452,34 @@ export default function Scorer() {
     } finally {
       setCorrectionBusy(false);
     }
+  }
+
+  /**
+   * Swap the ends, by correcting the ball that decided them.
+   *
+   * Strike is derived from the ball log, so there is nowhere else to put this:
+   * a swap that only moved the display would be undone by the next replay, and
+   * every scorecard is a replay. What the scorer means by "they are the wrong
+   * way round" is that the last delivery's crossing was read wrongly, so that
+   * is what gets corrected.
+   *
+   * The whole delivery is resent because a patch is a replacement, not a
+   * partial update — see `patchBallSchema`.
+   */
+  async function swapEnds() {
+    if (!lastBall) return;
+
+    const derived = Boolean(lastBall.battersCrossed);
+    await correctBall({
+      eventType: lastBall.eventType,
+      runsOffBat: lastBall.runsOffBat,
+      overthrowRuns: lastBall.overthrowRuns,
+      extraRuns: lastBall.extraRuns,
+      wicketType: lastBall.wicketType,
+      wicketPlayerId: lastBall.wicketPlayerId ? String(lastBall.wicketPlayerId) : undefined,
+      fielderId: lastBall.fielderId ? String(lastBall.fielderId) : undefined,
+      battersCrossed: !derived,
+    });
   }
 
   function closeCorrection() {
@@ -585,6 +613,9 @@ export default function Scorer() {
       wicketType: type,
       wicketPlayerId: asPlayerId(outBatterId),
       fielderId: fielderId ? asPlayerId(fielderId) : undefined,
+      // The scorer's answer where they gave one. Parity cannot see a run out
+      // on which they crossed and nothing was completed.
+      battersCrossed: entry.battersCrossed,
     });
     if (!next) return;
 
@@ -831,7 +862,7 @@ export default function Scorer() {
                 </Text>
               </View>
               <Text className="font-heading text-[11px] uppercase tracking-[1.2px] text-amber-200/90">
-                Only Run Out & Obstruction (Law 21.18)
+                Run out or obstruction only
               </Text>
             </View>
           ) : null}
@@ -854,6 +885,36 @@ export default function Scorer() {
           </View>
           <BatterRow name={nameOf(effStriker)} onStrike stats={strikerStats} />
           <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
+
+          {/*
+            The ends, when the app has them the wrong way round.
+
+            Rotation is derived from run parity, which is right for every
+            ordinary delivery and cannot be right for all of them — a run out
+            where they crossed and nothing was completed reads as "no swap".
+            This corrects the delivery that decided it rather than moving the
+            display, because every scorecard is a replay and a display-only
+            swap would not survive one.
+          */}
+          {!completed && lastBall ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Swap the ends — ${nameOf(effNonStriker)} was on strike`}
+              onPress={() => {
+                tap();
+                void swapEnds();
+              }}
+              disabled={correctionBusy}
+              className={`border-border flex-row items-center justify-center gap-2 border-t py-2.5 ${
+                correctionBusy ? 'opacity-45' : 'active:opacity-70'
+              }`}
+            >
+              <Text className="text-steel-700 font-heading text-[13.5px]">⇄ Swap the ends</Text>
+              <Text className="text-foreground/60 font-heading text-[11px] uppercase tracking-[1.2px]">
+                wrong way round
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Bowler. Pressable mid-over only (Law 17.4 exception). */}
@@ -874,10 +935,7 @@ export default function Scorer() {
           <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
             {nameOf(effBowler)}
             {midOverBowlerId ? (
-              <Text className="text-steel-700 font-heading text-[11px]">
-                {' '}
-                · replacing (Law 17.4)
-              </Text>
+              <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
             ) : null}
           </Text>
           {overInProgress && !completed && !midOverBowlerId ? (
@@ -1290,7 +1348,7 @@ export default function Scorer() {
       {pickingMidOverBowler ? (
         <NextPlayerSheet
           title="Change bowler"
-          subtitle="Only if this bowler cannot continue — Law 17.4. The over carries on from where it is."
+          subtitle="Only if this bowler cannot continue. The over carries on from where it is."
           candidates={data.bowlingSquad
             .filter(
               (p) => p.id !== String(inn.currentBowlerId) && p.id !== String(inn.lastBowlerId),

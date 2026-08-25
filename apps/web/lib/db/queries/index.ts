@@ -1085,6 +1085,7 @@ export async function replaceBallSequence(
      * to make it succeed.
      */
     overthrowRuns: number;
+    battersCrossed?: boolean | null;
     shotAngle?: number | null;
     shotDistance?: number | null;
     extraRuns: number;
@@ -1143,6 +1144,7 @@ export async function replaceBallSequence(
           fielderId: ball.fielderId,
           bowlerReplacedMidOver: ball.bowlerReplacedMidOver,
           commentary: ball.commentary,
+          battersCrossed: ball.battersCrossed ?? null,
           // Carried rather than recomputed — a replay does not know where the
           // ball went, so an UPDATE that omitted these would leave the
           // placement of a rewritten delivery describing the shot it used to

@@ -36,6 +36,9 @@ export function toBallEventInput(row: BallRow): BallEventInput {
     fielderId: row.fielderId ? asPlayerId(row.fielderId) : undefined,
     wicketType: row.wicketType ?? undefined,
     commentary: row.commentary ?? undefined,
+    // The scorer's strike override. Dropping it on replay would put the wrong
+    // batter on strike for every delivery after it. See migration 0020.
+    battersCrossed: row.battersCrossed ?? undefined,
     // Reserved, and carried. A replay that dropped these would erase the
     // placement of every delivery it touched. See migration 0019.
     shotAngle: row.shotAngle ?? undefined,

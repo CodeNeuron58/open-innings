@@ -228,6 +228,8 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
     wicketType: input.wicketType,
     wicketPlayerId: input.wicketPlayerId,
     fielderId: input.fielderId,
+    // The one override the engine does act on — see `shouldSwapStrike`.
+    battersCrossed: input.battersCrossed,
     // Carried, not reasoned about. Placement changes no score, ends no over
     // and dismisses nobody — it is a fact about the shot rather than about the
     // delivery's outcome. See migration 0019.
@@ -843,6 +845,9 @@ function updateInnings(
     runsOffBat: event.runsOffBat,
     totalRuns: event.totalRuns,
     isEndOfOver: isEOOver,
+    // The scorer's answer where they gave one. Parity cannot see a run out on
+    // which the batters crossed and nought runs were completed.
+    battersCrossed: event.battersCrossed,
   });
   // The event declares the pair at the crease when this ball was bowled —
   // validation has already confirmed it is either the current pair or a

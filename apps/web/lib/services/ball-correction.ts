@@ -31,6 +31,7 @@ export type StoredBall = {
   eventType: string;
   runsOffBat: number;
   overthrowRuns?: number;
+  battersCrossed?: boolean | null;
   shotAngle?: number | null;
   shotDistance?: number | null;
   extraRuns: number;
@@ -155,6 +156,9 @@ export function correctBall(
      */
     overthrowRuns: patch.overthrowRuns ?? 0,
     extraRuns: patch.extraRuns,
+    // Whether they crossed is a fact about this delivery, so a correction
+    // replaces it rather than inheriting the old answer.
+    battersCrossed: patch.battersCrossed,
     // Placement is a fact about the shot, so a correction that describes a
     // different shot replaces it rather than inheriting it.
     shotAngle: patch.shotAngle,
@@ -469,6 +473,7 @@ function toInput(row: StoredBall): BallEventInput {
     eventType: row.eventType as BallEventInput['eventType'],
     runsOffBat: row.runsOffBat,
     overthrowRuns: row.overthrowRuns ?? 0,
+    battersCrossed: row.battersCrossed ?? undefined,
     // Carried through the replay. Without this a correction would blank the
     // placement of every delivery after the one being corrected — the balls
     // are rebuilt from these rows, and a field left out of the rebuild is a

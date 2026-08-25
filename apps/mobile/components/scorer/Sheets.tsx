@@ -289,6 +289,15 @@ export type WicketEntry = {
   nextBatterId?: string;
   /** Runs completed, or struck off a no ball, before the dismissal. */
   runs: number;
+  /**
+   * Did the batters cross? Undefined leaves it to run parity.
+   *
+   * Asked on a run out because that is where parity is least able to answer:
+   * two set off, one is sent back, the ball goes to the other end, and nought
+   * runs were completed — but they crossed, and the wrong batter is on strike
+   * for the rest of the innings if nobody says so.
+   */
+  battersCrossed?: boolean;
   /** What the delivery was. A stumping off a wide is still a wide. */
   delivery: WicketDelivery;
 };
@@ -373,6 +382,7 @@ export function WicketSheet({
   const [fielderId, setFielderId] = useState<string | null>(null);
   const [nextBatterId, setNextBatterId] = useState<string | null>(null);
   const [runsCompleted, setRunsCompleted] = useState(0);
+  const [crossed, setCrossed] = useState<boolean | null>(null);
   const [pickingOut, setPickingOut] = useState(false);
   const [pickingNext, setPickingNext] = useState(false);
 
@@ -440,6 +450,7 @@ export function WicketSheet({
               fielderId: needsFielder && fielderId ? fielderId : undefined,
               nextBatterId: nextBatterId ?? undefined,
               runs: takesRuns ? runsCompleted : 0,
+              battersCrossed: crossed ?? undefined,
               delivery,
             })
           }
@@ -496,6 +507,38 @@ export function WicketSheet({
           <Text className="text-foreground/65 mt-2.5 text-[13.5px] leading-[18px]">
             {describeWicketRuns(delivery, runsCompleted)}
           </Text>
+        </View>
+      ) : null}
+
+      {/*
+        Only on a run out, and only as an override.
+        "Work it out" is the right default — parity is correct for every
+        ordinary delivery, and asking on all of them would be four extra taps
+        an over for an answer the app already has.
+      */}
+      {type === 'run_out' ? (
+        <View className="border-border border-t pt-3.5">
+          <Label>Did the batters cross?</Label>
+          <View className="mt-2 flex-row gap-1.5">
+            <Chip
+              grow
+              label="Work it out"
+              selected={crossed === null}
+              onPress={() => setCrossed(null)}
+            />
+            <Chip
+              grow
+              label="They crossed"
+              selected={crossed === true}
+              onPress={() => setCrossed(true)}
+            />
+            <Chip
+              grow
+              label="They did not"
+              selected={crossed === false}
+              onPress={() => setCrossed(false)}
+            />
+          </View>
         </View>
       ) : null}
 
@@ -792,7 +835,7 @@ export function OverthrowSheet({
 
   return (
     <SheetShell
-      title="Overthrow (Law 19.8)"
+      title="Overthrow"
       subtitle="Runs struck by batter plus runs from overthrow deflection."
       onDismiss={onCancel}
       footer={

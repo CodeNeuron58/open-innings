@@ -597,6 +597,14 @@ export const ballEvents = pgTable(
     overthrowRuns: smallint('overthrow_runs').notNull().default(0),
 
     /**
+     * The scorer's answer to "did the batters cross". See migration 0020.
+     *
+     * Null derives it from run parity, which is what every delivery recorded
+     * before this column existed means. Set only to overrule the arithmetic.
+     */
+    battersCrossed: boolean('batters_crossed'),
+
+    /**
      * Where the ball went. Reserved — see migration 0019.
      *
      * `shotAngle` is degrees clockwise from straight down the ground, from the

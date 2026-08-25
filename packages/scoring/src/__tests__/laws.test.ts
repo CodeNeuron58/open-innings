@@ -737,3 +737,72 @@ describe('a retirement does not use up a delivery', () => {
     expect(after.balls[0]!.isLegalDelivery).toBe(true);
   });
 });
+
+describe('the scorer can overrule the strike arithmetic', () => {
+  /*
+   * Parity is right almost always and cannot be right always.
+   *
+   * Two batters set off on a run out, one is sent back, and the ball goes to
+   * the other end: nought runs completed, and they crossed. Or they ran two
+   * and were out coming back: even runs, and they crossed. The scorer watched
+   * it happen; the run count did not.
+   *
+   * Without an override the wrong batter is on strike for every delivery
+   * after, nothing objects — the innings is internally consistent, just about
+   * a different match — and the only recourse is undoing back to the ball that
+   * did it.
+   */
+  it('swaps the ends on a nought-run ball when told they crossed', () => {
+    const before = seedWith();
+    const after = bowl(before, { eventType: 'dot', battersCrossed: true });
+
+    expect(after.currentInnings.strikerId).toBe(before.currentInnings.nonStrikerId);
+    expect(after.currentInnings.nonStrikerId).toBe(before.currentInnings.strikerId);
+  });
+
+  it('keeps the ends on an odd run when told they did not', () => {
+    // The mirror: they ran one, one was sent back and the other returned to
+    // the end they came from.
+    const before = seedWith();
+    const after = bowl(before, {
+      eventType: '1',
+      runsOffBat: 1,
+      totalRuns: 1,
+      battersCrossed: false,
+    });
+
+    expect(after.currentInnings.strikerId).toBe(before.currentInnings.strikerId);
+    expect(after.currentInnings.nonStrikerId).toBe(before.currentInnings.nonStrikerId);
+  });
+
+  it('still lets the over swap them — that is not a thing anyone can be wrong about', () => {
+    // The override replaces the *parity* half of the calculation only. Whether
+    // six legal balls have been bowled is arithmetic nobody disputes, so an
+    // over ending still changes ends on top of whatever the scorer said.
+    let s = seedWith();
+    for (let i = 0; i < 5; i += 1) s = bowl(s, { eventType: 'dot' });
+
+    const beforeLast = s.currentInnings.strikerId;
+    // Sixth ball: they crossed, and the over ended. Both swap, so they cancel.
+    s = bowl(s, { eventType: 'dot', battersCrossed: true });
+    expect(s.currentInnings.strikerId).toBe(beforeLast);
+  });
+
+  it('derives it as before when nobody says', () => {
+    // Every delivery recorded before this existed sends nothing, and has to
+    // replay exactly as it was scored.
+    const before = seedWith();
+    const odd = bowl(before, { eventType: '1', runsOffBat: 1, totalRuns: 1 });
+    expect(odd.currentInnings.strikerId).toBe(before.currentInnings.nonStrikerId);
+
+    const even = bowl(before, { eventType: '2', runsOffBat: 2, totalRuns: 2 });
+    expect(even.currentInnings.strikerId).toBe(before.currentInnings.strikerId);
+  });
+
+  it('is recorded on the delivery, so a replay reaches the same ends', () => {
+    // It has to survive the ball log or the correction path would silently
+    // re-derive it and undo the scorer's answer.
+    const after = bowl(seedWith(), { eventType: 'dot', battersCrossed: true });
+    expect(after.balls[0]!.battersCrossed).toBe(true);
+  });
+});
