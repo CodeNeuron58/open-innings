@@ -68,10 +68,25 @@ const DARK_TONE_STYLES: Record<Tone, { bg: string; text: string; border: string 
 export function BallChip({
   ball,
   onDark = false,
+  latest = false,
   onPress,
 }: {
   ball: BallEvent;
   onDark?: boolean;
+  /**
+   * The delivery that just landed.
+   *
+   * Nothing used to mark it. A ball was recorded, a chip appeared among five
+   * others that look much like it, and the only other acknowledgement was
+   * `Last: 4` in small grey type at the foot of the console. A mis-tap was
+   * invisible until the over ended.
+   *
+   * Drawn rather than filled — a ring outside the chip, so the mark does not
+   * change what the chip itself says. The colour of a chip is how a four is
+   * told from a wicket, and borrowing it to mean "recent" would make two
+   * things share one channel.
+   */
+  latest?: boolean;
   /** Present only where the delivery can be corrected. See below. */
   onPress?: () => void;
 }) {
@@ -82,7 +97,15 @@ export function BallChip({
   // corrected. `components/ui.tsx` opens by promising 48pt minimums and the
   // console broke it in six places, this being the one people actually aim at
   // in sunlight, one-handed, while somebody asks them the score.
-  const box = `${style.bg} ${style.border} h-11 min-w-11 items-center justify-center border px-2`;
+  // A ring outside the chip, drawn not filled. The colour of a chip is how a
+  // four is told from a wicket, and borrowing it to also mean "recent" would
+  // make two things share one channel.
+  const edge = latest
+    ? onDark
+      ? 'border-2 border-scoreboard-accent'
+      : 'border-2 border-primary'
+    : style.border;
+  const box = `${style.bg} ${edge} h-11 min-w-11 items-center justify-center border px-2`;
 
   /*
    * Tappable only where a correction is possible.
@@ -98,7 +121,11 @@ export function BallChip({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Correct this delivery — currently ${label}`}
+      accessibilityLabel={
+        latest
+          ? `Last ball, ${label}. Tap to correct it.`
+          : `Correct this delivery — currently ${label}`
+      }
       onPress={onPress}
       className={`${box} active:opacity-60`}
     >

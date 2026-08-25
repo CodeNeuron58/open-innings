@@ -905,6 +905,9 @@ export default function Scorer() {
                     <BallChip
                       key={`${b.ballNumber}-${i}`}
                       ball={b}
+                      // The one that just landed, so a mis-tap is visible
+                      // straight away rather than at the end of the over.
+                      latest={lastBall !== undefined && String(b.id) === String(lastBall.id)}
                       // Only while the innings is live. Correcting a delivery
                       // in a closed innings would have to reopen a finished
                       // match and invalidate a result already shared, which is
