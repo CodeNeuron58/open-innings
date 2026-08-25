@@ -18,6 +18,8 @@ import {
   type ExtraKind,
   type WicketDelivery,
 } from '../../lib/deliveries';
+import { checkOpeners, openersPayload } from '../../lib/openers';
+import { OpenersPicker } from './Openers';
 import { Button } from '../ui';
 
 function hapticFeedback() {
@@ -740,56 +742,30 @@ export function OpenersSheet({
   const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
   const [bowlerId, setBowlerId] = useState<string | null>(null);
 
-  const ready = strikerId !== null && nonStrikerId !== null && bowlerId !== null;
+  /*
+   * The same three rows the innings break draws, and the same rule.
+   *
+   * This used to hide the pair rule rather than state it: the striker was
+   * filtered out of the other list, so the collision could not happen and
+   * nothing ever had to explain it. That is a reasonable design on its own —
+   * it is having two of them, disagreeing, that is the problem.
+   */
+  const draft = { strikerId, nonStrikerId, bowlerId };
+  const { ready, problem } = checkOpeners(draft);
+  const payload = openersPayload(draft);
 
   return (
     <SheetShell title={title} subtitle={subtitle} onDismiss={onCancel}>
-      <View className="gap-2">
-        <Label>On strike</Label>
-        <View className="flex-row flex-wrap gap-1.5">
-          {battingSquad.map((p) => (
-            <Chip
-              key={p.id}
-              label={p.fullName}
-              selected={strikerId === p.id}
-              onPress={() => {
-                setStrikerId(p.id);
-                if (nonStrikerId === p.id) setNonStrikerId(null);
-              }}
-            />
-          ))}
-        </View>
-      </View>
-
-      <View className="gap-2">
-        <Label>At the other end</Label>
-        <View className="flex-row flex-wrap gap-1.5">
-          {battingSquad
-            .filter((p) => p.id !== strikerId)
-            .map((p) => (
-              <Chip
-                key={p.id}
-                label={p.fullName}
-                selected={nonStrikerId === p.id}
-                onPress={() => setNonStrikerId(p.id)}
-              />
-            ))}
-        </View>
-      </View>
-
-      <View className="gap-2">
-        <Label>Opening bowler</Label>
-        <View className="flex-row flex-wrap gap-1.5">
-          {bowlingSquad.map((p) => (
-            <Chip
-              key={p.id}
-              label={p.fullName}
-              selected={bowlerId === p.id}
-              onPress={() => setBowlerId(p.id)}
-            />
-          ))}
-        </View>
-      </View>
+      <OpenersPicker
+        battingSquad={battingSquad}
+        bowlingSquad={bowlingSquad}
+        strikerId={strikerId}
+        nonStrikerId={nonStrikerId}
+        bowlerId={bowlerId}
+        onStriker={setStrikerId}
+        onNonStriker={setNonStrikerId}
+        onBowler={setBowlerId}
+      />
 
       {error ? (
         <View className="border-destructive/40 bg-destructive/5 border p-2.5">
@@ -797,17 +773,15 @@ export function OpenersSheet({
         </View>
       ) : null}
 
+      {/* Said before the button is reached for, not after it is refused. */}
+      {!ready && problem ? (
+        <Text className="text-foreground/70 text-[13.5px] leading-[19px]">{problem}</Text>
+      ) : null}
+
       <Button
         label={busy ? 'Starting…' : 'Start'}
-        disabled={!ready || busy}
-        onPress={() =>
-          ready &&
-          onConfirm({
-            openingStrikerId: strikerId,
-            openingNonStrikerId: nonStrikerId,
-            openingBowlerId: bowlerId,
-          })
-        }
+        disabled={!payload || busy}
+        onPress={() => payload && onConfirm(payload)}
       />
     </SheetShell>
   );

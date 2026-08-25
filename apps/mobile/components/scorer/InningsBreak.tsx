@@ -9,6 +9,8 @@ import { Stack, useRouter } from 'expo-router';
 import { buildScorecard, formatOvers, type MatchState } from '@open-innings/scoring';
 import { shareUrls } from '../../lib/config';
 import { Button, ErrorBanner, Kicker } from '../ui';
+import { checkOpeners, openersPayload } from '../../lib/openers';
+import { OpenersPicker } from './Openers';
 
 export function InningsBreak({
   matchId,
@@ -81,20 +83,14 @@ export function InningsBreak({
   }
 
   function begin() {
-    setLocalError(null);
-    if (!strikerId || !nonStrikerId || !bowlerId) {
-      setLocalError('Pick both opening batters and the opening bowler.');
-      return;
-    }
-    if (strikerId === nonStrikerId) {
-      setLocalError('Striker and non-striker must be different players.');
-      return;
-    }
-    void onStart({
-      openingStrikerId: strikerId,
-      openingNonStrikerId: nonStrikerId,
-      openingBowlerId: bowlerId,
-    });
+    // One rule, in one place — this screen used to state it twice in its own
+    // words. See lib/openers.ts.
+    const draft = { strikerId, nonStrikerId, bowlerId };
+    const { problem } = checkOpeners(draft);
+    setLocalError(problem);
+
+    const payload = openersPayload(draft);
+    if (payload) void onStart(payload);
   }
 
   return (
@@ -251,25 +247,15 @@ export function InningsBreak({
       ) : (
         <>
           <ScrollView contentContainerClassName="px-4 pb-4 pt-5 gap-5">
-            <OpenerPicker
-              label="Striker"
-              options={battingSquad}
-              selected={strikerId}
-              disabledId={nonStrikerId}
-              onSelect={setStrikerId}
-            />
-            <OpenerPicker
-              label="Non-striker"
-              options={battingSquad}
-              selected={nonStrikerId}
-              disabledId={strikerId}
-              onSelect={setNonStrikerId}
-            />
-            <OpenerPicker
-              label="Opening bowler"
-              options={bowlingSquad}
-              selected={bowlerId}
-              onSelect={setBowlerId}
+            <OpenersPicker
+              battingSquad={battingSquad}
+              bowlingSquad={bowlingSquad}
+              strikerId={strikerId}
+              nonStrikerId={nonStrikerId}
+              bowlerId={bowlerId}
+              onStriker={setStrikerId}
+              onNonStriker={setNonStrikerId}
+              onBowler={setBowlerId}
             />
           </ScrollView>
 
@@ -283,51 +269,5 @@ export function InningsBreak({
         </>
       )}
     </SafeAreaView>
-  );
-}
-
-function OpenerPicker({
-  label,
-  options,
-  selected,
-  disabledId,
-  onSelect,
-}: {
-  label: string;
-  options: { id: string; fullName: string }[];
-  selected: string | null;
-  disabledId?: string | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <View className="gap-2">
-      <Kicker>{label}</Kicker>
-      <View className="flex-row flex-wrap gap-1.5">
-        {options.map((p) => {
-          const isSelected = p.id === selected;
-          const isDisabled = p.id === disabledId;
-          return (
-            <Pressable
-              key={p.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: isSelected, disabled: isDisabled }}
-              disabled={isDisabled}
-              onPress={() => onSelect(p.id)}
-              className={`h-11 shrink-0 justify-center border px-3 ${
-                isSelected ? 'bg-scoreboard border-scoreboard' : 'border-input'
-              } ${isDisabled ? 'opacity-35' : 'active:opacity-70'}`}
-            >
-              <Text
-                className={`font-heading text-[13px] ${
-                  isSelected ? 'text-scoreboard-text' : 'text-foreground'
-                }`}
-              >
-                {p.fullName}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
   );
 }

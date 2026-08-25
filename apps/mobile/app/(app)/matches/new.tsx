@@ -22,6 +22,7 @@ import {
 } from '@open-innings/shared';
 import { api } from '../../../lib/api';
 import { battingLine, bowlingLine, usePlayerBriefs } from '../../../lib/briefs';
+import { checkOpeners } from '../../../lib/openers';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { useTheme } from '../../../lib/use-theme';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
@@ -231,6 +232,10 @@ export default function NewMatch() {
       // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refresh is stable, the object around it is not
     }, [homeRoster.refresh, awayRoster.refresh]),
   );
+
+  // Striker, non-striker and bowler, checked the way every other screen that
+  // asks for them checks. See lib/openers.ts.
+  const openers = checkOpeners({ strikerId, nonStrikerId, bowlerId });
 
   // Both XIs in one request, so the three pickers on step 3 share a fetch.
   const briefs = usePlayerBriefs([...homeXI.map((p) => p.id), ...awayXI.map((p) => p.id)]);
@@ -750,11 +755,20 @@ export default function NewMatch() {
           </View>
         ) : null}
 
+        {/* The same rule the innings break and the Super Over sheet use. This
+            screen used to leave it to `createMatchSchema`, which refuses the
+            pair with a message nobody sees until the request comes back. */}
+        {openers.problem ? (
+          <Text className="text-foreground/70 mt-4 text-[13.5px] leading-[19px]">
+            {openers.problem}
+          </Text>
+        ) : null}
+
         <View className="mt-7">
           <Button
             label="Start innings"
             loading={mutation.busy}
-            disabled={!strikerId || !nonStrikerId || !bowlerId}
+            disabled={!openers.ready}
             onPress={() => void submit()}
           />
         </View>
