@@ -24,6 +24,7 @@ import {
   splitExtra,
   deliveryFor,
   wicketDeliveryFor,
+  armedTotal,
   EXTRA_TOTALS,
   type ExtraKind,
   type WicketDelivery,
@@ -274,6 +275,62 @@ describe('wicketDeliveryFor', () => {
           ...ids,
         });
         expect(parsed.success, `${delivery} +${runs} → ${JSON.stringify(built)}`).toBe(true);
+      }
+    }
+  });
+});
+
+/**
+ * The number the key will put on the board.
+ *
+ * These exist so the keypad can show it *before* the tap. The model asks a
+ * scorer to hold two rules in their head — a wide's runs are the total, a no
+ * ball's are on top of the penalty — and the only thing on screen that hinted
+ * at either was a 9px line reading "Wide armed".
+ */
+describe('armedTotal', () => {
+  it('adds the penalty to what came off the bat on a no ball', () => {
+    expect(armedTotal('no_ball', 0)).toBe(1);
+    expect(armedTotal('no_ball', 4)).toBe(5);
+    expect(armedTotal('no_ball', 6)).toBe(7);
+  });
+
+  it('takes the runs as the whole total on a wide', () => {
+    expect(armedTotal('wide', 4)).toBe(4);
+    expect(armedTotal('wide', 2)).toBe(2);
+  });
+
+  it('reads a tap of zero as one, not none', () => {
+    // A nought-run bye is a dot ball, and somebody who wanted a dot would not
+    // have armed anything.
+    expect(armedTotal('wide', 0)).toBe(1);
+    expect(armedTotal('bye', 0)).toBe(1);
+    expect(armedTotal('leg_bye', 0)).toBe(1);
+  });
+
+  it('agrees with splitExtra for every key and every extra', () => {
+    // The number shown on the key and the number recorded have to be the same
+    // number. They were two expressions in two files.
+    for (const kind of KINDS) {
+      for (const tapped of [0, 1, 2, 3, 4, 5, 6]) {
+        const total = armedTotal(kind, tapped);
+        const { runsOffBat, extraRuns } = splitExtra(kind, total);
+        expect(runsOffBat + extraRuns, `${kind} +${tapped}`).toBe(total);
+      }
+    }
+  });
+
+  it('builds a payload the server accepts, for every key and every extra', () => {
+    const ids = {
+      batsmanId: '11111111-1111-4111-8111-111111111111',
+      nonStrikerId: '22222222-2222-4222-8222-222222222222',
+      bowlerId: '33333333-3333-4333-8333-333333333333',
+    };
+    for (const kind of KINDS) {
+      for (const tapped of [0, 1, 2, 3, 4, 5, 6]) {
+        const built = deliveryFor({ kind: 'extra', extra: kind, total: armedTotal(kind, tapped) });
+        const parsed = consistentBallEventSchema.safeParse({ ...built, ...ids });
+        expect(parsed.success, `${kind} +${tapped} → ${JSON.stringify(built)}`).toBe(true);
       }
     }
   });

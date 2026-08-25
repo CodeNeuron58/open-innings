@@ -82,6 +82,29 @@ export function wicketDeliveryFor(
   return { eventType: delivery, runsOffBat, extraRuns, totalRuns };
 }
 
+/**
+ * What tapping a run key does while an extra is armed.
+ *
+ * The console's armed-modifier model means two different things and used to
+ * say so nowhere. Arm Wide and tap 4 and you get four wides; arm No ball and
+ * tap 4 and you get five, because four came off the bat and the penalty is the
+ * delivery's. Same gesture, different arithmetic, explained in a source
+ * comment and in no pixel on the screen.
+ *
+ * The rule lived inline in `scoreRuns`. It is here so the keypad can *show*
+ * the answer on the key before it is tapped, and so the number shown and the
+ * number recorded come from one function rather than two.
+ *
+ * Tapping 0 on a wide, bye or leg bye means one of them, not none — a nought-
+ * run bye is a dot ball, and the scorer who wanted a dot would not have armed
+ * anything.
+ */
+export function armedTotal(kind: ExtraKind, runsTapped: number): number {
+  const runs = Math.max(0, runsTapped);
+  if (kind === 'no_ball') return runs + 1;
+  return runs === 0 ? 1 : runs;
+}
+
 /** Runs a scoring shot puts on the board, by its event type. */
 export const RUN_EVENT_TYPE: Record<number, BallEventType> = {
   0: 'dot',

@@ -18,7 +18,12 @@ import {
   type PlayerId,
 } from '@open-innings/scoring';
 import type { BallCorrectionChange, PatchBallInput, ScorerResponse } from '@open-innings/shared';
-import { EXTRA_LABELS, splitExtra, wicketDeliveryFor } from '../../../../lib/deliveries';
+import {
+  EXTRA_LABELS,
+  armedTotal,
+  splitExtra,
+  wicketDeliveryFor,
+} from '../../../../lib/deliveries';
 import { api } from '../../../../lib/api';
 import { requestIdFor } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
@@ -474,12 +479,9 @@ export default function Scorer() {
     if (pendingExtra) {
       const extra = pendingExtra;
       setPendingExtra(null);
-      // For no-ball: runs on keypad = runs struck off the bat. Total = struck + 1 penalty.
-      // E.g. tap 4 on No Ball -> 5 total runs (4 off bat + 1 extra).
-      // For wide / bye / leg_bye: runs on keypad = total runs.
-      // E.g. tap 0 or 1 on Wide -> 1 wide. Tap 4 -> 4 wides.
-      const total = extra === 'no_ball' ? runsOffBat + 1 : runsOffBat === 0 ? 1 : runsOffBat;
-      void scoreExtra(extra, total);
+      // `armedTotal`, not a copy of it — the key showed this number a moment
+      // ago and the two must be the same number. See lib/deliveries.ts.
+      void scoreExtra(extra, armedTotal(extra, runsOffBat));
       return;
     }
 
@@ -934,6 +936,14 @@ export default function Scorer() {
                 <Key
                   key={k.label}
                   {...k}
+                  // With an extra armed, the key says what it will put on the
+                  // board. A scorer should not have to remember that Wide + 4
+                  // is four and No ball + 4 is five.
+                  sublabel={
+                    pendingExtra && k.runs !== undefined
+                      ? `${armedTotal(pendingExtra, k.runs)} ${EXTRA_MARK[pendingExtra]}`
+                      : undefined
+                  }
                   onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
                   disabled={mutation.busy}
                 />
@@ -973,7 +983,7 @@ export default function Scorer() {
                   className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
                 >
                   <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
-                    {EXTRA_LABELS[pendingExtra]} armed — tap the runs
+                    {ARMED_HINT[pendingExtra]}
                   </Text>
                 </Pressable>
               ) : null}
@@ -1257,6 +1267,28 @@ function SyncBar({
   );
 }
 
+/** How each extra is marked, short enough to sit under a key. */
+const EXTRA_MARK: Record<ExtraKind, string> = {
+  wide: 'wd',
+  no_ball: 'nb',
+  bye: 'b',
+  leg_bye: 'lb',
+};
+
+/**
+ * What the armed extra means, in the one place a scorer will read it.
+ *
+ * "Wide armed" said which mode was on and nothing about what the keys would
+ * now do — which is the half that is not obvious, and the half that differs
+ * between the two kinds of extra.
+ */
+const ARMED_HINT: Record<ExtraKind, string> = {
+  wide: 'Wide — tap the runs they ran, or 0 for a plain wide',
+  no_ball: 'No ball — tap the runs off the bat, the penalty is added',
+  bye: 'Byes — tap how many they ran',
+  leg_bye: 'Leg byes — tap how many they ran',
+};
+
 /**
  * Column widths for the batting table.
  *
@@ -1384,12 +1416,15 @@ function hapticFeedback() {
 
 function Key({
   label,
+  sublabel,
   tone,
   text,
   onPress,
   disabled,
 }: {
   label: string;
+  /** What this key will score, when an extra is armed. */
+  sublabel?: string;
   runs?: number;
   tone: string;
   text: string;
@@ -1399,18 +1434,31 @@ function Key({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label === '0' ? 'Dot ball' : label === 'W' ? 'Wicket' : `${label} runs`}
+      accessibilityLabel={
+        sublabel
+          ? `${label} — scores ${sublabel}`
+          : label === '0'
+            ? 'Dot ball'
+            : label === 'W'
+              ? 'Wicket'
+              : `${label} runs`
+      }
       onPress={() => {
         hapticFeedback();
         onPress();
       }}
       disabled={disabled}
       // w-1/4 with a right/bottom hairline gives the drawn grid without gaps.
-      className={`${tone} border-border h-[52px] w-1/4 items-center justify-center border-b border-r ${
+      className={`${tone} border-border h-[58px] w-1/4 items-center justify-center border-b border-r ${
         disabled ? 'opacity-40' : 'active:opacity-70'
       }`}
     >
-      <Text className={`${text} font-heading text-[22px]`}>{label === '0' ? '0' : label}</Text>
+      <Text className={`${text} font-heading text-[22px] leading-[24px]`}>
+        {label === '0' ? '0' : label}
+      </Text>
+      {sublabel ? (
+        <Text className={`${text} font-heading text-[11px] opacity-75`}>{sublabel}</Text>
+      ) : null}
     </Pressable>
   );
 }
