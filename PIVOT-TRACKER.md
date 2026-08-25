@@ -3,9 +3,10 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 8 · **Diff:** 29 files, +3035 / −454
-**Tests:** 371 passing (shared 40 · scoring 179 · mobile 61 · web 91)
-**Findings:** 61 total — **24 closed**, 4 part done, 33 open
+**Branch:** `pivot` · **Commits:** 12
+**Tests:** 399 passing (shared 40 · scoring 179 · mobile 89 · web 91)
+**Smoke:** 359 checks green against a real database (score 51 · api 283 · p1 19 · xi 6)
+**Findings:** 61 total — **30 closed**, 1 part done, 30 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -20,17 +21,25 @@ and information architecture.
 - [ ] `npx expo prebuild` and rebuild the dev client — offline scoring adds
       `expo-sqlite`, a native module. A JS reload will not pick it up.
 
-### Not runtime-verified
+### What has and has not been run
 
-There is no device in this environment and no React renderer in the workspace
-(see `apps/mobile/vitest.config.ts`). Everything below is typecheck-, lint- and
-unit-test-verified only. Two things want smoking on hardware before they are
-trusted with a real match:
+The **server** half is verified against a real Postgres. Migration 0018 applies
+from scratch, and 359 smoke checks pass through the live API — including six
+that prove the playing XI end to end on a club of twelve of which seven play.
+
+The **mobile** half is not. There is no device here and no React renderer in
+the workspace (see `apps/mobile/vitest.config.ts`), so anything that is layout,
+gesture or device behaviour is typecheck-, lint- and unit-test-verified only.
+Three things want smoking on hardware:
 
 - [ ] **Offline scoring** — aeroplane mode, a full over, then reconnect. Check
       the queue drains in order and the score does not jump.
 - [ ] **Force-quit mid-over** — kill the app with balls pending, reopen, and
       confirm the queue is still there.
+- [ ] **Dark mode** — the CSS compiles with both palettes and the contrast is
+      measured, but "does it look right" is not a thing this environment can
+      answer. Check the score plate still reads as a panel and the over strip
+      is still scannable.
 
 ---
 
@@ -144,6 +153,41 @@ trusted with a real match:
 
 - [x] Dev data goes down the new path rather than the compatibility fallback.
 
+### `c6ac3ec` The playing XI, proved end to end
+
+- [x] Six smoke checks against a real database: the XI reaches `match_squads`,
+      the innings is sized for seven rather than the twelve on the books, the
+      scorer endpoint returns the XI for both squads, a stranger's id is
+      refused, and omitting the XI still falls back to the roster.
+
+### `3a37581` A type scale, and the end of over stops taking the screen
+
+- [x] **E1** The end of over is a sheet over the console, not a full-screen
+      takeover forty times a match. The "Peek board" mode goes with it — it
+      existed only to undo the harm of hiding the board.
+- [x] **E2** The bowler who bowled from this end last over is sorted first,
+      labelled, and preselected. One tap instead of three.
+- [x] **C21** Four type sizes below the display sizes instead of fourteen, with
+      a floor at 11px. Nine of the fourteen were 9px.
+- [x] **C20** The batting block is the second-most-read thing on the screen and
+      was 9px headers over 12–15px figures. Runs are now 18px, columns widened
+      to match.
+- [x] **F5** `text-neutral-600` (4.0:1) → `700` (6.4:1), and the two faintest
+      opacity rungs raised.
+
+### `511101b` Dark mode
+
+- [x] **F2** The palette moves to `global.css` as CSS variables with a light and
+      a dark set. NativeWind 4 resolves them, so not one className changed.
+- [x] The dark set is designed rather than inverted: both ramps reverse, the
+      accent moves up its ramp, the score plate stays put and becomes a raised
+      panel, and a wicket chip inverts because the darkest mark on paper has to
+      be the lightest on a dark ground.
+- [x] The eight hard-coded hex values that are props rather than classes —
+      placeholders, spinners, the switch, the status bar — now follow the theme.
+- [x] `theme.test.ts` parses the CSS, asserts the two copies of the palette
+      agree, and measures WCAG contrast across both themes.
+
 ---
 
 ## Part done
@@ -151,12 +195,6 @@ trusted with a real match:
 - [ ] **A1** — _Critical._ Cold start. Inline player creation and real empty
       states landed, but there is still no single guided "first match" flow that
       creates teams and players without leaving the wizard.
-- [ ] **C20** — _Major._ The batters block is still 9px headers and 12–15px
-      figures. Chips and the extras row were sized up; this was not.
-- [ ] **C21** — _Major._ Type scale. Several sizes below 14px were raised, but the
-      console still has no single scale with a floor.
-- [ ] **F5** — _Major._ Contrast. Some `text-neutral-600` moved to `700`; the
-      opacity ladder (`/45` … `/70`) has not been audited against a budget.
 
 ---
 
@@ -203,10 +241,6 @@ trusted with a real match:
 
 ### Overs, breaks and endings
 
-- [ ] **E1** — _Major._ A full blocking modal after every over — forty per T20.
-      Wants a compact sheet so the score stays visible.
-- [ ] **E2** — _Major._ Choosing the next bowler is never one tap. No memory of
-      the rotation, no ordering by who bowled from that end.
 - [ ] **E3** — _Minor._ The innings break repeats the step-3 problem. Three copies
       of the "who's on" interaction exist.
 - [ ] **E4** — _Minor._ The result screen's `share()` is `eslint-disable`d dead
@@ -215,8 +249,6 @@ trusted with a real match:
 
 ### Across the app
 
-- [ ] **F2** — _Major._ No dark mode. Evening matches under floodlights on a
-      full-brightness white screen. The token layer is already the right shape.
 - [ ] **F4** — _Major._ Long-press is load-bearing for match settings and delete.
 - [ ] **F6** — _Minor._ Every load is a full-screen spinner; no skeletons.
 - [ ] **F7** — _Minor._ Errors render above the fold you are not looking at.
@@ -235,15 +267,17 @@ trusted with a real match:
 
 Ranked by what each unblocks, not by size.
 
-1. **Dark mode (F2)** — a scoring app used at 7pm has to have it, and the token
-   layer in `tailwind.config.js` is already shaped for a second set.
-2. **End of over (E1, E2)** — forty forced full-screen interruptions per T20 is
-   the biggest remaining tax on the core loop.
-3. **Correcting a wicket (D1)** — the server can already replay from any ball;
-   the sheet just needs opening pre-filled.
-4. **Type scale and contrast (C20, C21, F5)** — no palette changes, sizes and
-   weights only. Cheapest visible win left.
-5. **Guest discovery (A4)** — the endpoints and public scorecards exist; only a
+1. **Correcting a wicket (D1)** — the server can already replay from any ball;
+   the sheet just needs opening pre-filled. The most consequential mis-tap on
+   the console still has no fix short of undoing every ball since.
+2. **Guest discovery (A4)** — the endpoints and public scorecards exist; only a
    listing is missing. It is also the whole top of the funnel.
-6. **The armed-extra total (C4)** — show the arithmetic before it commits and the
+3. **The armed-extra total (C4)** — show the arithmetic before it commits and the
    model stops being a memory test.
+4. **Long-press (F4)** — match settings and delete are still only reachable by a
+   gesture nothing advertises.
+5. **The innings break (E3)** — three copies of the "who's on" interaction exist.
+   One component, used everywhere.
+6. **The primary button's contrast** — `theme.test.ts` records paper-on-steel at
+   3.71:1, under AA. Steel-700 reaches 6.1:1 and is one step down the same ramp.
+   Left alone because the accent is yours to change, not the test's.
