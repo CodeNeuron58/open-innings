@@ -2,7 +2,7 @@
  * The ball-by-ball scorer. Server owns state, mandatory sheets block scoring,
  * and no ads are shown here.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Alert, Platform, Pressable, ScrollView, Text, Vibration, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import {
   asPlayerId,
   ballMark,
   formatOvers,
+  groupIntoOvers,
   type BallEventInput,
   type BallEventType,
   type MatchState,
@@ -148,6 +149,9 @@ export default function Scorer() {
   // This flag must be stored on the delivery itself for replay validation.
   const [midOverBowlerId, setMidOverBowlerId] = useState<string | null>(null);
   const [pickingMidOverBowler, setPickingMidOverBowler] = useState(false);
+
+  // Keeps the newest over in view as the strip grows past the screen.
+  const stripRef = useRef<ScrollView>(null);
 
   /*
    * Re-read from the server, and stop preferring the copy we already had.
@@ -631,6 +635,33 @@ export default function Scorer() {
   // already uses — so the button and the chip it removes say the same thing.
   const undoTarget = lastBall ? ballMark(lastBall).label : '';
 
+  /*
+   * The two questions a scorer is asked most often, and the plate answered
+   * neither.
+   *
+   * "How many extras?" and "what's the partnership?" are both derivable from
+   * state the engine already keeps — `inn.extras` and the active partnership —
+   * and both used to require leaving the console for the card. The last wicket
+   * is the third: it is how a captain decides whether to send the next one in
+   * ahead of the order.
+   */
+  const partnership = state.partnerships.find((p) => p.isActive) ?? null;
+  const lastWicket = state.fallOfWickets[state.fallOfWickets.length - 1] ?? null;
+
+  /*
+   * The last few overs, oldest first.
+   *
+   * `groupIntoOvers` is the app's one way of cutting a ball log into overs and
+   * it returns newest first — right for a commentary feed, wrong for a strip
+   * you read left to right — so it is reversed here rather than reimplemented.
+   *
+   * Capped: a fifty-over innings is fifty groups and the scorer wants the last
+   * few. Anything older is on the card, which is now one tap away.
+   */
+  const recentOvers = [...groupIntoOvers(state.balls, (id) => nameOf(id))]
+    .slice(0, OVERS_IN_STRIP)
+    .reverse();
+
   const runsThisOver = overBalls.reduce((sum, b) => sum + b.totalRuns, 0);
   const legalThisOver = overBalls.filter(
     (b) => b.eventType !== 'wide' && b.eventType !== 'no_ball',
@@ -737,6 +768,22 @@ export default function Scorer() {
             ) : null}
           </View>
 
+          {/* Extras, the stand, and how the last one fell. All three are
+              folded out of state the engine already holds. */}
+          <View className="border-scoreboard-text/25 mt-2.5 flex-row flex-wrap gap-x-4 gap-y-1 border-t pt-2.5">
+            <Plate label="Extras" value={String(inn.extras)} />
+            {partnership ? (
+              <Plate label="Stand" value={`${partnership.runs} (${partnership.balls})`} />
+            ) : null}
+            {lastWicket ? (
+              <Plate
+                label={`Last wkt ${lastWicket.wicketNumber}`}
+                value={`${nameOf(lastWicket.batsmanOutId)} ${lastWicket.runs}-${lastWicket.wicketNumber}`}
+                wide
+              />
+            ) : null}
+          </View>
+
           {inn.isFreeHitNext && !completed ? (
             <View className="mt-3 flex-row items-center justify-between border border-amber-400/60 bg-amber-400/20 px-3 py-2">
               <View className="flex-row items-center gap-2">
@@ -811,9 +858,21 @@ export default function Scorer() {
           </Text>
         </Pressable>
 
-        {/* This over */}
-        <View className="px-4 pb-3.5 pt-3">
-          <View className="mb-2 flex-row items-baseline">
+        {/*
+          The innings, not just the over.
+
+          This showed six chips and nothing else, so a mistake noticed three
+          overs later could not be reached from the console at all — the
+          correction handler was only ever wired to the current over. The
+          server has always been able to replay from any delivery; only the UI
+          could not address one.
+
+          Scrolled horizontally with the current over on the right, because
+          that is where the next ball is about to land and it is what the
+          scorer is looking at.
+        */}
+        <View className="pb-3.5 pt-3">
+          <View className="mb-2 flex-row items-baseline px-4">
             <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
               {overLabel}
             </Text>
@@ -821,26 +880,51 @@ export default function Scorer() {
               {runsThisOver} run{runsThisOver === 1 ? '' : 's'} this over
             </Text>
           </View>
-          <View className="flex-row flex-wrap gap-1.5">
-            {overBalls.map((b, i) => (
-              <BallChip
-                key={`${b.ballNumber}-${i}`}
-                ball={b}
-                // Only while the innings is live. Correcting a delivery in a
-                // closed innings would have to reopen a finished match and
-                // invalidate a result already shared, which is a different
-                // feature and is refused by the server too.
-                onPress={completed ? undefined : () => setCorrecting(String(b.id))}
-              />
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="px-4 gap-3 items-start"
+            // Pinned to the newest over. `groupIntoOvers` returns newest
+            // first, so the strip is reversed and this keeps the far end in
+            // view as the over fills.
+            ref={stripRef}
+            onContentSizeChange={() => stripRef.current?.scrollToEnd({ animated: false })}
+          >
+            {recentOvers.map((over) => (
+              <View key={over.overNumber} className="shrink-0">
+                <Text
+                  className="font-heading mb-1.5 text-[11px] uppercase tracking-[1.2px] text-neutral-700"
+                  numberOfLines={1}
+                >
+                  Ov {over.overNumber} · {over.bowlerName}
+                </Text>
+                <View className="flex-row gap-1.5">
+                  {over.balls.map((b, i) => (
+                    <BallChip
+                      key={`${b.ballNumber}-${i}`}
+                      ball={b}
+                      // Only while the innings is live. Correcting a delivery
+                      // in a closed innings would have to reopen a finished
+                      // match and invalidate a result already shared, which is
+                      // a different feature and is refused by the server too.
+                      onPress={completed ? undefined : () => setCorrecting(String(b.id))}
+                    />
+                  ))}
+                  {/* The balls not yet bowled, on the over in progress only —
+                      drawn, not filled. */}
+                  {over.overNumber === currentOver + 1
+                    ? Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
+                        <View
+                          key={`empty-${i}`}
+                          className="border-border/40 h-11 w-11 border border-dashed"
+                        />
+                      ))
+                    : null}
+                </View>
+              </View>
             ))}
-            {/* The balls not yet bowled — drawn, not filled. */}
-            {Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
-              <View
-                key={`empty-${i}`}
-                className="border-border/40 h-11 w-11 border border-dashed"
-              />
-            ))}
-          </View>
+          </ScrollView>
         </View>
 
         {mutation.error ? (
@@ -1290,6 +1374,16 @@ const ARMED_HINT: Record<ExtraKind, string> = {
 };
 
 /**
+ * How far back the over strip reaches.
+ *
+ * Enough to cover the spell a scorer is likely to be correcting — a mistake is
+ * usually noticed within an over or two — without turning the console into the
+ * scorecard, which is one tap away and is the right place for the whole
+ * innings.
+ */
+const OVERS_IN_STRIP = 8;
+
+/**
  * Column widths for the batting table.
  *
  * Widened with the type. The figures must never wrap or shrink — a strike rate
@@ -1348,6 +1442,26 @@ function rate(runs: number, balls: number): string {
 function strikeRate(runs: number, balls: number): string {
   if (balls <= 0) return '0.0';
   return ((runs / balls) * 100).toFixed(1);
+}
+
+/**
+ * A labelled fact on the score plate.
+ *
+ * Distinct from `Rate` because these are not rates: a stand of 42 off 31 and a
+ * name do not want the tabular treatment a run rate does, and one of them is
+ * long enough to need the whole row.
+ */
+function Plate({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <View className={`flex-row items-baseline gap-1.5 ${wide ? 'min-w-0 flex-1' : 'shrink-0'}`}>
+      <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
+        {label}
+      </Text>
+      <Text className="text-scoreboard-text font-heading min-w-0 text-[13.5px]" numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
 }
 
 function Rate({ label, value }: { label: string; value: string }) {
