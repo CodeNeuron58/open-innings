@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 24
+**Branch:** `pivot` · **Commits:** 27
 **Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
 **Smoke:** 376 checks green against a real database
 (score 51 · api 283 · p1 19 · xi 6 · correct 10 · browse 7)
-**Findings:** 61 total — **41 closed**, 1 part done, 19 open
+**Findings:** 61 total — **48 closed**, 1 part done, 12 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -281,6 +281,30 @@ Three things want smoking on hardware:
       honest about the limitation and vague about the offer, because the offer
       was a box asking for a URL. There is live cricket behind it now.
 
+### `485af22` Skeletons, and four screens stop saying untrue things
+
+- [x] **F6** The four busiest screens hold their shape while loading instead of
+      showing a centred spinner that replaces the UI and jumps the layout twice.
+      The console gets its own — it is the one most often opened on a ground's
+      connection, and a blank frame there is genuinely alarming.
+- [x] **F8** The More screen stops advertising four features that do not exist,
+      and a fifth that was a statement wearing the shape of a control.
+- [x] **E4** One sharing path. `result.tsx` held a second `share()` suppressed
+      with `no-unused-vars` and never called.
+- [x] **E5** The Super Over block moves under the headline. "The scores are
+      level" is the match's most important fact and it sat below the standouts.
+- [x] **C23** Refresh stops leading the completed-innings actions. It stays as
+      the last resort it always was.
+
+### `2bc311f` The score says itself, and errors land where the thumb is
+
+- [x] **F12** `accessibilityLiveRegion` on the plate, with a spoken label — "142
+      for 6, after 17.3 overs, need 43 off 31" rather than the hyphen a reader
+      would otherwise voice. Nothing previously announced that the score moved.
+- [x] **F7** Failures move from the top of the scroll view to just above the
+      console. A quarter-second after tapping a key nobody is looking at the top
+      of the scroll view.
+
 ---
 
 ## Part done
@@ -309,8 +333,6 @@ Three things want smoking on hardware:
 - [ ] **C14** — _Minor._ No shot direction captured, so no wagon wheel is possible
       later. Worth reserving a field on the ball schema now.
 - [ ] **C18** — _Minor._ Law citations printed on the live console.
-- [ ] **C23** — _Minor._ "Refresh" is a developer's escape hatch shown as a user
-      control.
 
 ### Fixing mistakes
 
@@ -319,20 +341,12 @@ Three things want smoking on hardware:
 
 ### Overs, breaks and endings
 
-- [ ] **E4** — _Minor._ The result screen's `share()` is `eslint-disable`d dead
-      code; sharing routes elsewhere. Two half-built implementations.
-- [ ] **E5** — _Minor._ A tie gives no prompt toward the Super Over.
-
 ### Across the app
 
-- [ ] **F6** — _Minor._ Every load is a full-screen spinner; no skeletons.
-- [ ] **F7** — _Minor._ Errors render above the fold you are not looking at.
-- [ ] **F8** — _Minor._ The More screen advertises four features that do not exist.
 - [ ] **F9** — _Minor._ No search, filter or season grouping on the match list.
 - [ ] **F10** — _Minor._ Multi-device scoring is handled server-side but never
       shown. Nothing says who holds the book.
 - [ ] **F11** — _Minor._ No landscape or tablet layout.
-- [ ] **F12** — _Minor._ The score never announces itself to a screen reader.
 - [ ] **F13** — _Minor._ No help anywhere. C4, F4 and the bowler-row shortcut are
       all undiscoverable without it.
 
