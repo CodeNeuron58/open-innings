@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 19
-**Tests:** 404 passing (shared 40 · scoring 179 · mobile 94 · web 91)
+**Branch:** `pivot` · **Commits:** 23
+**Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
 **Smoke:** 376 checks green against a real database
 (score 51 · api 283 · p1 19 · xi 6 · correct 10 · browse 7)
-**Findings:** 61 total — **37 closed**, 1 part done, 23 open
+**Findings:** 61 total — **40 closed**, 1 part done, 20 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -20,7 +20,8 @@ and information architecture.
 - [ ] `pnpm db:migrate` — migration 0018 creates `match_squads`. Additive and
       idempotent; no existing table changes shape.
 - [ ] `npx expo prebuild` and rebuild the dev client — offline scoring adds
-      `expo-sqlite`, a native module. A JS reload will not pick it up.
+      `expo-sqlite` and the haptics work adds `expo-haptics`. Both are native
+      modules; a JS reload will not pick either up.
 
 ### What has and has not been run
 
@@ -240,6 +241,36 @@ Three things want smoking on hardware:
       the current over, so a mistake noticed three overs later could not be
       reached — though the server has always replayed from any delivery.
 
+### `e0872df` One rule for who's on
+
+- [x] **E3** Match creation, the innings break and the Super Over sheet each had
+      their own answer to "are these three acceptable". One checked and wrote
+      its own strings, one prevented the collision by filtering and never
+      explained it, one left the pair rule to the server. The rule is now in
+      `lib/openers.ts`, with a test asserting every draft it accepts parses
+      against `openersSchema`.
+- [x] The two chip pickers become one component. Match creation keeps its richer
+      full-screen rows but takes the rule from the same place, so the pair
+      collision is caught before the request rather than after it.
+
+### `27d52a6` A wicket stops feeling like a dot ball
+
+- [x] **C19** Four identical `hapticFeedback()` copies over
+      `Vibration.vibrate`, all buzzing the same for a dot, a six and a wicket.
+      Now one helper over `expo-haptics` with a vocabulary named for what
+      happened — runs light, boundaries medium, a wicket a notification, undo
+      its own.
+- [x] The sameness was the bug, not the duplication: a scorer watching the
+      cricket has one channel telling them the tap landed, and it could say
+      _what_ rather than just _something_.
+
+### `57f4887` The ball that just landed is marked
+
+- [x] **C5** The newest chip carries a ring — drawn, outside the chip, so it
+      does not borrow the colour channel that tells a four from a wicket. The
+      only previous acknowledgement was `Last: 4` in small grey type at the
+      foot of the console.
+
 ---
 
 ## Part done
@@ -266,14 +297,10 @@ Three things want smoking on hardware:
 
 ### Scoring console
 
-- [ ] **C5** — _Minor._ Nothing confirms what was just recorded.
 - [ ] **C11** — _Minor._ No manual strike swap.
 - [ ] **C14** — _Minor._ No shot direction captured, so no wagon wheel is possible
       later. Worth reserving a field on the ball schema now.
 - [ ] **C18** — _Minor._ Law citations printed on the live console.
-- [ ] **C19** — _Minor._ Haptics are a raw `Vibration.vibrate`, duplicated in three
-      files. Wants one helper over `expo-haptics` with different weights for a
-      run, a boundary and a wicket.
 - [ ] **C23** — _Minor._ "Refresh" is a developer's escape hatch shown as a user
       control.
 
@@ -284,8 +311,6 @@ Three things want smoking on hardware:
 
 ### Overs, breaks and endings
 
-- [ ] **E3** — _Minor._ The innings break repeats the step-3 problem. Three copies
-      of the "who's on" interaction exist.
 - [ ] **E4** — _Minor._ The result screen's `share()` is `eslint-disable`d dead
       code; sharing routes elsewhere. Two half-built implementations.
 - [ ] **E5** — _Minor._ A tie gives no prompt toward the Super Over.
@@ -311,19 +336,17 @@ Ranked by what each unblocks, not by size.
 
 **No Critical findings remain open.**
 
-1. **The innings break (E3)** — three copies of the "who's on" interaction exist:
-   match creation, the innings break, and the Super Over sheet. Two of them are
-   the same chips with two different versions of the same validation rule.
-2. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
-   the UI and jumps the layout when data lands.
-3. **Confirming a ball (C5)** — nothing marks the delivery that just landed. The
-   chip could carry a brief emphasis, with undo attached to it.
-4. **Haptics (C19)** — an identical `Vibration.vibrate` helper is copied into
-   three files. One helper over `expo-haptics`, with different weights for a
-   run, a boundary and a wicket, is worth real accuracy when nobody is looking
-   at the screen.
-5. **Law citations on the console (C18)** — plain language while scoring; the
+1. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
+   the UI and jumps the layout when data lands. The query hook already
+   distinguishes `isLoading` from `isRefreshing`, so the information is there.
+2. **Law citations on the console (C18)** — plain language while scoring; the
    clause numbers belong in help, which does not exist yet either (F13).
+3. **Errors where the thumb is (F7)** — a failure renders near the top of a
+   scroll view while the scorer is looking at the keypad.
+4. **The More screen (F8)** — four rows advertising features that do not exist.
+   Ship it with what works.
+5. **A manual strike swap (C11)** — rotation is entirely derived, with no
+   override for the cases where a scorer knows the batters crossed.
 6. **The primary button's contrast** — `theme.test.ts` records paper-on-steel at
    3.71:1, under AA. Steel-700 reaches 6.1:1 and is one step down the same ramp.
    Left alone because the accent is yours to change, not the test's.
