@@ -3,10 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 12
-**Tests:** 399 passing (shared 40 · scoring 179 · mobile 89 · web 91)
-**Smoke:** 359 checks green against a real database (score 51 · api 283 · p1 19 · xi 6)
-**Findings:** 61 total — **30 closed**, 1 part done, 30 open
+**Branch:** `pivot` · **Commits:** 16
+**Tests:** 404 passing (shared 40 · scoring 179 · mobile 94 · web 91)
+**Smoke:** 369 checks green against a real database
+(score 51 · api 283 · p1 19 · xi 6 · correct 10)
+**Findings:** 61 total — **33 closed**, 1 part done, 27 open
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -188,6 +189,34 @@ Three things want smoking on hardware:
 - [x] `theme.test.ts` parses the CSS, asserts the two copies of the palette
       agree, and measures WCAG contrast across both themes.
 
+### `c6ef8a5` A wicket can be corrected
+
+- [x] **D1** The correction sheet's `W` hands over to the wicket sheet,
+      pre-filled from the delivery being corrected. `patchBallSchema` has
+      accepted the fields all along — it is `ballEventSchema` minus three.
+- [x] The batters are not sent: a patch derives them, and asserting who was at
+      the crease from memory is how a correction puts somebody at the wrong end.
+- [x] `smoke:correct` — ten checks over HTTP in three directions. Changing a
+      dismissal, adding one to a delivery recorded as four runs, and taking one
+      away. The endpoint's wicket path had never been exercised end to end,
+      because no client could send a wicket patch.
+
+### `587a208` The keypad says what an armed extra will score
+
+- [x] **C4** With Wide armed the 4 key reads "4 wd"; with No ball armed it reads
+      "5 nb". Same gesture, different arithmetic, and nothing on screen used to
+      say which.
+- [x] The banner explains the model rather than naming the mode — "No ball —
+      tap the runs off the bat, the penalty is added".
+- [x] The rule moves into `armedTotal` beside the rest of the extras
+      vocabulary, so the number shown and the number recorded are one function.
+
+### `ef7f1c4` The options are on the row
+
+- [x] **F4** A visible 44pt options button on both row kinds. Settings, edit,
+      abandon and delete were reachable only by a long-press nothing advertised.
+- [x] The type scale and contrast floor reach the match list, which they had not.
+
 ---
 
 ## Part done
@@ -216,8 +245,6 @@ Three things want smoking on hardware:
 
 ### Scoring console
 
-- [ ] **C4** — _Major._ The armed-extra model means two different things
-      (`Wide + 4` = 4, `No ball + 4` = 5) and shows neither total before commit.
 - [ ] **C5** — _Minor._ Nothing confirms what was just recorded.
 - [ ] **C11** — _Minor._ No manual strike swap.
 - [ ] **C13** — _Minor._ No extras total, partnership or last wicket on the plate.
@@ -234,8 +261,6 @@ Three things want smoking on hardware:
 
 ### Fixing mistakes
 
-- [ ] **D1** — _Major._ A wicket cannot be corrected. The most consequential
-      mis-tap on the console has no fix short of undoing every ball since.
 - [ ] **D2** — _Minor._ Undo is one ball at a time. No "undo to here".
 - [ ] **D3** — _Minor._ A corrected ball is indistinguishable from an original.
 
@@ -249,7 +274,6 @@ Three things want smoking on hardware:
 
 ### Across the app
 
-- [ ] **F4** — _Major._ Long-press is load-bearing for match settings and delete.
 - [ ] **F6** — _Minor._ Every load is a full-screen spinner; no skeletons.
 - [ ] **F7** — _Minor._ Errors render above the fold you are not looking at.
 - [ ] **F8** — _Minor._ The More screen advertises four features that do not exist.
@@ -267,17 +291,18 @@ Three things want smoking on hardware:
 
 Ranked by what each unblocks, not by size.
 
-1. **Correcting a wicket (D1)** — the server can already replay from any ball;
-   the sheet just needs opening pre-filled. The most consequential mis-tap on
-   the console still has no fix short of undoing every ball since.
-2. **Guest discovery (A4)** — the endpoints and public scorecards exist; only a
-   listing is missing. It is also the whole top of the funnel.
-3. **The armed-extra total (C4)** — show the arithmetic before it commits and the
-   model stops being a memory test.
-4. **Long-press (F4)** — match settings and delete are still only reachable by a
-   gesture nothing advertises.
-5. **The innings break (E3)** — three copies of the "who's on" interaction exist.
-   One component, used everywhere.
+1. **Guest discovery (A4)** — _Critical, and the last one._ The endpoints and
+   public scorecards already exist; only a listing is missing. A guest currently
+   opens the app to a box asking them to paste a URL. It is also the whole top
+   of the funnel.
+2. **The innings break (E3)** — three copies of the "who's on" interaction exist:
+   match creation, the innings break, and the Super Over sheet. One component.
+3. **Extras, partnership and last wicket on the plate (C13)** — the two questions
+   a scorer is asked most often, both derivable, neither shown.
+4. **Corrections beyond the current over (C16, C17)** — the server replays from
+   any ball; the UI can only reach six chips.
+5. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
+   the UI and jumps the layout.
 6. **The primary button's contrast** — `theme.test.ts` records paper-on-steel at
    3.71:1, under AA. Steel-700 reaches 6.1:1 and is one step down the same ramp.
    Left alone because the accent is yours to change, not the test's.
