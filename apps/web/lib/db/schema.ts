@@ -452,6 +452,57 @@ export const matches = pgTable(
   }),
 );
 
+/**
+ * The playing XI — who each side actually put on the field for this match.
+ *
+ * A squad is a property of the **match**, not of an innings: the same eleven
+ * bat and field in both innings of a limited-overs game and in a Super Over,
+ * so holding it per innings would mean two copies and a rule keeping them in
+ * step.
+ *
+ * It is distinct from `teamMembers`, which is the club's whole registered
+ * roster. Conflating them was the bug this table exists to end: the match
+ * service read `getTeamMembers()` for both sides, so a seven-a-side game
+ * played out of a twelve-player roster was sized for ten wickets and could not
+ * end the way it was played. See migration 0018.
+ *
+ * Absence is meaningful and has to stay that way. A match with no rows here
+ * predates the table, and inventing an XI from a roster would be a guess about
+ * who turned up — so "no rows" reads as "the whole roster", which is exactly
+ * how those matches were scored.
+ */
+export const matchSquads = pgTable(
+  'match_squads',
+  {
+    matchId: uuid('match_id')
+      .notNull()
+      .references(() => matches.id, { onDelete: 'cascade' }),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => teams.id, { onDelete: 'restrict' }),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'restrict' }),
+
+    // Null means "not decided", which is the honest answer for most club
+    // cricket — the order is settled at the fall of a wicket, not at the toss.
+    battingOrder: smallint('batting_order'),
+
+    // Captaincy and keeping are per match, not per club: the same player leads
+    // one side on Saturday and bats at six on Sunday. `teamMembers` carries the
+    // club's answer; this carries the day's.
+    isCaptain: boolean('is_captain').notNull().default(false),
+    isWicketkeeper: boolean('is_wicketkeeper').notNull().default(false),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.matchId, t.teamId, t.playerId] }),
+    matchIdx: index('match_squads_match_idx').on(t.matchId),
+    playerIdx: index('match_squads_player_idx').on(t.playerId),
+  }),
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 6. Innings
 // ─────────────────────────────────────────────────────────────────────────────

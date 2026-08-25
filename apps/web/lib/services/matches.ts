@@ -25,6 +25,9 @@ import {
   startMatch,
   updateInningCache,
   getTeamMembers,
+  getMatchSquad,
+  setMatchSquad,
+  type SquadMember,
   getMatch,
   getInnings,
   getInning,
@@ -90,6 +93,68 @@ function assertOpenersInSquads(
   }
 }
 
+/**
+ * Every named player has to be on the club's books.
+ *
+ * The XI is a subset of the roster, not a second way to add people to it.
+ * Without this an owner could name any player id they could see — and
+ * `GET /api/teams/[id]/club` is public and returns real ids — putting a
+ * stranger's career figures inside their match. `addPlayerToTeam` already
+ * makes the same check for the roster itself; this is the same rule one level
+ * down.
+ */
+function assertSquadInRoster(
+  roster: { id: string }[],
+  named: string[] | undefined,
+  field: string,
+): void {
+  if (named === undefined) return;
+  const onTheBooks = new Set(roster.map((p) => p.id));
+  for (const id of named) {
+    if (!onTheBooks.has(id)) {
+      throw invalid('Everyone in the XI must be in that club’s squad', field);
+    }
+  }
+}
+
+/**
+ * The side that is actually playing, out of the club's whole roster.
+ *
+ * Exported for tests, like `sizeMaxWickets` and `sizeBowlerQuota` below it —
+ * and for the same reason. It is pure, it is the input to both of them, and
+ * getting it wrong is invisible until an innings will not end.
+ *
+ * Order follows the roster rather than the order the ids arrived in. The
+ * batting order the client sent is stored on `match_squads` and read back from
+ * there; this function answers "who", not "in what order", and taking the
+ * client's order here would give the two different answers.
+ */
+export function resolvePlayingXI<T extends { id: string }>(
+  named: string[] | undefined,
+  roster: T[],
+): T[] {
+  // Undefined is not an empty side — it is a match where nobody said, which
+  // every match before migration 0018 is. See `squadFor`.
+  if (named === undefined) return roster;
+  const chosen = new Set(named);
+  return roster.filter((p) => chosen.has(p.id));
+}
+
+/**
+ * Who is playing for this side, as far as anyone recorded.
+ *
+ * The XI where one was named, and the whole roster where none was. That
+ * fallback is the compatibility contract from migration 0018: matches created
+ * before `match_squads` existed have no rows, and inventing an XI for them
+ * from a roster would be a guess about who turned up. Reading absence as "the
+ * whole roster" is exactly the behaviour they were scored under, so their
+ * replays are unchanged.
+ */
+export async function squadFor(matchId: string, teamId: string): Promise<SquadMember[]> {
+  const named = await getMatchSquad(matchId, teamId);
+  return named.length > 0 ? named : await getTeamMembers(teamId);
+}
+
 /** Load a match the current user owns, or throw. */
 async function requireOwnedMatch(matchId: string) {
   const userId = await getUserId();
@@ -140,10 +205,34 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     input.tossDecision,
   );
 
-  const [battingSquad, bowlingSquad] = await Promise.all([
-    getTeamMembers(battingTeamId),
-    getTeamMembers(bowlingTeamId),
+  /*
+   * The XI, resolved before the match exists.
+   *
+   * It has to happen here rather than after `createMatch`, because both
+   * playing conditions below are sized from squad length — and sizing them
+   * from the club's whole roster is the bug migration 0018 exists to end. A
+   * seven-a-side game played out of a twelve-player roster was given ten
+   * wickets and could not end the way it was played.
+   *
+   * The rosters are loaded either way: they are what the named XI is checked
+   * against, and what stands in for it when none was named.
+   */
+  const [teamARoster, teamBRoster] = await Promise.all([
+    getTeamMembers(input.teamAId),
+    getTeamMembers(input.teamBId),
   ]);
+  assertSquadInRoster(teamARoster, input.teamAPlayerIds, 'teamAPlayerIds');
+  assertSquadInRoster(teamBRoster, input.teamBPlayerIds, 'teamBPlayerIds');
+
+  const teamASquad = resolvePlayingXI(input.teamAPlayerIds, teamARoster);
+  const teamBSquad = resolvePlayingXI(input.teamBPlayerIds, teamBRoster);
+
+  // Which of the two bats is the toss's answer, resolved above. The client
+  // names squads per team precisely so it never has to work this out.
+  const aIsBatting = battingTeamId === input.teamAId;
+  const battingSquad = aIsBatting ? teamASquad : teamBSquad;
+  const bowlingSquad = aIsBatting ? teamBSquad : teamASquad;
+
   assertOpenersInSquads(battingSquad, bowlingSquad, input);
 
   const match = await createMatch({
@@ -164,6 +253,30 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     tossDecision: input.tossDecision,
   });
   if (!match) throw unauthorized('Could not create match — sign in first');
+
+  /*
+   * Store the XI now the match has an id to hang it on.
+   *
+   * Only where one was actually named. Writing the whole roster in when it was
+   * not would turn "nobody said" into "these eleven played", which is a claim
+   * nobody made — and it would then drift from the roster it was copied from
+   * the next time somebody joined the club.
+   *
+   * Captaincy and keeping default to the club's answer. They are per-match
+   * facts and a later edit can change them, but on the day the side is named
+   * the club's captain is the likeliest captain.
+   */
+  const rolesFrom = (roster: SquadMember[]) =>
+    new Map(
+      roster.map((p) => [p.id, { isCaptain: p.isCaptain, isWicketkeeper: p.isWicketkeeper }]),
+    );
+
+  if (input.teamAPlayerIds) {
+    await setMatchSquad(match.id, input.teamAId, input.teamAPlayerIds, rolesFrom(teamARoster));
+  }
+  if (input.teamBPlayerIds) {
+    await setMatchSquad(match.id, input.teamBId, input.teamBPlayerIds, rolesFrom(teamBRoster));
+  }
 
   await startMatch(match.id);
 
@@ -249,10 +362,12 @@ export async function startNextInnings(matchId: string, input: StartNextInningsI
   }
 
   // Both squads: one to size the innings, both to check the openers really
-  // belong to the teams playing this match.
+  // belong to the teams playing this match. The XI where the match named one
+  // — the second innings is sized from the side that is actually batting it,
+  // not from whoever the club has on its books.
   const [battingSquad, bowlingSquad] = await Promise.all([
-    getTeamMembers(battingTeamId),
-    getTeamMembers(bowlingTeamId),
+    squadFor(match.id, battingTeamId),
+    squadFor(match.id, bowlingTeamId),
   ]);
   assertOpenersInSquads(battingSquad, bowlingSquad, input);
 

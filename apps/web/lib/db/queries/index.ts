@@ -13,6 +13,7 @@ import {
   teams,
   teamMembers,
   matches,
+  matchSquads,
   innings as inningsTable,
   ballEvents,
   type Player,
@@ -338,6 +339,85 @@ export async function getTeamMembers(teamId: string): Promise<SquadMember[]> {
       // Captain first, then the keeper, then everyone alphabetically. A squad
       // list is read to find those two more often than to find a name.
       .orderBy(desc(teamMembers.isCaptain), desc(teamMembers.isWicketkeeper), asc(players.fullName))
+  );
+}
+
+/**
+ * The eleven a side actually put out, or nobody.
+ *
+ * An **empty array is a real answer** and callers must treat it as one: it
+ * means no XI was recorded for this match, which is true of every match
+ * created before migration 0018. `squadFor` in the match service is the one
+ * place that decides what to do about it, and it falls back to the full
+ * roster — the behaviour those matches were scored under.
+ *
+ * Ordered by batting order where one was given, then the way `getTeamMembers`
+ * orders: captain, keeper, then alphabetically. A scorer reading this list is
+ * looking for a name, and the two they look for most are at the top.
+ */
+export async function getMatchSquad(matchId: string, teamId: string): Promise<SquadMember[]> {
+  return db
+    .select({
+      id: players.id,
+      userId: players.userId,
+      fullName: players.fullName,
+      shortName: players.shortName,
+      dateOfBirth: players.dateOfBirth,
+      battingStyle: players.battingStyle,
+      bowlingStyle: players.bowlingStyle,
+      role: players.role,
+      avatarUrl: players.avatarUrl,
+      createdBy: players.createdBy,
+      createdAt: players.createdAt,
+      updatedAt: players.updatedAt,
+      isCaptain: matchSquads.isCaptain,
+      isWicketkeeper: matchSquads.isWicketkeeper,
+    })
+    .from(matchSquads)
+    .innerJoin(players, eq(matchSquads.playerId, players.id))
+    .where(and(eq(matchSquads.matchId, matchId), eq(matchSquads.teamId, teamId)))
+    .orderBy(
+      // Nulls last, so an undecided order does not sort above a decided one.
+      sql`${matchSquads.battingOrder} asc nulls last`,
+      desc(matchSquads.isCaptain),
+      desc(matchSquads.isWicketkeeper),
+      asc(players.fullName),
+    );
+}
+
+/**
+ * Name a side's XI for a match.
+ *
+ * A whole-side replacement rather than an append: naming an XI is one
+ * decision, and a partial update would make "I picked the wrong eleven" hard
+ * to express. The caller has already checked that every id is on the club's
+ * roster — see `assertSquadsInRosters`.
+ *
+ * `battingOrder` is the position in the array. It is a starting assumption
+ * rather than a promise: the engine takes whoever the scorer names at the fall
+ * of a wicket, and this is only what the picker offers first.
+ */
+export async function setMatchSquad(
+  matchId: string,
+  teamId: string,
+  playerIds: string[],
+  roles: Map<string, { isCaptain: boolean; isWicketkeeper: boolean }> = new Map(),
+): Promise<void> {
+  await db
+    .delete(matchSquads)
+    .where(and(eq(matchSquads.matchId, matchId), eq(matchSquads.teamId, teamId)));
+
+  if (playerIds.length === 0) return;
+
+  await db.insert(matchSquads).values(
+    playerIds.map((playerId, i) => ({
+      matchId,
+      teamId,
+      playerId,
+      battingOrder: i + 1,
+      isCaptain: roles.get(playerId)?.isCaptain ?? false,
+      isWicketkeeper: roles.get(playerId)?.isWicketkeeper ?? false,
+    })),
   );
 }
 

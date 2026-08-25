@@ -184,6 +184,26 @@ export const createMatchSchema = z
     maxOversPerBowler: z.coerce.number().int().min(1).max(200).nullable().optional(),
     teamAId: idSchema,
     teamBId: idSchema,
+    /**
+     * The XI each side is actually putting out, in batting order.
+     *
+     * Named per **team** rather than per role, because which side bats is the
+     * toss's answer and the server's to resolve — `resolveBattingSides` already
+     * owns that, and a `battingSquad` field here would ask the client to work
+     * it out a second time and disagree.
+     *
+     * Optional, and absence is not the same as an empty array. Omitted means
+     * "no XI was named", which every match created before migration 0018 is,
+     * and the server reads it as the whole roster — the behaviour those
+     * matches were scored under. An empty array is a side of nobody, which is
+     * not a cricket match, so the minimum below rejects it.
+     *
+     * Two is the floor rather than eleven: six-a-side, gully and box cricket
+     * are the formats this app exists for, and eleven is a convention of one
+     * kind of cricket rather than a Law.
+     */
+    teamAPlayerIds: z.array(idSchema).min(2, 'A side needs at least two players').optional(),
+    teamBPlayerIds: z.array(idSchema).min(2, 'A side needs at least two players').optional(),
     tossWinnerTeamId: idSchema.optional(),
     tossDecision: z.enum(TOSS_DECISIONS).optional(),
     openingStrikerId: idSchema,
@@ -194,6 +214,22 @@ export const createMatchSchema = z
     message: 'Pick two different teams',
     path: ['teamBId'],
   })
+  .refine(
+    (v) =>
+      v.teamAPlayerIds === undefined || new Set(v.teamAPlayerIds).size === v.teamAPlayerIds.length,
+    {
+      message: 'A player can only be named once in a side',
+      path: ['teamAPlayerIds'],
+    },
+  )
+  .refine(
+    (v) =>
+      v.teamBPlayerIds === undefined || new Set(v.teamBPlayerIds).size === v.teamBPlayerIds.length,
+    {
+      message: 'A player can only be named once in a side',
+      path: ['teamBPlayerIds'],
+    },
+  )
   .refine((v) => v.openingStrikerId !== v.openingNonStrikerId, {
     message: 'Striker and non-striker must be different players',
     path: ['openingNonStrikerId'],

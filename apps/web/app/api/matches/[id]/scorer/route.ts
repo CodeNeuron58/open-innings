@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server';
 import { replayInnings, asInningsId, asPlayerId, type BallEventInput } from '@open-innings/scoring';
 import { HTTP } from '@open-innings/shared';
-import { loadMatchInProgress, getTeam, getTeamMembers, getInnings } from '@/lib/db/queries';
+import { loadMatchInProgress, getTeam, getInnings } from '@/lib/db/queries';
+import { squadFor } from '@/lib/services/matches';
 import { getUserId } from '@/lib/auth/local';
 import { handle, assertId } from '@/lib/api/respond';
 import { countWatching } from '@/lib/services/watching';
@@ -68,9 +69,18 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
     events,
   );
 
+  /*
+   * The XI, not the club's whole roster.
+   *
+   * `squadFor` falls back to the roster where no XI was named, so matches
+   * created before migration 0018 are unchanged — but where a side was
+   * actually picked, every list built from this is eleven names instead of
+   * however many the club has registered. That is the wicket sheet's fielders,
+   * the next-batter list, and the end-of-over bowler list all at once.
+   */
   const [teamAPlayers, teamBPlayers] = await Promise.all([
-    getTeamMembers(match.teamAId).catch(() => []),
-    getTeamMembers(match.teamBId).catch(() => []),
+    squadFor(match.id, match.teamAId).catch(() => []),
+    squadFor(match.id, match.teamBId).catch(() => []),
   ]);
 
   const lite = (list: typeof teamAPlayers) => list.map((p) => ({ id: p.id, fullName: p.fullName }));
