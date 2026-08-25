@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { useApiQuery } from '../../lib/use-api';
 import { useSession } from '../../lib/session';
 import { useSettings } from '../../lib/settings';
+import { useTheme } from '../../lib/use-theme';
 import { useSupporter } from '../../lib/purchases';
 import { Button, Kicker } from '../../components/ui';
 import { DeleteAccount } from '../../components/DeleteAccount';
@@ -80,6 +81,7 @@ function ToggleRow({
   value: boolean;
   onChange: (next: boolean) => void;
 }) {
+  const theme = useTheme();
   return (
     <View className="border-border flex-row items-center gap-3 border-b py-2.5">
       <View className="min-w-0 flex-1">
@@ -94,9 +96,11 @@ function ToggleRow({
         value={value}
         onValueChange={onChange}
         accessibilityLabel={label}
-        // Use app accent color.
-        trackColor={{ false: '#d4d4d7', true: '#5980a6' }}
-        thumbColor="#f2f2f3"
+        // The app's accent, from the palette rather than a copy of it — these
+        // are props that take a value, so they cannot follow the theme the way
+        // a className does.
+        trackColor={{ false: theme.track, true: theme.primary }}
+        thumbColor={theme.thumb}
       />
     </View>
   );

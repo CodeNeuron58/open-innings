@@ -15,6 +15,7 @@ import { BarlowCondensed_600SemiBold } from '@expo-google-fonts/barlow-condensed
 import { SessionProvider } from '../lib/session';
 import { SettingsProvider } from '../lib/settings';
 import { SupporterProvider, initPurchases } from '../lib/purchases';
+import { useStatusBarStyle } from '../lib/use-theme';
 
 /**
  * Global font pairing (Barlow & Barlow Condensed).
@@ -26,6 +27,7 @@ void SplashScreen.preventAutoHideAsync();
 initPurchases();
 
 export default function RootLayout() {
+  const statusBarStyle = useStatusBarStyle();
   const [fontsLoaded, fontError] = useFonts({
     Barlow_400Regular,
     Barlow_500Medium,
@@ -50,7 +52,9 @@ export default function RootLayout() {
             with it rather than leave a stale answer behind.
           */}
           <SupporterProvider>
-            <StatusBar style="dark" />
+            {/* Follows the device. Hardcoded "dark" meant dark glyphs on a
+                near-black bar the moment the theme went dark. */}
+            <StatusBar style={statusBarStyle} />
             <Stack screenOptions={{ headerShown: false }} />
           </SupporterProvider>
         </SettingsProvider>

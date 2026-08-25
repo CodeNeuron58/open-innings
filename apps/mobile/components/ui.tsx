@@ -3,6 +3,7 @@
  * Features square-cornered hairline borders, Barlow Condensed for labels, and 48pt minimum touch targets.
  */
 import { forwardRef } from 'react';
+import { useTheme } from '../lib/use-theme';
 import {
   ActivityIndicator,
   Pressable,
@@ -58,6 +59,7 @@ export function Button({
   loading = false,
 }: ButtonProps) {
   const isInert = disabled || loading;
+  const theme = useTheme();
 
   /*
    * Primary is the one filled object; secondary is outlined; ghost is bare.
@@ -97,7 +99,11 @@ export function Button({
       ) : null}
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' || variant === 'destructive' ? '#f2f2f3' : '#5980a6'}
+          color={
+            variant === 'primary' || variant === 'destructive'
+              ? theme.primaryForeground
+              : theme.primary
+          }
         />
       ) : (
         <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[1.2px]`}>
@@ -120,6 +126,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
   { label, error, rightAccessory, ...props },
   ref,
 ) {
+  const theme = useTheme();
   return (
     <View className="gap-1.5">
       <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
@@ -129,7 +136,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
         <TextInput
           ref={ref}
           accessibilityLabel={label}
-          placeholderTextColor="#98989b"
+          placeholderTextColor={theme.placeholder}
           className={`text-foreground h-12 border bg-neutral-100 px-4 ${
             rightAccessory ? 'pr-14' : ''
           } font-sans text-base ${error ? 'border-destructive' : 'border-input'}`}
@@ -189,9 +196,10 @@ export function Screen({ children }: { children: React.ReactNode }) {
 
 /** Full-screen spinner, for the launch check before we know who's signed in. */
 export function LoadingScreen() {
+  const theme = useTheme();
   return (
     <View className="bg-background flex-1 items-center justify-center">
-      <ActivityIndicator size="large" color="#5980a6" />
+      <ActivityIndicator size="large" color={theme.primary} />
     </View>
   );
 }

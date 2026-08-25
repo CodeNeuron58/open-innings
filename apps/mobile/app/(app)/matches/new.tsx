@@ -23,6 +23,7 @@ import {
 import { api } from '../../../lib/api';
 import { battingLine, bowlingLine, usePlayerBriefs } from '../../../lib/briefs';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
+import { useTheme } from '../../../lib/use-theme';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
 
 /**
@@ -129,6 +130,7 @@ function StepHeader({ step, title, onBack }: { step: number; title: string; onBa
 
 export default function NewMatch() {
   const router = useRouter();
+  const theme = useTheme();
   const teamsQuery = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal));
   const mutation = useApiMutation();
 
@@ -603,7 +605,7 @@ export default function NewMatch() {
             value={search}
             onChangeText={setSearch}
             placeholder="Search squad"
-            placeholderTextColor="#98989b"
+            placeholderTextColor={theme.placeholder}
             accessibilityLabel="Search squad"
             className="text-foreground border-input ml-auto h-11 flex-1 border bg-neutral-100 px-3 font-sans text-[14px]"
           />

@@ -25,93 +25,109 @@
  */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'media',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      /*
+       * Every colour is a CSS custom property resolved at runtime.
+       *
+       * These were literal hex, with a note here saying React Native "has no
+       * cascade" to read variables through. NativeWind 4 does, and re-resolves
+       * them when the colour scheme changes — so the palette moved to
+       * `global.css` where both themes live side by side, and this file became
+       * the mapping rather than the values.
+       *
+       * `<alpha-value>` is what keeps `text-foreground/70` and
+       * `bg-destructive/10` working, and it is why the variables hold channels
+       * rather than hex.
+       */
       colors: {
-        // Core roles
-        background: '#f2f2f3',
-        foreground: '#1d1f20',
-        // The divider is a 16% ink mix on the web. React Native has no
-        // color-mix(), so it is resolved to the equivalent solid here.
-        border: '#d4d4d7',
-        input: '#b7b7ba',
-        ring: '#5980a6',
+        background: 'rgb(var(--color-background) / <alpha-value>)',
+        foreground: 'rgb(var(--color-foreground) / <alpha-value>)',
+        border: 'rgb(var(--color-border) / <alpha-value>)',
+        input: 'rgb(var(--color-input) / <alpha-value>)',
+        ring: 'rgb(var(--color-ring) / <alpha-value>)',
 
         primary: {
-          DEFAULT: '#5980a6',
-          foreground: '#f2f2f3',
+          DEFAULT: 'rgb(var(--color-primary) / <alpha-value>)',
+          foreground: 'rgb(var(--color-primary-foreground) / <alpha-value>)',
         },
         secondary: {
-          DEFAULT: '#e9e9ea',
-          foreground: '#1d1f20',
+          DEFAULT: 'rgb(var(--color-secondary) / <alpha-value>)',
+          foreground: 'rgb(var(--color-secondary-foreground) / <alpha-value>)',
         },
         muted: {
-          DEFAULT: '#e7e7ea',
-          foreground: '#7a7a7d',
+          DEFAULT: 'rgb(var(--color-muted) / <alpha-value>)',
+          foreground: 'rgb(var(--color-muted-foreground) / <alpha-value>)',
         },
         accent: {
-          DEFAULT: '#d6ebff',
-          foreground: '#1d2d3d',
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          foreground: 'rgb(var(--color-accent-foreground) / <alpha-value>)',
         },
         destructive: {
-          DEFAULT: '#b3261e',
-          foreground: '#f2f2f3',
+          DEFAULT: 'rgb(var(--color-destructive) / <alpha-value>)',
+          foreground: 'rgb(var(--color-destructive-foreground) / <alpha-value>)',
         },
-        // Cards are transparent line drawings in this system, never filled
-        // surfaces — so `card` matches the ground and the border does the work.
         card: {
-          DEFAULT: '#f2f2f3',
-          foreground: '#1d1f20',
+          DEFAULT: 'rgb(var(--color-card) / <alpha-value>)',
+          foreground: 'rgb(var(--color-card-foreground) / <alpha-value>)',
         },
 
-        // Neutral ramp — OKLCH-derived, shared lightness scale with accent.
         neutral: {
-          100: '#f5f5f8',
-          200: '#e7e7ea',
-          300: '#d4d4d7',
-          400: '#b7b7ba',
-          500: '#98989b',
-          600: '#7a7a7d',
-          700: '#5d5d60',
-          800: '#424244',
-          900: '#2b2b2d',
+          100: 'rgb(var(--color-neutral-100) / <alpha-value>)',
+          200: 'rgb(var(--color-neutral-200) / <alpha-value>)',
+          300: 'rgb(var(--color-neutral-300) / <alpha-value>)',
+          400: 'rgb(var(--color-neutral-400) / <alpha-value>)',
+          500: 'rgb(var(--color-neutral-500) / <alpha-value>)',
+          600: 'rgb(var(--color-neutral-600) / <alpha-value>)',
+          700: 'rgb(var(--color-neutral-700) / <alpha-value>)',
+          800: 'rgb(var(--color-neutral-800) / <alpha-value>)',
+          900: 'rgb(var(--color-neutral-900) / <alpha-value>)',
         },
 
-        // Accent ramp — the only colour in the system.
         steel: {
-          100: '#eef6ff',
-          200: '#d6ebff',
-          300: '#b5d9fd',
-          400: '#94bce3',
-          500: '#749dc4',
-          600: '#597ea3',
-          700: '#416180',
-          800: '#2c455d',
-          900: '#1d2d3d',
+          100: 'rgb(var(--color-steel-100) / <alpha-value>)',
+          200: 'rgb(var(--color-steel-200) / <alpha-value>)',
+          300: 'rgb(var(--color-steel-300) / <alpha-value>)',
+          400: 'rgb(var(--color-steel-400) / <alpha-value>)',
+          500: 'rgb(var(--color-steel-500) / <alpha-value>)',
+          600: 'rgb(var(--color-steel-600) / <alpha-value>)',
+          700: 'rgb(var(--color-steel-700) / <alpha-value>)',
+          800: 'rgb(var(--color-steel-800) / <alpha-value>)',
+          900: 'rgb(var(--color-steel-900) / <alpha-value>)',
         },
 
-        /**
-         * The score plate — the one reversed field on the scoring screen, and
-         * the deep accent step the readme permits to carry a full ground with
-         * type reversed to paper. Was "always dark green"; it is now steel.
-         */
         scoreboard: {
-          DEFAULT: '#1d2d3d',
-          panel: '#2c455d',
-          border: '#416180',
-          text: '#f2f2f3',
-          muted: '#94bce3',
-          accent: '#b5d9fd',
+          DEFAULT: 'rgb(var(--color-scoreboard) / <alpha-value>)',
+          panel: 'rgb(var(--color-scoreboard-panel) / <alpha-value>)',
+          border: 'rgb(var(--color-scoreboard-border) / <alpha-value>)',
+          text: 'rgb(var(--color-scoreboard-text) / <alpha-value>)',
+          muted: 'rgb(var(--color-scoreboard-muted) / <alpha-value>)',
+          accent: 'rgb(var(--color-scoreboard-accent) / <alpha-value>)',
         },
 
-        // Ball events, as ramp steps. See the note at the top of this file.
-        four: { DEFAULT: '#d6ebff', foreground: '#1d2d3d' },
-        six: { DEFAULT: '#b5d9fd', foreground: '#1d2d3d' },
-        wicket: { DEFAULT: '#1d2d3d', foreground: '#f2f2f3' },
-        extra: { DEFAULT: '#5980a6', foreground: '#f2f2f3' },
-        live: { DEFAULT: '#5980a6', foreground: '#f2f2f3' },
+        four: {
+          DEFAULT: 'rgb(var(--color-four) / <alpha-value>)',
+          foreground: 'rgb(var(--color-four-foreground) / <alpha-value>)',
+        },
+        six: {
+          DEFAULT: 'rgb(var(--color-six) / <alpha-value>)',
+          foreground: 'rgb(var(--color-six-foreground) / <alpha-value>)',
+        },
+        wicket: {
+          DEFAULT: 'rgb(var(--color-wicket) / <alpha-value>)',
+          foreground: 'rgb(var(--color-wicket-foreground) / <alpha-value>)',
+        },
+        extra: {
+          DEFAULT: 'rgb(var(--color-extra) / <alpha-value>)',
+          foreground: 'rgb(var(--color-extra-foreground) / <alpha-value>)',
+        },
+        live: {
+          DEFAULT: 'rgb(var(--color-live) / <alpha-value>)',
+          foreground: 'rgb(var(--color-live-foreground) / <alpha-value>)',
+        },
       },
 
       /**
