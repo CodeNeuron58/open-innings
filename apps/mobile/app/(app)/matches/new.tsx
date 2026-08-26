@@ -27,6 +27,7 @@ import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { useTheme } from '../../../lib/use-theme';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
 import { AddPlayerSheet, NewTeamSheet } from '../../../components/SetupSheets';
+import { MatchStartedSheet } from '../../../components/MatchStarted';
 
 /**
  * The formats offered at the toss.
@@ -59,6 +60,24 @@ const FORMATS = [
 ] as const;
 
 type FormatId = (typeof FORMATS)[number]['id'];
+
+/**
+ * A relative day, as a date.
+ *
+ * Local midnight rather than now-plus-hours: "tomorrow" means the day, and a
+ * match set up at 11pm should not be scheduled for 11pm the next night. The
+ * weekend is the coming Saturday, or today if it already is one.
+ */
+function dayFor(when: 'today' | 'tomorrow' | 'weekend'): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  if (when === 'tomorrow') d.setDate(d.getDate() + 1);
+  if (when === 'weekend') {
+    const untilSaturday = (6 - d.getDay() + 7) % 7;
+    d.setDate(d.getDate() + untilSaturday);
+  }
+  return d;
+}
 
 /** The two answers to "how many overs may one bowler bowl". */
 const STANDARD_QUOTA = 'Standard limit';
@@ -162,6 +181,20 @@ export default function NewMatch() {
   const [format, setFormat] = useState<FormatId>('T20');
   const [limitBowlers, setLimitBowlers] = useState(true);
   const [overs, setOvers] = useState(20);
+  /**
+   * Now, or a day to play it on.
+   *
+   * Setting up is the slow part — two squads, the toss, the openers — and
+   * doing it at the ground with twenty-two people waiting is why people give
+   * up on scoring apps. A scheduled match keeps its sides and its XIs and asks
+   * for the openers when somebody actually starts it, because nobody knows on
+   * Friday who is opening on Saturday.
+   *
+   * Three relative days rather than a calendar: the real cases are "the night
+   * before" and "this weekend", and a date picker is a dependency and a
+   * timezone argument for something nobody needs to express precisely.
+   */
+  const [playWhen, setPlayWhen] = useState<'now' | 'today' | 'tomorrow' | 'weekend'>('now');
   const [title, setTitle] = useState('');
   const [venue, setVenue] = useState('');
   const [homeId, setHomeId] = useState<string | null>(null);
@@ -189,6 +222,16 @@ export default function NewMatch() {
   const [strikerId, setStrikerId] = useState<string | null>(null);
   const [nonStrikerId, setNonStrikerId] = useState<string | null>(null);
   const [bowlerId, setBowlerId] = useState<string | null>(null);
+  /** Which of the three lists is open. One at a time — see step 3. */
+  const [openSlot, setOpenSlot] = useState<'striker' | 'nonStriker' | 'bowler' | null>('striker');
+  /**
+   * The match exists. Its link is worth handing over before the console opens.
+   *
+   * Everyone-follows-live is the argument this product makes, and the link was
+   * never offered at the one moment the scorer is standing next to the people
+   * who would want it — creation went straight to the keypad.
+   */
+  const [started, setStarted] = useState<string | null>(null);
 
   const teams = teamsQuery.data?.teams ?? [];
 
@@ -302,9 +345,11 @@ export default function NewMatch() {
       teamBPlayerIds: awayXI.map((p) => p.id),
       tossWinnerTeamId: tossWinnerId ?? undefined,
       tossDecision: tossDecision ?? undefined,
-      openingStrikerId: strikerId,
-      openingNonStrikerId: nonStrikerId,
-      openingBowlerId: bowlerId,
+      // A scheduled match names no openers — see `playWhen`.
+      scheduledAt: playWhen === 'now' ? undefined : dayFor(playWhen),
+      openingStrikerId: playWhen === 'now' ? strikerId : undefined,
+      openingNonStrikerId: playWhen === 'now' ? nonStrikerId : undefined,
+      openingBowlerId: playWhen === 'now' ? bowlerId : undefined,
       // Omitted means "the usual rule, if the side can cover it"; null means
       // no limit. The distinction is the server's to interpret — see
       // sizeBowlerQuota — so the client only says which of the two it wants.
@@ -317,7 +362,7 @@ export default function NewMatch() {
     }
 
     const created = await mutation.run((t) => api.createMatch(t, parsed.data));
-    if (created) router.replace(`/matches/${created.match.id}/score`);
+    if (created) setStarted(created.match.id);
   }
 
   if (teamsQuery.isLoading) return <LoadingScreen />;
@@ -564,6 +609,27 @@ export default function NewMatch() {
           {/* Optional, and asked for here rather than hidden behind a
               long-press on the match list — which is where they used to live,
               so every match in the list read "Match". */}
+          <View className="mt-7">
+            <Kicker>When</Kicker>
+            <View className="mt-3">
+              <Chips
+                options={[
+                  { value: 'now', label: 'Playing now' },
+                  { value: 'today', label: 'Later today' },
+                  { value: 'tomorrow', label: 'Tomorrow' },
+                  { value: 'weekend', label: 'This weekend' },
+                ]}
+                value={playWhen}
+                onChange={setPlayWhen}
+              />
+            </View>
+            <Text className="text-foreground/70 mt-2.5 text-[13.5px] leading-[19px]">
+              {playWhen === 'now'
+                ? 'The console opens as soon as the openers are named.'
+                : 'The sides and the XIs are saved now. It asks who is opening when you start it at the ground.'}
+            </Text>
+          </View>
+
           <View className="mt-7 gap-4">
             <Kicker>Name it (optional)</Kicker>
             <Field
@@ -773,10 +839,28 @@ export default function NewMatch() {
               ? 'Each side needs at least two players'
               : `${nameOf(homeId)} ${homeXI.length}  ·  ${nameOf(awayId)} ${awayXI.length}`}
           </Text>
-          <Button label="Openers & bowler" disabled={!squadsReady} onPress={() => setStep(3)} />
+          <Button
+            label={playWhen === 'now' ? 'Openers & bowler' : 'Save the match'}
+            disabled={!squadsReady}
+            loading={playWhen !== 'now' && mutation.busy}
+            onPress={() => (playWhen === 'now' ? setStep(3) : void submit())}
+          />
         </View>
         {sheets}
       </SafeAreaView>
+    );
+  }
+
+  // ── Created — the link, then the keypad ─────────────────────────────────
+  if (started) {
+    return (
+      <MatchStartedSheet
+        matchId={started}
+        title={title.trim() || `${nameOf(homeId)} v ${nameOf(awayId)}`}
+        onScore={() =>
+          router.replace({ pathname: '/matches/[id]/score', params: { id: started } })
+        }
+      />
     );
   }
 
@@ -786,45 +870,61 @@ export default function NewMatch() {
       <Stack.Screen options={{ headerShown: false }} />
       <StepHeader step={3} title="Who's on?" onBack={() => setStep(2)} />
 
-      <ScrollView contentContainerClassName="px-5 pb-8 pt-4">
-        <Kicker>On strike · {nameOf(battingTeamId)}</Kicker>
-        <View className="mt-2">
-          <PlayerPicker
-            players={battingXI}
-            value={strikerId}
-            onChange={setStrikerId}
-            excludeId={nonStrikerId}
-            briefs={briefs}
-            kind="batting"
-          />
-        </View>
+      {/*
+        Three questions, one open at a time.
 
-        <View className="mt-6">
-          <Kicker>Non-striker</Kicker>
-          <View className="mt-2">
-            <PlayerPicker
-              players={battingXI}
-              value={nonStrikerId}
-              onChange={setNonStrikerId}
-              excludeId={strikerId}
-              briefs={briefs}
-              kind="batting"
-            />
-          </View>
-        </View>
+        These were three full-length lists stacked, so a fifteen-player squad
+        meant forty-five rows of scroll to make three choices — and the two
+        already answered stayed open, taking up the screen for no reason.
 
-        <View className="mt-6">
-          <Kicker>Opening bowler · {nameOf(bowlingTeamId)}</Kicker>
-          <View className="mt-2">
-            <PlayerPicker
-              players={bowlingXI}
-              value={bowlerId}
-              onChange={setBowlerId}
-              briefs={briefs}
-              kind="bowling"
-            />
-          </View>
-        </View>
+        Each is now a row saying its answer, and tapping it opens that list and
+        closes the others. The first unanswered one opens on arrival, so the
+        common path is still three taps.
+      */}
+      <ScrollView contentContainerClassName="px-5 pb-8 pt-4 gap-3">
+        <OpenerSlot
+          label={`On strike · ${nameOf(battingTeamId)}`}
+          players={battingXI}
+          value={strikerId}
+          excludeId={nonStrikerId}
+          briefs={briefs}
+          kind="batting"
+          open={openSlot === 'striker'}
+          onToggle={() => setOpenSlot(openSlot === 'striker' ? null : 'striker')}
+          onChange={(pid) => {
+            setStrikerId(pid);
+            setOpenSlot(nonStrikerId ? (bowlerId ? null : 'bowler') : 'nonStriker');
+          }}
+        />
+
+        <OpenerSlot
+          label="Non-striker"
+          players={battingXI}
+          value={nonStrikerId}
+          excludeId={strikerId}
+          briefs={briefs}
+          kind="batting"
+          open={openSlot === 'nonStriker'}
+          onToggle={() => setOpenSlot(openSlot === 'nonStriker' ? null : 'nonStriker')}
+          onChange={(pid) => {
+            setNonStrikerId(pid);
+            setOpenSlot(bowlerId ? null : 'bowler');
+          }}
+        />
+
+        <OpenerSlot
+          label={`Opening bowler · ${nameOf(bowlingTeamId)}`}
+          players={bowlingXI}
+          value={bowlerId}
+          briefs={briefs}
+          kind="bowling"
+          open={openSlot === 'bowler'}
+          onToggle={() => setOpenSlot(openSlot === 'bowler' ? null : 'bowler')}
+          onChange={(pid) => {
+            setBowlerId(pid);
+            setOpenSlot(null);
+          }}
+        />
 
         <Text className="text-foreground/70 mt-5 text-[13.5px] leading-5">
           Both ends are set at the toss. After that the app asks for a new bowler at the end of
@@ -857,6 +957,77 @@ export default function NewMatch() {
       </ScrollView>
       {sheets}
     </SafeAreaView>
+  );
+}
+
+/**
+ * One of the three openers: a row that says its answer, and opens a list.
+ *
+ * Collapsed it is a single line, so the three questions fit on one screen and
+ * the two already answered stay out of the way. Open it is the same list as
+ * before — this changes when the rows are on screen, not what they say.
+ */
+function OpenerSlot({
+  label,
+  players,
+  value,
+  excludeId,
+  briefs,
+  kind,
+  open,
+  onToggle,
+  onChange,
+}: {
+  label: string;
+  players: { id: string; fullName: string; role?: string | null }[];
+  value: string | null;
+  excludeId?: string | null;
+  briefs: ReadonlyMap<string, PlayerBrief>;
+  kind: 'batting' | 'bowling';
+  open: boolean;
+  onToggle: () => void;
+  onChange: (id: string) => void;
+}) {
+  const chosen = players.find((p) => p.id === value) ?? null;
+
+  return (
+    <View className="border-border border">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${label}. ${chosen ? chosen.fullName : 'Nobody chosen yet'}. Tap to ${
+          open ? 'close' : 'choose'
+        }.`}
+        onPress={onToggle}
+        className="min-h-14 flex-row items-center gap-3 px-3.5 py-3 active:opacity-70"
+      >
+        <View className="min-w-0 flex-1">
+          <Text className="font-heading text-[11px] uppercase tracking-[1.5px] text-neutral-700">
+            {label}
+          </Text>
+          <Text
+            className={`mt-1 text-[16px] ${chosen ? 'text-foreground' : 'text-foreground/50'}`}
+            numberOfLines={1}
+          >
+            {chosen ? chosen.fullName : 'Choose'}
+          </Text>
+        </View>
+        <Text className="text-foreground/45 shrink-0 text-[15px]">{open ? '▴' : '▾'}</Text>
+      </Pressable>
+
+      {open ? (
+        <View className="border-border border-t">
+          <PlayerPicker
+            players={players}
+            value={value}
+            onChange={onChange}
+            excludeId={excludeId}
+            briefs={briefs}
+            kind={kind}
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
 

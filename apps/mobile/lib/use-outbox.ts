@@ -61,6 +61,21 @@ export type Outbox = {
   /** Queue a delivery. Returns immediately — the network is not waited on. */
   add: (ball: BallEventInput, requestId: string) => Promise<void>;
   /**
+   * Every request id this device has minted for this match.
+   *
+   * Kept so the console can tell whether the server's newest delivery came
+   * from here or from somewhere else. It is the only signal available without
+   * a new column — a ball carries the id its device made for it (migration
+   * 0013) — and "somewhere else" means another phone signed in to the same
+   * account, which is the case worth warning about because the two will
+   * overwrite each other.
+   *
+   * In memory only, and per mount. A restart forgets, which errs the safe way:
+   * the console says "somebody else is scoring" when it is not certain, rather
+   * than staying quiet when it should not.
+   */
+  sentIds: ReadonlySet<string>;
+  /**
    * Drop the delivery this device queued most recently.
    *
    * Returns false when there was nothing pending, which means the ball being
@@ -114,6 +129,16 @@ export function useOutbox({
    * in a concurrent render, so every mutation goes through `commit` instead and
    * the two move together.
    */
+  /*
+   * Request ids minted here — see `sentIds`.
+   *
+   * State rather than a ref, because the console reads it while rendering to
+   * decide whether the server's newest delivery was its own. A ref read during
+   * render is unsound in a concurrent render and the compiler says so; the
+   * cost of state is one extra render per delivery, on a screen that
+   * re-renders per delivery anyway.
+   */
+  const [sentIds, setSentIds] = useState<ReadonlySet<string>>(() => new Set());
   const pendingRef = useRef<PendingBall[]>([]);
 
   const commit = useCallback((next: PendingBall[]) => {
@@ -198,6 +223,8 @@ export function useOutbox({
 
   const add = useCallback(
     async (ball: BallEventInput, requestId: string) => {
+      // A new Set, not a mutation: React compares by identity.
+      setSentIds((prev) => new Set(prev).add(requestId));
       const item: PendingBall = {
         seq: nextSeq(pendingRef.current),
         requestId,
@@ -243,5 +270,5 @@ export function useOutbox({
           ? { kind: 'waiting', count: pending.length }
           : { kind: 'sending', count: pending.length };
 
-  return { pending, sync, ready, add, undoLast, discard, retry };
+  return { pending, sync, ready, add, undoLast, discard, retry, sentIds };
 }

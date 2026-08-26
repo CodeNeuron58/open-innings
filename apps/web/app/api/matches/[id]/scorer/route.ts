@@ -109,6 +109,13 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
       matchStatus: match.status,
       matchSummary: match.summary,
       awaitingSecondInnings,
+      // Who scored the last delivery, in the only terms that need no new
+      // column: the request id its device minted. See ScorerResponse.
+      lastBall: (() => {
+        const last = balls[balls.length - 1];
+        if (!last) return null;
+        return { at: last.createdAt.toISOString(), requestId: last.requestId ?? null };
+      })(),
       // The chase needs openers from the sides swapped round.
       nextBattingSquad: awaitingSecondInnings ? bowlingSquad : [],
       nextBowlingSquad: awaitingSecondInnings ? battingSquad : [],

@@ -20,6 +20,81 @@ export function isLive(m: MatchRow): boolean {
   return m.status === 'live' || m.status === 'in_progress';
 }
 
+/** Set up in advance and not started. See migration-free scheduling in B10. */
+export function isScheduled(m: MatchRow): boolean {
+  return m.status === 'scheduled';
+}
+
+/** "Saturday 30 August", or nothing if it has no date. */
+export function whenOf(m: MatchRow): string | null {
+  if (!m.scheduledAt) return null;
+  const d = new Date(m.scheduledAt);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/**
+ * A match that has its sides and is waiting to be played.
+ *
+ * Deliberately not a `LiveMatch` with a different label: it has no score, and
+ * the only thing anybody wants from it is to start it. The card says when, who,
+ * and offers the one action.
+ */
+export function ScheduledMatch({
+  match,
+  onStart,
+  onOptions,
+}: {
+  match: MatchRow;
+  onStart: () => void;
+  onOptions?: () => void;
+}) {
+  const when = whenOf(match);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Start ${titleOf(match)}${when ? `, due ${when}` : ''}`}
+      onPress={onStart}
+      onLongPress={onOptions}
+      className="border-input border border-dashed p-4 active:opacity-70"
+    >
+      <View className="flex-row items-center gap-2">
+        <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.5px]">
+          {when ?? 'Not started'}
+        </Text>
+        {onOptions ? (
+          <MoreButton
+            label={`Options for ${titleOf(match)}`}
+            onPress={onOptions}
+            className="ml-auto"
+          />
+        ) : null}
+      </View>
+
+      <Text className="text-foreground font-heading mt-3 text-[17px]" numberOfLines={1}>
+        {titleOf(match)}
+      </Text>
+
+      <Text className="text-foreground/70 font-heading mt-2.5 text-[13.5px] uppercase tracking-[1.2px]">
+        {[formatLabel(match.format), `${match.oversPerInnings} overs a side`, match.venue]
+          .filter(Boolean)
+          .join('  ·  ')}
+      </Text>
+
+      <Text className="text-steel-700 font-heading mt-3 text-[14px]">
+        Tap to name the openers and start →
+      </Text>
+    </Pressable>
+  );
+}
+
 /**
  * What to call a match that was never given a title.
  *

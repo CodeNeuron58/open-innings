@@ -66,6 +66,7 @@ export function ConsoleMenu({
   onOverthrow,
   onPenalty,
   onScorecard,
+  onHelp,
   onAbandon,
   onDismiss,
 }: {
@@ -77,6 +78,7 @@ export function ConsoleMenu({
   onOverthrow: () => void;
   onPenalty: () => void;
   onScorecard: () => void;
+  onHelp: () => void;
   onAbandon: () => void;
   onDismiss: () => void;
 }) {
@@ -106,6 +108,11 @@ export function ConsoleMenu({
       label: 'Award 5 penalty runs',
       note: 'A helmet on the field, or the ball tampered with',
       onPress: onPenalty,
+    },
+    {
+      label: 'Scoring help',
+      note: 'Wides and no balls, fixing a mistake, scoring with no signal',
+      onPress: onHelp,
     },
     {
       label: 'Abandon the match',

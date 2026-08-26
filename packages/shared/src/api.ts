@@ -103,6 +103,8 @@ export type MatchSummary = {
   result: string | null;
   summary: string | null;
   startedAt: string | null;
+  /** When it is due to be played, for a match set up in advance. */
+  scheduledAt: string | null;
   createdAt: string;
   /**
    * How many people are reading this match's public scorecard right now.
@@ -210,10 +212,16 @@ export type InningsSummary = {
   openingBowlerId: string | null;
 };
 
-/** `POST /api/matches` */
+/**
+ * `POST /api/matches`
+ *
+ * `inning` is null for a match scheduled for later: it has its sides and its
+ * XIs and no innings yet, because who opens is not knowable the night before.
+ * It gets one when somebody starts it.
+ */
 export type CreateMatchResponse = {
   match: MatchSummary;
-  inning: InningsSummary;
+  inning: InningsSummary | null;
 };
 
 /** `GET /api/matches/[id]` */
@@ -256,6 +264,21 @@ export type ScorerResponse = {
   firstInningsRuns: number | null;
   /** Readers on the public scorecard right now. See MatchSummary.watching. */
   watching: number;
+  /**
+   * The last delivery the server holds, so a device can tell whether it was
+   * the one that scored it.
+   *
+   * Two people scoring the same match will overwrite each other. The server
+   * already refuses the second one — `DUPLICATE_BALL`, `STALE_INNINGS` — and
+   * the client already reloads quietly on a conflict, so the machinery to
+   * survive it exists and nothing ever *says* it is happening.
+   *
+   * `requestId` is what makes this answerable without a new column: every
+   * delivery carries the id its device minted (migration 0013), so a device
+   * comparing against the ones it sent knows whether the last ball was its
+   * own. Null on a match with no deliveries yet.
+   */
+  lastBall: { at: string; requestId: string | null } | null;
 };
 
 /** `POST`/`DELETE /api/matches/[id]/ball` — the replayed state after the change. */

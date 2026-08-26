@@ -206,10 +206,39 @@ export const createMatchSchema = z
     teamBPlayerIds: z.array(idSchema).min(2, 'A side needs at least two players').optional(),
     tossWinnerTeamId: idSchema.optional(),
     tossDecision: z.enum(TOSS_DECISIONS).optional(),
-    openingStrikerId: idSchema,
-    openingNonStrikerId: idSchema,
-    openingBowlerId: idSchema,
+    /**
+     * Set the match up now, play it later.
+     *
+     * Setting up is the slow part — two squads, the toss, the openers — and
+     * doing it at the ground with eleven people waiting is why people give up
+     * on scoring apps. A match created with a date is `scheduled`: it has its
+     * sides and its XIs and no innings, and the openers are asked when
+     * somebody actually starts it, because who opens is not known the night
+     * before.
+     */
+    scheduledAt: z.coerce.date().optional(),
+    /**
+     * Optional **only** when the match is scheduled for later.
+     *
+     * A match starting now cannot open its innings without them, and one
+     * starting on Saturday cannot know them yet. The refinement below is what
+     * keeps those two facts from becoming "openers are optional".
+     */
+    openingStrikerId: idSchema.optional(),
+    openingNonStrikerId: idSchema.optional(),
+    openingBowlerId: idSchema.optional(),
   })
+  .refine(
+    (v) =>
+      v.scheduledAt !== undefined ||
+      (v.openingStrikerId !== undefined &&
+        v.openingNonStrikerId !== undefined &&
+        v.openingBowlerId !== undefined),
+    {
+      message: 'Name both openers and the bowler, or schedule the match for later',
+      path: ['openingStrikerId'],
+    },
+  )
   .refine((v) => v.teamAId !== v.teamBId, {
     message: 'Pick two different teams',
     path: ['teamBId'],
@@ -230,7 +259,7 @@ export const createMatchSchema = z
       path: ['teamBPlayerIds'],
     },
   )
-  .refine((v) => v.openingStrikerId !== v.openingNonStrikerId, {
+  .refine((v) => v.openingStrikerId === undefined || v.openingStrikerId !== v.openingNonStrikerId, {
     message: 'Striker and non-striker must be different players',
     path: ['openingNonStrikerId'],
   })

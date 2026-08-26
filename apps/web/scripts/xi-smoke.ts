@@ -25,13 +25,20 @@ const BASE = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
 let passed = 0;
 let failed = 0;
 
-function check(label: string, ok: boolean, detail?: string): void {
+function check(label: string, ok: boolean, detail?: unknown): void {
   if (ok) {
     passed += 1;
     console.log(`  ✓ ${label}`);
   } else {
     failed += 1;
-    console.error(`  ✗ ${label}${detail ? ` — ${detail}` : ''}`);
+    // `unknown` rather than `string`, matching the other smokes: the useful
+    // detail on a failure is usually the response body, and stringifying at
+    // the call site made every one of these noisier than the assertion.
+    const shown =
+      detail === undefined
+        ? ''
+        : ` — ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`;
+    console.error(`  ✗ ${label}${shown}`);
   }
 }
 
@@ -199,6 +206,92 @@ async function main(): Promise<void> {
     legacy.body.inning?.maxWickets === 10,
     `got ${legacy.body.inning?.maxWickets} (roster of ${ROSTER}, capped at 10)`,
   );
+
+  /*
+   * A match set up for later.
+   *
+   * Setting up is the slow part, and doing it at the ground with twenty-two
+   * people waiting is why people give up on scoring apps. A scheduled match
+   * keeps its sides and its XIs and has no innings, because who opens is not
+   * knowable the night before.
+   */
+  const later = await call<{ match: { id: string; status: string }; inning: unknown }>(
+    '/api/matches',
+    {
+      method: 'POST',
+      token,
+      body: {
+        title: `XI smoke scheduled ${stamp}`,
+        oversPerInnings: 20,
+        teamAId: homeId,
+        teamBId: awayId,
+        teamAPlayerIds: homeXI,
+        teamBPlayerIds: awayXI,
+        scheduledAt: new Date(Date.now() + 86_400_000).toISOString(),
+      },
+    },
+  );
+
+  check(
+    'a match can be created without openers when it is scheduled',
+    later.status === 201,
+    later.body,
+  );
+  check(
+    'it is scheduled rather than live',
+    later.body.match?.status === 'scheduled',
+    later.body.match?.status,
+  );
+  check('and has no innings yet', later.body.inning === null, later.body.inning);
+
+  const scheduledId = later.body.match?.id;
+
+  // Starting it is the same endpoint the second innings uses — the server
+  // works out which innings is next from the match, not the client.
+  const started = await call<{ inning: { inningsNumber: number; maxWickets: number } }>(
+    `/api/matches/${scheduledId}/innings`,
+    {
+      method: 'POST',
+      token,
+      body: {
+        openingStrikerId: homeXI[0],
+        openingNonStrikerId: homeXI[1],
+        openingBowlerId: awayXI[0],
+      },
+    },
+  );
+
+  check('naming the openers starts it', started.status === 201, started.body);
+  check('it opens innings 1', started.body.inning?.inningsNumber === 1, started.body.inning);
+  check(
+    'sized from the XI it was set up with, not the roster',
+    started.body.inning?.maxWickets === XI - 1,
+    started.body.inning?.maxWickets,
+  );
+
+  // A match starting now still insists on its openers.
+  const noOpeners = await call('/api/matches', {
+    method: 'POST',
+    token,
+    body: {
+      oversPerInnings: 20,
+      teamAId: homeId,
+      teamBId: awayId,
+      teamAPlayerIds: homeXI,
+      teamBPlayerIds: awayXI,
+    },
+  });
+  check('a match starting now still needs its openers', noOpeners.status === 400, noOpeners.body);
+
+  for (const id of [scheduledId]) {
+    if (!id) continue;
+    await call(`/api/matches/${id}/abandon`, {
+      method: 'POST',
+      token,
+      body: { reason: 'smoke test' },
+    });
+    await call(`/api/matches/${id}`, { method: 'DELETE', token });
+  }
 
   // Tidy up. Both matches have to be abandoned before they can be deleted.
   for (const id of [matchId, (legacy.body as { match?: { id: string } }).match?.id]) {

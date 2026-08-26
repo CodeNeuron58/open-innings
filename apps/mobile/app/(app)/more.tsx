@@ -334,6 +334,7 @@ export default function More() {
         </Group>
 
         <Group title="Open Innings">
+          <Row label="Scoring help" onPress={() => router.push('/help')} />
           <Row label="Source on GitHub" onPress={() => void Linking.openURL(REPO)} />
           <Row
             label="Run your own copy"

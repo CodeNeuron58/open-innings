@@ -8,6 +8,7 @@
 import 'server-only';
 import type {
   CreateMatchInput,
+  OpenersInput,
   StartNextInningsInput,
   UpdateMatchInput,
 } from '@open-innings/shared';
@@ -229,7 +230,15 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
   const battingSquad = aIsBatting ? teamASquad : teamBSquad;
   const bowlingSquad = aIsBatting ? teamBSquad : teamASquad;
 
-  assertOpenersInSquads(battingSquad, bowlingSquad, input);
+  // Only when the match is starting now. A scheduled one has no openers yet,
+  // and the check runs again when it is started.
+  if (input.openingStrikerId && input.openingNonStrikerId && input.openingBowlerId) {
+    assertOpenersInSquads(battingSquad, bowlingSquad, {
+      openingStrikerId: input.openingStrikerId,
+      openingNonStrikerId: input.openingNonStrikerId,
+      openingBowlerId: input.openingBowlerId,
+    });
+  }
 
   const match = await createMatch({
     title: input.title,
@@ -247,6 +256,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     teamBId: input.teamBId,
     tossWinnerTeamId: input.tossWinnerTeamId,
     tossDecision: input.tossDecision,
+    scheduledAt: input.scheduledAt,
   });
   if (!match) throw unauthorized('Could not create match — sign in first');
 
@@ -274,6 +284,22 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     await setMatchSquad(match.id, input.teamBId, input.teamBPlayerIds, rolesFrom(teamBRoster));
   }
 
+  /*
+   * A match set up for later stops here.
+   *
+   * It has its sides, its XIs and its toss if one was made, and no innings —
+   * because an innings needs openers and nobody knows on Friday who is opening
+   * on Saturday. `openFirstInnings` finishes the job at the ground.
+   *
+   * The status stays `scheduled`, which is what `createMatch` defaults to, so
+   * this is a matter of *not* calling `startMatch` rather than of setting
+   * anything.
+   */
+  if (input.scheduledAt) {
+    const scheduled = await getMatch(match.id);
+    return { match: scheduled ?? match, inning: null };
+  }
+
   await startMatch(match.id);
 
   const inning = await createInning({
@@ -281,9 +307,9 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     inningsNumber: 1,
     battingTeamId,
     bowlingTeamId,
-    openingStrikerId: input.openingStrikerId,
-    openingNonStrikerId: input.openingNonStrikerId,
-    openingBowlerId: input.openingBowlerId,
+    openingStrikerId: input.openingStrikerId!,
+    openingNonStrikerId: input.openingNonStrikerId!,
+    openingBowlerId: input.openingBowlerId!,
     maxWickets: sizeMaxWickets(battingSquad.length),
   });
   if (!inning) throw new Error('Could not create innings');
@@ -302,6 +328,59 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
 /**
  * Open the next innings (the chase or a super over). Idempotent.
  */
+/**
+ * Open innings 1 of a match that was set up for later.
+ *
+ * `startNextInnings` cannot do this: it exists to work out which innings comes
+ * next from the ones already played, and refuses when the first has not
+ * finished. There is no first here at all.
+ *
+ * Everything else is the same as creating a live match — the toss decides the
+ * sides, the XI sizes the innings — so it reads from the stored squads rather
+ * than re-deriving anything, which is the whole reason setting up in advance
+ * is worth doing.
+ */
+export async function openFirstInnings(matchId: string, input: OpenersInput) {
+  const { match } = await requireOwnedMatch(matchId);
+
+  const existing = await getInnings(matchId);
+  const first = existing.find((i) => i.inningsNumber === 1);
+  // Idempotent, like the endpoint it shares. Two taps on "start" must not
+  // produce two innings.
+  if (first) return { inning: first, alreadyExisted: true as const };
+
+  const { battingTeamId, bowlingTeamId } = resolveBattingSides(
+    match.teamAId,
+    match.teamBId,
+    match.tossWinnerTeamId ?? undefined,
+    (match.tossDecision ?? undefined) as 'bat' | 'bowl' | undefined,
+  );
+
+  const [battingSquad, bowlingSquad] = await Promise.all([
+    squadFor(match.id, battingTeamId),
+    squadFor(match.id, bowlingTeamId),
+  ]);
+  assertOpenersInSquads(battingSquad, bowlingSquad, input);
+
+  const inning = await createInning({
+    matchId: match.id,
+    inningsNumber: 1,
+    battingTeamId,
+    bowlingTeamId,
+    openingStrikerId: input.openingStrikerId,
+    openingNonStrikerId: input.openingNonStrikerId,
+    openingBowlerId: input.openingBowlerId,
+    maxWickets: sizeMaxWickets(battingSquad.length),
+  });
+  if (!inning) throw new Error('Could not create innings');
+
+  await startMatch(match.id);
+  await updateInningCache(inning.id, { status: 'in_progress', startedAt: new Date() });
+
+  const fresh = await getInning(inning.id);
+  return { inning: fresh ?? inning, alreadyExisted: false as const };
+}
+
 export async function startNextInnings(matchId: string, input: StartNextInningsInput) {
   const { match } = await requireOwnedMatch(matchId);
   const allInnings = await getInnings(matchId);

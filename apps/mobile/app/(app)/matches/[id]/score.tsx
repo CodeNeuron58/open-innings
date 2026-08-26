@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -75,6 +75,22 @@ export default function Scorer() {
     };
   }, [keepAwakeWhileScoring]);
 
+  /*
+   * Is there room to put the keypad beside the board?
+   *
+   * A tablet propped on a table is the classic setup at an organised club, and
+   * in landscape the console was a phone layout stretched — a keypad pinned to
+   * the bottom of a screen twice as wide as it is tall, with the score scrolled
+   * off above it.
+   *
+   * 700 rather than a device check: what matters is whether two columns fit,
+   * and a large phone in landscape is as entitled to the wider layout as a
+   * small tablet is. `useWindowDimensions` re-renders on rotation, so this
+   * follows the device rather than whatever it was at mount.
+   */
+  const { width } = useWindowDimensions();
+  const wide = width >= 700;
+
   const query = useApiQuery<ScorerResponse>((t, signal) => api.scorer(t, id, signal), [id]);
 
   // The server's state supersedes the loaded one after every ball.
@@ -124,6 +140,7 @@ export default function Scorer() {
 
   // A delivery the engine refused, now that the engine runs here. See `send`.
   const [localRefusal, setLocalRefusal] = useState<string | null>(null);
+  const [dismissedForeign, setDismissedForeign] = useState(false);
   const [showWicket, setShowWicket] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showRetirement, setShowRetirement] = useState(false);
@@ -712,6 +729,25 @@ export default function Scorer() {
   const previousEndBowlerId =
     state.balls.find((b) => b.overNumber === currentOver - 2)?.bowlerId ?? null;
 
+  /*
+   * Somebody else is scoring this match.
+   *
+   * Two devices on the same account will overwrite each other. The server
+   * already refuses the second delivery and the client already reloads quietly
+   * on a conflict, so the machinery to survive it has been there all along and
+   * nothing ever said it was happening.
+   *
+   * The test is narrow on purpose: the server's newest delivery carries a
+   * request id, this device knows every id it minted, and a ball whose id is
+   * not among them was recorded somewhere else. It stays quiet while this
+   * device has unsynced deliveries of its own, because then the server's
+   * newest is simply older than ours and says nothing about anybody.
+   */
+  const foreignBall =
+    data.lastBall?.requestId != null &&
+    outbox.pending.length === 0 &&
+    !outbox.sentIds.has(data.lastBall.requestId);
+
   // What "undo" is about to take off the board, in the notation the over strip
   // already uses — so the button and the chip it removes say the same thing.
   const undoTarget = lastBall ? ballMark(lastBall).label : '';
@@ -762,6 +798,162 @@ export default function Scorer() {
   const legalThisOver = overBalls.filter(
     (b) => b.eventType !== 'wide' && b.eventType !== 'no_ball',
   ).length;
+
+  /*
+   * The keypad and everything that belongs beside it.
+   *
+   * Held as a value rather than written twice, because it renders in a
+   * different place depending on the screen: under the board on a phone,
+   * beside it on a tablet or in landscape. Two copies of a keypad is two
+   * keypads to keep in step, and this one has an armed-extras state.
+   */
+  const consoleColumn = (
+    <>
+        {/* Said once, and dismissable — it is a warning, not an error. */}
+        {foreignBall && !dismissedForeign ? (
+          <Pressable onPress={() => setDismissedForeign(true)} className="px-3 pb-2">
+            <View className="border-steel-400 bg-steel-100 border p-3">
+              <Text className="text-steel-900 font-heading text-[14px]">
+                Somebody else is scoring this match
+              </Text>
+              <Text className="text-steel-800/80 mt-1 text-[13px] leading-[18px]">
+                The last ball came from another device signed in to your account. Two people scoring
+                at once will overwrite each other — agree who is holding the book.
+              </Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/*
+          Failures, next to the thumb that caused them.
+
+          These rendered near the top of the scroll view, which is not where
+          anybody is looking a quarter-second after tapping a key — so a refused
+          delivery could sit unread while the scorer wondered why the score had
+          not moved. Both are dismissable by tapping, because neither survives
+          the next successful ball anyway.
+        */}
+        {mutation.error ? (
+          <Pressable onPress={() => mutation.setError(null)} className="px-3 pb-2">
+            <ErrorBanner message={mutation.error} />
+          </Pressable>
+        ) : null}
+
+        {/* Refused before it was queued, so there is nothing to undo — just
+            something to do differently. */}
+        {localRefusal ? (
+          <Pressable onPress={() => setLocalRefusal(null)} className="px-3 pb-2">
+            <ErrorBanner message={localRefusal} />
+          </Pressable>
+        ) : null}
+
+        {/* What has and has not reached the server, next to the thumb that is
+            about to add to it. This replaces a static "Live" square that meant
+            nothing and said so even after an hour of nobody scoring. */}
+        <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
+
+        {/* The console — pinned, thumb-reachable, one-handed */}
+        {!completed ? (
+          <View className="px-3 pb-3">
+            <View className="border-border relative border bg-neutral-100 p-2.5">
+              {/* Extras are armed modifiers above the keypad, not a second
+                  keypad: arm one, tap the runs, and it is charged correctly. */}
+              <View className="mb-2 flex-row gap-1.5">
+                {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
+                  <Pressable
+                    key={kind}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: pendingExtra === kind }}
+                    onPress={() => {
+                      tap();
+                      setPendingExtra((prev) => (prev === kind ? null : kind));
+                    }}
+                    onLongPress={() => {
+                      tap();
+                      setPendingExtra(kind);
+                      setShowExtraRunsSheet(true);
+                    }}
+                    disabled={mutation.busy}
+                    className={`h-12 flex-1 items-center justify-center border ${
+                      pendingExtra === kind
+                        ? 'bg-primary border-primary'
+                        : 'border-border bg-transparent'
+                    } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+                  >
+                    <Text
+                      className={`font-heading text-[13.5px] ${
+                        pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
+                      }`}
+                    >
+                      {EXTRA_LABELS[kind]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* 0–6 and W, on one hairline grid. */}
+              <View className="border-border flex-row flex-wrap border-l border-t">
+                {KEYS.map((k) => (
+                  <Key
+                    key={k.label}
+                    {...k}
+                    // With an extra armed, the key says what it will put on the
+                    // board. A scorer should not have to remember that Wide + 4
+                    // is four and No ball + 4 is five.
+                    sublabel={
+                      pendingExtra && k.runs !== undefined
+                        ? `${armedTotal(pendingExtra, k.runs)} ${EXTRA_MARK[pendingExtra]}`
+                        : undefined
+                    }
+                    onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
+                    disabled={mutation.busy}
+                  />
+                ))}
+              </View>
+
+              <View className="mt-2 flex-row items-center gap-2">
+                {/* Undo names what it will remove.
+                    It is the most-used correction in cricket scoring and it was
+                    a 36pt outline in the corner reading "Undo" — a gamble rather
+                    than a decision, because nothing said which ball was about to
+                    go. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
+                  }
+                  onPress={() => {
+                    tap('undo');
+                    void undo();
+                  }}
+                  disabled={mutation.busy || state.balls.length === 0}
+                  className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
+                    mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
+                  }`}
+                >
+                  <Text className="text-foreground font-heading text-[15px]">
+                    ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
+                  </Text>
+                </Pressable>
+
+                {pendingExtra ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
+                    onPress={() => setShowExtraRunsSheet(true)}
+                    className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
+                  >
+                    <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
+                      {ARMED_HINT[pendingExtra]}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
+    </>
+  );
 
   return (
     <SafeAreaView className="bg-background flex-1">
@@ -823,7 +1015,11 @@ export default function Scorer() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerClassName="pb-2">
+      <View className={wide ? 'min-h-0 flex-1 flex-row' : 'min-h-0 flex-1'}>
+      <ScrollView
+        className={wide ? 'min-w-0 flex-1' : ''}
+        contentContainerClassName="pb-2"
+      >
         {/*
           Score plate — the one reversed field on the screen.
 
@@ -1113,133 +1309,26 @@ export default function Scorer() {
       </ScrollView>
 
       {/*
-        Failures, next to the thumb that caused them.
+        On a wide screen the keypad moves beside the board instead of under it.
 
-        These rendered near the top of the scroll view, which is not where
-        anybody is looking a quarter-second after tapping a key — so a refused
-        delivery could sit unread while the scorer wondered why the score had
-        not moved. Both are dismissable by tapping, because neither survives
-        the next successful ball anyway.
+        A tablet propped on a table is the classic setup at an organised club,
+        and in landscape the console was a phone layout stretched: a keypad
+        pinned to the bottom of a screen twice as wide as it is tall, with the
+        score scrolled off above it. Side by side, the plate and the over strip
+        stay visible while the thumb works — which is the arrangement the
+        portrait layout is already trying to approximate by pinning.
+
+        Everything below is unchanged and simply rendered in the second column;
+        there is no second copy of the keypad.
       */}
-      {mutation.error ? (
-        <Pressable onPress={() => mutation.setError(null)} className="px-3 pb-2">
-          <ErrorBanner message={mutation.error} />
-        </Pressable>
-      ) : null}
-
-      {/* Refused before it was queued, so there is nothing to undo — just
-          something to do differently. */}
-      {localRefusal ? (
-        <Pressable onPress={() => setLocalRefusal(null)} className="px-3 pb-2">
-          <ErrorBanner message={localRefusal} />
-        </Pressable>
-      ) : null}
-
-      {/* What has and has not reached the server, next to the thumb that is
-          about to add to it. This replaces a static "Live" square that meant
-          nothing and said so even after an hour of nobody scoring. */}
-      <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
-
-      {/* The console — pinned, thumb-reachable, one-handed */}
-      {!completed ? (
-        <View className="px-3 pb-3">
-          <View className="border-border relative border bg-neutral-100 p-2.5">
-            {/* Extras are armed modifiers above the keypad, not a second
-                keypad: arm one, tap the runs, and it is charged correctly. */}
-            <View className="mb-2 flex-row gap-1.5">
-              {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
-                <Pressable
-                  key={kind}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: pendingExtra === kind }}
-                  onPress={() => {
-                    tap();
-                    setPendingExtra((prev) => (prev === kind ? null : kind));
-                  }}
-                  onLongPress={() => {
-                    tap();
-                    setPendingExtra(kind);
-                    setShowExtraRunsSheet(true);
-                  }}
-                  disabled={mutation.busy}
-                  className={`h-12 flex-1 items-center justify-center border ${
-                    pendingExtra === kind
-                      ? 'bg-primary border-primary'
-                      : 'border-border bg-transparent'
-                  } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
-                >
-                  <Text
-                    className={`font-heading text-[13.5px] ${
-                      pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
-                    }`}
-                  >
-                    {EXTRA_LABELS[kind]}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* 0–6 and W, on one hairline grid. */}
-            <View className="border-border flex-row flex-wrap border-l border-t">
-              {KEYS.map((k) => (
-                <Key
-                  key={k.label}
-                  {...k}
-                  // With an extra armed, the key says what it will put on the
-                  // board. A scorer should not have to remember that Wide + 4
-                  // is four and No ball + 4 is five.
-                  sublabel={
-                    pendingExtra && k.runs !== undefined
-                      ? `${armedTotal(pendingExtra, k.runs)} ${EXTRA_MARK[pendingExtra]}`
-                      : undefined
-                  }
-                  onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
-                  disabled={mutation.busy}
-                />
-              ))}
-            </View>
-
-            <View className="mt-2 flex-row items-center gap-2">
-              {/* Undo names what it will remove.
-                  It is the most-used correction in cricket scoring and it was
-                  a 36pt outline in the corner reading "Undo" — a gamble rather
-                  than a decision, because nothing said which ball was about to
-                  go. */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
-                }
-                onPress={() => {
-                  tap('undo');
-                  void undo();
-                }}
-                disabled={mutation.busy || state.balls.length === 0}
-                className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
-                  mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
-                }`}
-              >
-                <Text className="text-foreground font-heading text-[15px]">
-                  ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
-                </Text>
-              </Pressable>
-
-              {pendingExtra ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
-                  onPress={() => setShowExtraRunsSheet(true)}
-                  className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
-                >
-                  <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
-                    {ARMED_HINT[pendingExtra]}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
+      {wide ? (
+        <View className="border-border w-[46%] max-w-[420px] border-l">
+          <ScrollView contentContainerClassName="pb-2">{consoleColumn}</ScrollView>
         </View>
       ) : null}
+      </View>
+
+      {!wide ? consoleColumn : null}
 
       {/* Sheets */}
       {correctingBall && !correctingWicket ? (
@@ -1310,6 +1399,10 @@ export default function Scorer() {
           onScorecard={() => {
             setShowMenu(false);
             router.push({ pathname: '/matches/[id]/card', params: { id } });
+          }}
+          onHelp={() => {
+            setShowMenu(false);
+            router.push('/help');
           }}
           onReplaceBowler={() => {
             setShowMenu(false);
