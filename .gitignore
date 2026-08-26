@@ -76,3 +76,8 @@ backups/
 .claude/
 skills-lock.json
 
+
+# Personal trackers — infrastructure notes, account maps, private planning.
+# These map accounts and services and are deliberately not part of the repo.
+WIRING.md
+ignore_its_personal.md
