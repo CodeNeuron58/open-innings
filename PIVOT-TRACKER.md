@@ -3,11 +3,11 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 31
-**Tests:** 413 passing (shared 40 · scoring 179 · mobile 103 · web 91)
-**Smoke:** 378 checks green against a real database
-(score 51 · api 283 · p1 19 · xi 6 · correct 12 · browse 7)
-**Findings:** 61 total — **50 closed**, 11 open
+**Branch:** `pivot` · **Commits:** 35
+**Tests:** 418 passing (shared 40 · scoring 184 · mobile 103 · web 91)
+**Smoke:** 386 checks green against a real database
+(score 51 · api 283 · p1 19 · xi 13 · correct 13 · browse 7)
+**Findings:** 61 total — **all 61 closed**
 
 The visual language is unchanged throughout. Nothing here rewrote the palette,
 the type families or the Industry design system — the work is flow, interaction
@@ -17,9 +17,9 @@ and information architecture.
 
 ## Before any of this runs
 
-- [ ] `pnpm db:migrate` — 0018 creates `match_squads`, 0019 adds two nullable
-      columns to `ball_events`. Both additive and idempotent; no existing
-      column changes shape.
+- [ ] `pnpm db:migrate` — 0018 creates `match_squads`; 0019, 0020 and 0021 add
+      nullable columns to `ball_events`. All additive and idempotent; no
+      existing column changes shape.
 - [ ] `npx expo prebuild` and rebuild the dev client — offline scoring adds
       `expo-sqlite` and the haptics work adds `expo-haptics`. Both are native
       modules; a JS reload will not pick either up.
@@ -338,40 +338,38 @@ Three things want smoking on hardware:
       once the server has answered. A second copy would have got one of those
       wrong, and the cost is a split career that cannot be rejoined.
 
----
+### `0603654` The strike override, and plain language
 
-## Open
+- [x] **C11** `battersCrossed` (migration 0020). Rotation was derived from run
+      parity, which cannot see a run out where they crossed and nothing was
+      completed. Asked on the wicket sheet, and a "swap the ends" control that
+      corrects the delivery that decided them.
+- [x] **C18** The user-visible law citations are gone from the console.
 
-### Cold start
+### `65d019a` Undo to a delivery, and mark the corrected ones
 
-### Match setup
+- [x] **D2** "Undo this delivery and everything after", counted and confirmed
+      once. Sequential, because each undo is defined against whichever ball is
+      currently last.
+- [x] **D3** `corrected_at` (migration 0021) and a corner mark on the chip.
+- [x] A sixth row-to-input mapper removed — it was dropping `overthrowRuns`, so
+      undo replayed an innings without them.
 
-- [ ] **B9** — _Minor._ Step 3 is three stacked full-length player lists.
-- [ ] **B10** — _Minor._ No scheduling. Matches can only start now, though
-      `startedAt` and a `scheduled` status both exist.
-- [ ] **B11** — _Minor._ The share link is never offered at creation, which is the
-      moment the scorer is standing next to the people who want it.
+### `ac09801` The last seven
 
-### Scoring console
-
-- [ ] **C11** — _Minor._ No manual strike swap.
-- [ ] **C18** — _Minor._ Law citations printed on the live console.
-
-### Fixing mistakes
-
-- [ ] **D2** — _Minor._ Undo is one ball at a time. No "undo to here".
-- [ ] **D3** — _Minor._ A corrected ball is indistinguishable from an original.
-
-### Overs, breaks and endings
-
-### Across the app
-
-- [ ] **F9** — _Minor._ No search, filter or season grouping on the match list.
-- [ ] **F10** — _Minor._ Multi-device scoring is handled server-side but never
-      shown. Nothing says who holds the book.
-- [ ] **F11** — _Minor._ No landscape or tablet layout.
-- [ ] **F13** — _Minor._ No help anywhere. C4, F4 and the bowler-row shortcut are
-      all undiscoverable without it.
+- [x] **B9** Step 3 is three slots, one open at a time, instead of forty-five
+      rows of scroll.
+- [x] **B10** A match can be set up the night before. Scheduled matches keep
+      their sides and XIs and get their openers at the ground, behind the same
+      endpoint the second innings uses.
+- [x] **B11** The share link is offered when the match starts, not only when it
+      has finished.
+- [x] **F9** Search by team, title or ground, and matches grouped by month.
+- [x] **F10** "Somebody else is scoring this match" — no new column, using the
+      request id every delivery already carries.
+- [x] **F11** On a tablet or in landscape the keypad moves beside the board.
+- [x] **F13** Help, written as the questions a scorer actually asks. It is also
+      where the law numbers went.
 
 ---
 
