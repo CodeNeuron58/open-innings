@@ -857,9 +857,7 @@ export default function NewMatch() {
       <MatchStartedSheet
         matchId={started}
         title={title.trim() || `${nameOf(homeId)} v ${nameOf(awayId)}`}
-        onScore={() =>
-          router.replace({ pathname: '/matches/[id]/score', params: { id: started } })
-        }
+        onScore={() => router.replace({ pathname: '/matches/[id]/score', params: { id: started } })}
       />
     );
   }

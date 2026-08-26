@@ -809,22 +809,22 @@ export default function Scorer() {
    */
   const consoleColumn = (
     <>
-        {/* Said once, and dismissable — it is a warning, not an error. */}
-        {foreignBall && !dismissedForeign ? (
-          <Pressable onPress={() => setDismissedForeign(true)} className="px-3 pb-2">
-            <View className="border-steel-400 bg-steel-100 border p-3">
-              <Text className="text-steel-900 font-heading text-[14px]">
-                Somebody else is scoring this match
-              </Text>
-              <Text className="text-steel-800/80 mt-1 text-[13px] leading-[18px]">
-                The last ball came from another device signed in to your account. Two people scoring
-                at once will overwrite each other — agree who is holding the book.
-              </Text>
-            </View>
-          </Pressable>
-        ) : null}
+      {/* Said once, and dismissable — it is a warning, not an error. */}
+      {foreignBall && !dismissedForeign ? (
+        <Pressable onPress={() => setDismissedForeign(true)} className="px-3 pb-2">
+          <View className="border-steel-400 bg-steel-100 border p-3">
+            <Text className="text-steel-900 font-heading text-[14px]">
+              Somebody else is scoring this match
+            </Text>
+            <Text className="text-steel-800/80 mt-1 text-[13px] leading-[18px]">
+              The last ball came from another device signed in to your account. Two people scoring
+              at once will overwrite each other — agree who is holding the book.
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
 
-        {/*
+      {/*
           Failures, next to the thumb that caused them.
 
           These rendered near the top of the scroll view, which is not where
@@ -833,125 +833,125 @@ export default function Scorer() {
           not moved. Both are dismissable by tapping, because neither survives
           the next successful ball anyway.
         */}
-        {mutation.error ? (
-          <Pressable onPress={() => mutation.setError(null)} className="px-3 pb-2">
-            <ErrorBanner message={mutation.error} />
-          </Pressable>
-        ) : null}
+      {mutation.error ? (
+        <Pressable onPress={() => mutation.setError(null)} className="px-3 pb-2">
+          <ErrorBanner message={mutation.error} />
+        </Pressable>
+      ) : null}
 
-        {/* Refused before it was queued, so there is nothing to undo — just
+      {/* Refused before it was queued, so there is nothing to undo — just
             something to do differently. */}
-        {localRefusal ? (
-          <Pressable onPress={() => setLocalRefusal(null)} className="px-3 pb-2">
-            <ErrorBanner message={localRefusal} />
-          </Pressable>
-        ) : null}
+      {localRefusal ? (
+        <Pressable onPress={() => setLocalRefusal(null)} className="px-3 pb-2">
+          <ErrorBanner message={localRefusal} />
+        </Pressable>
+      ) : null}
 
-        {/* What has and has not reached the server, next to the thumb that is
+      {/* What has and has not reached the server, next to the thumb that is
             about to add to it. This replaces a static "Live" square that meant
             nothing and said so even after an hour of nobody scoring. */}
-        <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
+      <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
 
-        {/* The console — pinned, thumb-reachable, one-handed */}
-        {!completed ? (
-          <View className="px-3 pb-3">
-            <View className="border-border relative border bg-neutral-100 p-2.5">
-              {/* Extras are armed modifiers above the keypad, not a second
+      {/* The console — pinned, thumb-reachable, one-handed */}
+      {!completed ? (
+        <View className="px-3 pb-3">
+          <View className="border-border relative border bg-neutral-100 p-2.5">
+            {/* Extras are armed modifiers above the keypad, not a second
                   keypad: arm one, tap the runs, and it is charged correctly. */}
-              <View className="mb-2 flex-row gap-1.5">
-                {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
-                  <Pressable
-                    key={kind}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: pendingExtra === kind }}
-                    onPress={() => {
-                      tap();
-                      setPendingExtra((prev) => (prev === kind ? null : kind));
-                    }}
-                    onLongPress={() => {
-                      tap();
-                      setPendingExtra(kind);
-                      setShowExtraRunsSheet(true);
-                    }}
-                    disabled={mutation.busy}
-                    className={`h-12 flex-1 items-center justify-center border ${
-                      pendingExtra === kind
-                        ? 'bg-primary border-primary'
-                        : 'border-border bg-transparent'
-                    } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+            <View className="mb-2 flex-row gap-1.5">
+              {(['wide', 'no_ball', 'bye', 'leg_bye'] as ExtraKind[]).map((kind) => (
+                <Pressable
+                  key={kind}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: pendingExtra === kind }}
+                  onPress={() => {
+                    tap();
+                    setPendingExtra((prev) => (prev === kind ? null : kind));
+                  }}
+                  onLongPress={() => {
+                    tap();
+                    setPendingExtra(kind);
+                    setShowExtraRunsSheet(true);
+                  }}
+                  disabled={mutation.busy}
+                  className={`h-12 flex-1 items-center justify-center border ${
+                    pendingExtra === kind
+                      ? 'bg-primary border-primary'
+                      : 'border-border bg-transparent'
+                  } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
+                >
+                  <Text
+                    className={`font-heading text-[13.5px] ${
+                      pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
+                    }`}
                   >
-                    <Text
-                      className={`font-heading text-[13.5px] ${
-                        pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
-                      }`}
-                    >
-                      {EXTRA_LABELS[kind]}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                    {EXTRA_LABELS[kind]}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-              {/* 0–6 and W, on one hairline grid. */}
-              <View className="border-border flex-row flex-wrap border-l border-t">
-                {KEYS.map((k) => (
-                  <Key
-                    key={k.label}
-                    {...k}
-                    // With an extra armed, the key says what it will put on the
-                    // board. A scorer should not have to remember that Wide + 4
-                    // is four and No ball + 4 is five.
-                    sublabel={
-                      pendingExtra && k.runs !== undefined
-                        ? `${armedTotal(pendingExtra, k.runs)} ${EXTRA_MARK[pendingExtra]}`
-                        : undefined
-                    }
-                    onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
-                    disabled={mutation.busy}
-                  />
-                ))}
-              </View>
+            {/* 0–6 and W, on one hairline grid. */}
+            <View className="border-border flex-row flex-wrap border-l border-t">
+              {KEYS.map((k) => (
+                <Key
+                  key={k.label}
+                  {...k}
+                  // With an extra armed, the key says what it will put on the
+                  // board. A scorer should not have to remember that Wide + 4
+                  // is four and No ball + 4 is five.
+                  sublabel={
+                    pendingExtra && k.runs !== undefined
+                      ? `${armedTotal(pendingExtra, k.runs)} ${EXTRA_MARK[pendingExtra]}`
+                      : undefined
+                  }
+                  onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
+                  disabled={mutation.busy}
+                />
+              ))}
+            </View>
 
-              <View className="mt-2 flex-row items-center gap-2">
-                {/* Undo names what it will remove.
+            <View className="mt-2 flex-row items-center gap-2">
+              {/* Undo names what it will remove.
                     It is the most-used correction in cricket scoring and it was
                     a 36pt outline in the corner reading "Undo" — a gamble rather
                     than a decision, because nothing said which ball was about to
                     go. */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
+                }
+                onPress={() => {
+                  tap('undo');
+                  void undo();
+                }}
+                disabled={mutation.busy || state.balls.length === 0}
+                className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
+                  mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
+                }`}
+              >
+                <Text className="text-foreground font-heading text-[15px]">
+                  ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
+                </Text>
+              </Pressable>
+
+              {pendingExtra ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    lastBall ? `Undo the last ball — ${undoTarget}` : 'Undo — nothing to undo yet'
-                  }
-                  onPress={() => {
-                    tap('undo');
-                    void undo();
-                  }}
-                  disabled={mutation.busy || state.balls.length === 0}
-                  className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
-                    mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
-                  }`}
+                  accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
+                  onPress={() => setShowExtraRunsSheet(true)}
+                  className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
                 >
-                  <Text className="text-foreground font-heading text-[15px]">
-                    ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
+                  <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
+                    {ARMED_HINT[pendingExtra]}
                   </Text>
                 </Pressable>
-
-                {pendingExtra ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
-                    onPress={() => setShowExtraRunsSheet(true)}
-                    className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
-                  >
-                    <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
-                      {ARMED_HINT[pendingExtra]}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
+              ) : null}
             </View>
           </View>
-        ) : null}
+        </View>
+      ) : null}
     </>
   );
 
@@ -1016,11 +1016,8 @@ export default function Scorer() {
       </View>
 
       <View className={wide ? 'min-h-0 flex-1 flex-row' : 'min-h-0 flex-1'}>
-      <ScrollView
-        className={wide ? 'min-w-0 flex-1' : ''}
-        contentContainerClassName="pb-2"
-      >
-        {/*
+        <ScrollView className={wide ? 'min-w-0 flex-1' : ''} contentContainerClassName="pb-2">
+          {/*
           Score plate — the one reversed field on the screen.
 
           It is also the one thing on here worth hearing. Roles and labels are
@@ -1031,99 +1028,99 @@ export default function Scorer() {
           `accessibilityLiveRegion` on the plate and a label that reads as a
           sentence fixes both halves — what it says, and that it said it.
         */}
-        <View
-          accessibilityLiveRegion="polite"
-          accessibilityLabel={spokenScore}
-          className="bg-scoreboard px-4 pb-3.5 pt-3.5"
-        >
-          <View className="flex-row items-end gap-3">
-            {/* shrink-0 throughout: RN gives Text in a flex-row an implicit
+          <View
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={spokenScore}
+            className="bg-scoreboard px-4 pb-3.5 pt-3.5"
+          >
+            <View className="flex-row items-end gap-3">
+              {/* shrink-0 throughout: RN gives Text in a flex-row an implicit
                 flexShrink and clips mid-word rather than wrapping. */}
-            <Text className="text-scoreboard-text font-heading shrink-0 text-[58px] leading-[50px]">
-              {inn.runs}-{inn.wickets}
-            </Text>
-            <View className="shrink-0 pb-1.5">
-              <Text className="text-scoreboard-text font-heading text-[19px] leading-[19px] opacity-90">
-                {formatOvers(inn.ballsBowled)}
+              <Text className="text-scoreboard-text font-heading shrink-0 text-[58px] leading-[50px]">
+                {inn.runs}-{inn.wickets}
               </Text>
-              <Text className="text-scoreboard-text font-heading mt-0.5 text-[11px] uppercase tracking-[1.3px] opacity-60">
-                Overs
-              </Text>
-            </View>
-            {inn.target !== undefined ? (
-              <View className="ml-auto shrink-0 items-end pb-1">
-                <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
-                  Target
+              <View className="shrink-0 pb-1.5">
+                <Text className="text-scoreboard-text font-heading text-[19px] leading-[19px] opacity-90">
+                  {formatOvers(inn.ballsBowled)}
                 </Text>
-                <Text className="text-scoreboard-text font-heading text-[19px] leading-[22px]">
-                  {inn.target}
+                <Text className="text-scoreboard-text font-heading mt-0.5 text-[11px] uppercase tracking-[1.3px] opacity-60">
+                  Overs
                 </Text>
               </View>
-            ) : null}
-          </View>
+              {inn.target !== undefined ? (
+                <View className="ml-auto shrink-0 items-end pb-1">
+                  <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
+                    Target
+                  </Text>
+                  <Text className="text-scoreboard-text font-heading text-[19px] leading-[22px]">
+                    {inn.target}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
 
-          <View className="border-scoreboard-text/25 mt-3 flex-row gap-4 border-t pt-2.5">
-            <Rate label="CRR" value={rate(inn.runs, inn.ballsBowled)} />
-            {runsNeeded !== undefined && !completed ? (
-              <>
-                <Rate label="RRR" value={rate(runsNeeded, ballsLeft)} />
-                <Text className="text-scoreboard-text font-heading ml-auto shrink-0 text-[15px]">
-                  Need {runsNeeded} off {ballsLeft}
-                </Text>
-              </>
-            ) : null}
-          </View>
+            <View className="border-scoreboard-text/25 mt-3 flex-row gap-4 border-t pt-2.5">
+              <Rate label="CRR" value={rate(inn.runs, inn.ballsBowled)} />
+              {runsNeeded !== undefined && !completed ? (
+                <>
+                  <Rate label="RRR" value={rate(runsNeeded, ballsLeft)} />
+                  <Text className="text-scoreboard-text font-heading ml-auto shrink-0 text-[15px]">
+                    Need {runsNeeded} off {ballsLeft}
+                  </Text>
+                </>
+              ) : null}
+            </View>
 
-          {/* Extras, the stand, and how the last one fell. All three are
+            {/* Extras, the stand, and how the last one fell. All three are
               folded out of state the engine already holds. */}
-          <View className="border-scoreboard-text/25 mt-2.5 flex-row flex-wrap gap-x-4 gap-y-1 border-t pt-2.5">
-            <Plate label="Extras" value={String(inn.extras)} />
-            {partnership ? (
-              <Plate label="Stand" value={`${partnership.runs} (${partnership.balls})`} />
-            ) : null}
-            {lastWicket ? (
-              <Plate
-                label={`Last wkt ${lastWicket.wicketNumber}`}
-                value={`${nameOf(lastWicket.batsmanOutId)} ${lastWicket.runs}-${lastWicket.wicketNumber}`}
-                wide
-              />
-            ) : null}
-          </View>
+            <View className="border-scoreboard-text/25 mt-2.5 flex-row flex-wrap gap-x-4 gap-y-1 border-t pt-2.5">
+              <Plate label="Extras" value={String(inn.extras)} />
+              {partnership ? (
+                <Plate label="Stand" value={`${partnership.runs} (${partnership.balls})`} />
+              ) : null}
+              {lastWicket ? (
+                <Plate
+                  label={`Last wkt ${lastWicket.wicketNumber}`}
+                  value={`${nameOf(lastWicket.batsmanOutId)} ${lastWicket.runs}-${lastWicket.wicketNumber}`}
+                  wide
+                />
+              ) : null}
+            </View>
 
-          {inn.isFreeHitNext && !completed ? (
-            <View className="mt-3 flex-row items-center justify-between border border-amber-400/60 bg-amber-400/20 px-3 py-2">
-              <View className="flex-row items-center gap-2">
-                <View className="h-2 w-2 bg-amber-400" />
-                <Text className="font-heading text-[13.5px] font-bold uppercase tracking-[1.8px] text-amber-300">
-                  FREE HIT
+            {inn.isFreeHitNext && !completed ? (
+              <View className="mt-3 flex-row items-center justify-between border border-amber-400/60 bg-amber-400/20 px-3 py-2">
+                <View className="flex-row items-center gap-2">
+                  <View className="h-2 w-2 bg-amber-400" />
+                  <Text className="font-heading text-[13.5px] font-bold uppercase tracking-[1.8px] text-amber-300">
+                    FREE HIT
+                  </Text>
+                </View>
+                <Text className="font-heading text-[11px] uppercase tracking-[1.2px] text-amber-200/90">
+                  Run out or obstruction only
                 </Text>
               </View>
-              <Text className="font-heading text-[11px] uppercase tracking-[1.2px] text-amber-200/90">
-                Run out or obstruction only
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Batters */}
-        <View className="border-border border-b px-4">
-          <View className="border-border flex-row border-b pb-1.5 pt-2">
-            <Text className="font-heading flex-1 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
-              Batting
-            </Text>
-            {['R', 'B', '4s', '6s', 'SR'].map((h, i) => (
-              <Text
-                key={h}
-                className={`font-heading text-right text-[11px] uppercase tracking-[1.3px] text-neutral-700 ${COL[i]}`}
-              >
-                {h}
-              </Text>
-            ))}
+            ) : null}
           </View>
-          <BatterRow name={nameOf(effStriker)} onStrike stats={strikerStats} />
-          <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
 
-          {/*
+          {/* Batters */}
+          <View className="border-border border-b px-4">
+            <View className="border-border flex-row border-b pb-1.5 pt-2">
+              <Text className="font-heading flex-1 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
+                Batting
+              </Text>
+              {['R', 'B', '4s', '6s', 'SR'].map((h, i) => (
+                <Text
+                  key={h}
+                  className={`font-heading text-right text-[11px] uppercase tracking-[1.3px] text-neutral-700 ${COL[i]}`}
+                >
+                  {h}
+                </Text>
+              ))}
+            </View>
+            <BatterRow name={nameOf(effStriker)} onStrike stats={strikerStats} />
+            <BatterRow name={nameOf(effNonStriker)} stats={nonStrikerStats} />
+
+            {/*
             The ends, when the app has them the wrong way round.
 
             Rotation is derived from run parity, which is right for every
@@ -1133,65 +1130,65 @@ export default function Scorer() {
             display, because every scorecard is a replay and a display-only
             swap would not survive one.
           */}
-          {!completed && lastBall ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Swap the ends — ${nameOf(effNonStriker)} was on strike`}
-              onPress={() => {
-                tap();
-                void swapEnds();
-              }}
-              disabled={correctionBusy}
-              className={`border-border flex-row items-center justify-center gap-2 border-t py-2.5 ${
-                correctionBusy ? 'opacity-45' : 'active:opacity-70'
-              }`}
-            >
-              <Text className="text-steel-700 font-heading text-[13.5px]">⇄ Swap the ends</Text>
-              <Text className="text-foreground/60 font-heading text-[11px] uppercase tracking-[1.2px]">
-                wrong way round
-              </Text>
-            </Pressable>
-          ) : null}
-        </View>
-
-        {/* Bowler. Pressable mid-over only (Law 17.4 exception). */}
-        <Pressable
-          accessibilityRole={overInProgress && !completed ? 'button' : 'none'}
-          accessibilityLabel={
-            overInProgress && !completed
-              ? `Bowling: ${nameOf(effBowler)}. Tap to change if they cannot continue.`
-              : `Bowling: ${nameOf(effBowler)}`
-          }
-          onPress={() => setPickingMidOverBowler(true)}
-          disabled={!overInProgress || completed || mutation.busy}
-          className="border-border flex-row items-center gap-2.5 border-b px-4 py-2 active:opacity-70"
-        >
-          <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
-            Bowling
-          </Text>
-          <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
-            {nameOf(effBowler)}
-            {midOverBowlerId ? (
-              <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
+            {!completed && lastBall ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Swap the ends — ${nameOf(effNonStriker)} was on strike`}
+                onPress={() => {
+                  tap();
+                  void swapEnds();
+                }}
+                disabled={correctionBusy}
+                className={`border-border flex-row items-center justify-center gap-2 border-t py-2.5 ${
+                  correctionBusy ? 'opacity-45' : 'active:opacity-70'
+                }`}
+              >
+                <Text className="text-steel-700 font-heading text-[13.5px]">⇄ Swap the ends</Text>
+                <Text className="text-foreground/60 font-heading text-[11px] uppercase tracking-[1.2px]">
+                  wrong way round
+                </Text>
+              </Pressable>
             ) : null}
-          </Text>
-          {overInProgress && !completed && !midOverBowlerId ? (
-            <View className="border-steel-400 bg-steel-100 border px-1.5 py-0.5">
-              <Text className="text-steel-800 font-heading text-[11px] uppercase tracking-[1px]">
-                Change
-              </Text>
-            </View>
-          ) : null}
-          <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
-            {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
-            {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}
-          </Text>
-          <Text className="text-foreground/60 font-heading shrink-0 text-[13.5px]">
-            {rate(bowlerStats?.runs ?? 0, bowlerStats?.balls ?? 0)}
-          </Text>
-        </Pressable>
+          </View>
 
-        {/*
+          {/* Bowler. Pressable mid-over only (Law 17.4 exception). */}
+          <Pressable
+            accessibilityRole={overInProgress && !completed ? 'button' : 'none'}
+            accessibilityLabel={
+              overInProgress && !completed
+                ? `Bowling: ${nameOf(effBowler)}. Tap to change if they cannot continue.`
+                : `Bowling: ${nameOf(effBowler)}`
+            }
+            onPress={() => setPickingMidOverBowler(true)}
+            disabled={!overInProgress || completed || mutation.busy}
+            className="border-border flex-row items-center gap-2.5 border-b px-4 py-2 active:opacity-70"
+          >
+            <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
+              Bowling
+            </Text>
+            <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
+              {nameOf(effBowler)}
+              {midOverBowlerId ? (
+                <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
+              ) : null}
+            </Text>
+            {overInProgress && !completed && !midOverBowlerId ? (
+              <View className="border-steel-400 bg-steel-100 border px-1.5 py-0.5">
+                <Text className="text-steel-800 font-heading text-[11px] uppercase tracking-[1px]">
+                  Change
+                </Text>
+              </View>
+            ) : null}
+            <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
+              {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
+              {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}
+            </Text>
+            <Text className="text-foreground/60 font-heading shrink-0 text-[13.5px]">
+              {rate(bowlerStats?.runs ?? 0, bowlerStats?.balls ?? 0)}
+            </Text>
+          </Pressable>
+
+          {/*
           The innings, not just the over.
 
           This showed six chips and nothing else, so a mistake noticed three
@@ -1204,82 +1201,84 @@ export default function Scorer() {
           that is where the next ball is about to land and it is what the
           scorer is looking at.
         */}
-        <View className="pb-3.5 pt-3">
-          <View className="mb-2 flex-row items-baseline px-4">
-            <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
-              {overLabel}
-            </Text>
-            <Text className="text-foreground/70 font-heading ml-auto shrink-0 text-[13.5px]">
-              {runsThisOver} run{runsThisOver === 1 ? '' : 's'} this over
-            </Text>
+          <View className="pb-3.5 pt-3">
+            <View className="mb-2 flex-row items-baseline px-4">
+              <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
+                {overLabel}
+              </Text>
+              <Text className="text-foreground/70 font-heading ml-auto shrink-0 text-[13.5px]">
+                {runsThisOver} run{runsThisOver === 1 ? '' : 's'} this over
+              </Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="px-4 gap-3 items-start"
+              // Pinned to the newest over. `groupIntoOvers` returns newest
+              // first, so the strip is reversed and this keeps the far end in
+              // view as the over fills.
+              ref={stripRef}
+              onContentSizeChange={() => stripRef.current?.scrollToEnd({ animated: false })}
+            >
+              {recentOvers.map((over) => (
+                <View key={over.overNumber} className="shrink-0">
+                  <Text
+                    className="font-heading mb-1.5 text-[11px] uppercase tracking-[1.2px] text-neutral-700"
+                    numberOfLines={1}
+                  >
+                    Ov {over.overNumber} · {over.bowlerName}
+                  </Text>
+                  <View className="flex-row gap-1.5">
+                    {over.balls.map((b, i) => (
+                      <BallChip
+                        key={`${b.ballNumber}-${i}`}
+                        ball={b}
+                        // The one that just landed, so a mis-tap is visible
+                        // straight away rather than at the end of the over.
+                        latest={lastBall !== undefined && String(b.id) === String(lastBall.id)}
+                        // Only while the innings is live. Correcting a delivery
+                        // in a closed innings would have to reopen a finished
+                        // match and invalidate a result already shared, which is
+                        // a different feature and is refused by the server too.
+                        onPress={completed ? undefined : () => setCorrecting(String(b.id))}
+                      />
+                    ))}
+                    {/* The balls not yet bowled, on the over in progress only —
+                      drawn, not filled. */}
+                    {over.overNumber === currentOver + 1
+                      ? Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
+                          <View
+                            key={`empty-${i}`}
+                            className="border-border/40 h-11 w-11 border border-dashed"
+                          />
+                        ))
+                      : null}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="px-4 gap-3 items-start"
-            // Pinned to the newest over. `groupIntoOvers` returns newest
-            // first, so the strip is reversed and this keeps the far end in
-            // view as the over fills.
-            ref={stripRef}
-            onContentSizeChange={() => stripRef.current?.scrollToEnd({ animated: false })}
-          >
-            {recentOvers.map((over) => (
-              <View key={over.overNumber} className="shrink-0">
-                <Text
-                  className="font-heading mb-1.5 text-[11px] uppercase tracking-[1.2px] text-neutral-700"
-                  numberOfLines={1}
-                >
-                  Ov {over.overNumber} · {over.bowlerName}
-                </Text>
-                <View className="flex-row gap-1.5">
-                  {over.balls.map((b, i) => (
-                    <BallChip
-                      key={`${b.ballNumber}-${i}`}
-                      ball={b}
-                      // The one that just landed, so a mis-tap is visible
-                      // straight away rather than at the end of the over.
-                      latest={lastBall !== undefined && String(b.id) === String(lastBall.id)}
-                      // Only while the innings is live. Correcting a delivery
-                      // in a closed innings would have to reopen a finished
-                      // match and invalidate a result already shared, which is
-                      // a different feature and is refused by the server too.
-                      onPress={completed ? undefined : () => setCorrecting(String(b.id))}
-                    />
-                  ))}
-                  {/* The balls not yet bowled, on the over in progress only —
-                      drawn, not filled. */}
-                  {over.overNumber === currentOver + 1
-                    ? Array.from({ length: Math.max(0, 6 - legalThisOver) }).map((_, i) => (
-                        <View
-                          key={`empty-${i}`}
-                          className="border-border/40 h-11 w-11 border border-dashed"
-                        />
-                      ))
-                    : null}
-                </View>
+          {/* Not an error — the server was ahead of the screen, and now is not. */}
+          {conflictNote ? (
+            <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
+              <View className="border-steel-300 bg-steel-100 border p-2.5">
+                <Text className="text-steel-900 text-[13.5px]">{conflictNote}</Text>
               </View>
-            ))}
-          </ScrollView>
-        </View>
+            </Pressable>
+          ) : null}
 
-        {/* Not an error — the server was ahead of the screen, and now is not. */}
-        {conflictNote ? (
-          <Pressable onPress={() => setConflictNote(null)} className="px-4 pb-2">
-            <View className="border-steel-300 bg-steel-100 border p-2.5">
-              <Text className="text-steel-900 text-[13.5px]">{conflictNote}</Text>
-            </View>
-          </Pressable>
-        ) : null}
-
-        {/* Completed innings but awaiting second innings. */}
-        {completed ? (
-          <View className="border-border mx-4 mb-4 border p-5">
-            <Text className="text-foreground font-heading text-lg uppercase">Innings complete</Text>
-            {data.matchSummary ? (
-              <Text className="text-steel-700 mt-1 text-base">{data.matchSummary}</Text>
-            ) : null}
-            {/*
+          {/* Completed innings but awaiting second innings. */}
+          {completed ? (
+            <View className="border-border mx-4 mb-4 border p-5">
+              <Text className="text-foreground font-heading text-lg uppercase">
+                Innings complete
+              </Text>
+              {data.matchSummary ? (
+                <Text className="text-steel-700 mt-1 text-base">{data.matchSummary}</Text>
+              ) : null}
+              {/*
               The action that carries on, first.
 
               These were stacked Refresh / See the result / Back to matches, in
@@ -1288,27 +1287,27 @@ export default function Scorer() {
               can genuinely be looking at state the server has moved past — but
               it is the last resort it always was, not the headline.
             */}
-            <View className="mt-4 gap-2">
-              <Button
-                label="See the result"
-                onPress={() => router.push({ pathname: '/matches/[id]/result', params: { id } })}
-              />
-              <Button
-                label="Back to matches"
-                variant="secondary"
-                onPress={() => router.replace('/matches')}
-              />
-              <Button
-                label="Reload from the server"
-                variant="ghost"
-                onPress={() => void reload()}
-              />
+              <View className="mt-4 gap-2">
+                <Button
+                  label="See the result"
+                  onPress={() => router.push({ pathname: '/matches/[id]/result', params: { id } })}
+                />
+                <Button
+                  label="Back to matches"
+                  variant="secondary"
+                  onPress={() => router.replace('/matches')}
+                />
+                <Button
+                  label="Reload from the server"
+                  variant="ghost"
+                  onPress={() => void reload()}
+                />
+              </View>
             </View>
-          </View>
-        ) : null}
-      </ScrollView>
+          ) : null}
+        </ScrollView>
 
-      {/*
+        {/*
         On a wide screen the keypad moves beside the board instead of under it.
 
         A tablet propped on a table is the classic setup at an organised club,
@@ -1321,11 +1320,11 @@ export default function Scorer() {
         Everything below is unchanged and simply rendered in the second column;
         there is no second copy of the keypad.
       */}
-      {wide ? (
-        <View className="border-border w-[46%] max-w-[420px] border-l">
-          <ScrollView contentContainerClassName="pb-2">{consoleColumn}</ScrollView>
-        </View>
-      ) : null}
+        {wide ? (
+          <View className="border-border w-[46%] max-w-[420px] border-l">
+            <ScrollView contentContainerClassName="pb-2">{consoleColumn}</ScrollView>
+          </View>
+        ) : null}
       </View>
 
       {!wide ? consoleColumn : null}
