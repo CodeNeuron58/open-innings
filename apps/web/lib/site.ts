@@ -32,8 +32,16 @@
  * Free way to satisfy all three: Cloudflare Email Routing on the zone that
  * already hosts this domain, forwarding to a real inbox. It adds MX records at
  * the apex, which does not collide with Resend's MX on `send.openinnings.com`.
+ *
+ * That is what is set up, as of 27 August 2026. Cloudflare Email Routing holds
+ * the apex MX and forwards `support@` to a monitored Gmail; Resend keeps
+ * `send.openinnings.com` and is untouched by it. Verified by sending to this
+ * address from outside and watching it arrive.
+ *
+ * It receives only. Replying as `support@openinnings.com` needs an SMTP sender
+ * configured separately — Email Routing cannot send.
  */
-export const CONTACT_EMAIL = 'biprayanchoudhuri58@gmail.com';
+export const CONTACT_EMAIL = 'support@openinnings.com';
 
 /** `mailto:` form, so pages do not each build their own. */
 export const CONTACT_MAILTO = `mailto:${CONTACT_EMAIL}`;
