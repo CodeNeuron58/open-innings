@@ -3,7 +3,7 @@
 UX and interaction rework of the mobile app, read against CricHeroes. The full
 audit with reasoning for each item lives in the artifact; this is the checklist.
 
-**Branch:** `pivot` · **Commits:** 35
+**Branch:** `pivot` · **Commits:** 37
 **Tests:** 418 passing (shared 40 · scoring 184 · mobile 103 · web 91)
 **Smoke:** 386 checks green against a real database
 (score 51 · api 283 · p1 19 · xi 13 · correct 13 · browse 7)
@@ -26,14 +26,22 @@ and information architecture.
 
 ### What has and has not been run
 
-The **server** half is verified against a real Postgres. Migration 0018 applies
-from scratch, and 359 smoke checks pass through the live API — including six
-that prove the playing XI end to end on a club of twelve of which seven play.
+The **server** half is verified against a real Postgres. All four migrations
+apply from scratch and 386 smoke checks pass through the live API — including
+thirteen that prove the playing XI and scheduling end to end, and thirteen that
+prove ball corrections in every direction.
 
-The **mobile** half is not. There is no device here and no React renderer in
-the workspace (see `apps/mobile/vitest.config.ts`), so anything that is layout,
-gesture or device behaviour is typecheck-, lint- and unit-test-verified only.
-Three things want smoking on hardware:
+Those run against `next start`, not `next dev`. On Windows the turbopack dev
+server does not register routes nested two levels under a dynamic segment —
+`/api/matches/[id]/ball/[ballId]` and `/api/matches/[id]/innings/end` both 404
+there, including on files this branch has never touched. `next build`
+enumerates them correctly, so it is the dev server rather than the code. Worth
+knowing before anybody debugs a phantom 404.
+
+The **mobile** half is not verified at all. There is no device here and no
+React renderer in the workspace (see `apps/mobile/vitest.config.ts`), so
+anything that is layout, gesture or device behaviour is typecheck-, lint- and
+unit-test-verified only. Four things want smoking on hardware:
 
 - [ ] **Offline scoring** — aeroplane mode, a full over, then reconnect. Check
       the queue drains in order and the score does not jump.
@@ -43,6 +51,10 @@ Three things want smoking on hardware:
       measured, but "does it look right" is not a thing this environment can
       answer. Check the score plate still reads as a panel and the over strip
       is still scannable.
+- [ ] **Landscape and tablet** — the keypad moves beside the board above 700pt.
+      Check the two columns balance and nothing is cut off on rotation.
+- [ ] **The cold start** — fresh install, no teams, straight into New Match.
+      The whole of A1 is whether you reach a first ball without leaving.
 
 ---
 
@@ -272,7 +284,7 @@ Three things want smoking on hardware:
       only previous acknowledgement was `Last: 4` in small grey type at the
       foot of the console.
 
-### `welcome` A button says what it does
+### `85a6095` A button says what it does
 
 - [x] **A5** "Start a match" opened a signup form. An account is genuinely
       needed before a ball can be scored, but the first thing the app did was
@@ -373,23 +385,44 @@ Three things want smoking on hardware:
 
 ---
 
-## Suggested order from here
+## What is still open
 
-Ranked by what each unblocks, not by size.
+Every finding in the audit is closed. These are not findings — they are what
+the work left behind, and the first one is the reason the app does not yet look
+finished.
 
-**No Critical findings remain open.**
+### The type scale reached six files, not twenty-six
 
-1. **Skeletons (F6)** — every load is still a full-screen spinner that replaces
-   the UI and jumps the layout when data lands. The query hook already
-   distinguishes `isLoading` from `isRefreshing`, so the information is there.
-2. **Law citations on the console (C18)** — plain language while scoring; the
-   clause numbers belong in help, which does not exist yet either (F13).
-3. **Errors where the thumb is (F7)** — a failure renders near the top of a
-   scroll view while the scorer is looking at the keypad.
-4. **The More screen (F8)** — four rows advertising features that do not exist.
-   Ship it with what works.
-5. **A manual strike swap (C11)** — rotation is entirely derived, with no
-   override for the cases where a scorer knows the batters crossed.
-6. **The primary button's contrast** — `theme.test.ts` records paper-on-steel at
-   3.71:1, under AA. Steel-700 reaches 6.1:1 and is one step down the same ramp.
-   Left alone because the accent is yours to change, not the test's.
+The console, the match list and the More screen were given a four-step scale
+with an 11px floor and a contrast floor above AA. The rest of the app was not.
+
+- [ ] **43 instances of type below 11px, across 20 files**
+- [ ] **32 instances of `text-neutral-600`** — #7a7a7d on #f2f2f3 is about
+      4.0:1, under AA at every size it is used at
+
+This is arguably worse than leaving it alone. Uniformly small type reads as a
+choice; small type on one screen and a proper scale on the next reads as
+carelessness, and the seam is visible every time you move between them.
+
+The worst of it is `card.tsx` — the scorecard, which is the single most-viewed
+surface in the product because every share link opens it. It was never touched.
+Also untouched: `share.tsx`, all four auth screens, `profile`, `supporter`,
+`verify`, `MatchTabs`, `MatchSettings`.
+
+Mechanical to fix, and no palette change: sizes, weights and contrast only.
+
+### The primary button is under AA
+
+`theme.test.ts` records paper-on-steel at **3.71:1**, against a 4.5 floor. That
+is the primary button's own label and every wide, no-ball and bye chip in the
+over strip. Steel-700 (`#416180`) reaches 6.1:1 and is one step down the same
+ramp.
+
+Recorded at its real ratio rather than quietly excluded, and left alone,
+because darkening the accent is a decision about somebody's palette and not a
+test's to make.
+
+### Nothing visual has been seen
+
+The single largest caveat on all of it. Every screen in this branch was written
+without ever being rendered.
