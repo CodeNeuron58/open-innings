@@ -22,8 +22,12 @@ import {
  * four absolutely-positioned hairline crosses. The design system's readme says
  * twice not to drop them, so `Card` and the primary `Button` render them
  * automatically rather than leaving it to the caller.
+ *
+ * Exported for the framed objects that cannot be a `Card` because they are
+ * pressable — the live match row is a `Pressable` with a border, and drawing
+ * its own marks is the only way it gets them. The parent must be `relative`.
  */
-function Corners({ tone = 'border' }: { tone?: 'border' | 'inverse' }) {
+export function Corners({ tone = 'border' }: { tone?: 'border' | 'inverse' }) {
   const color = tone === 'inverse' ? 'bg-background' : 'bg-neutral-400';
   const arm = `absolute ${color}`;
   return (
@@ -94,9 +98,16 @@ export function Button({
         isInert ? 'opacity-50' : 'active:opacity-80'
       }`}
     >
-      {(variant === 'primary' || variant === 'destructive') && !isInert ? (
-        <Corners tone="inverse" />
-      ) : null}
+      {/*
+        The same grey marks the `Card` draws, not white ones.
+
+        These were `tone="inverse"`, which paints them in the page background —
+        so on a filled button they showed as four white nicks, and the half of
+        each cross that falls outside the button vanished into the page. The
+        design draws one registration mark, in one colour, straddling the edge
+        of whatever object it frames.
+      */}
+      {(variant === 'primary' || variant === 'destructive') && !isInert ? <Corners /> : null}
       {loading ? (
         <ActivityIndicator
           color={

@@ -6,7 +6,7 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useSession } from '../../lib/session';
-import { Button, Kicker } from '../../components/ui';
+import { Button, Card, Kicker } from '../../components/ui';
 
 /** The keypad preview — a still of the one interaction the whole app is. */
 function KeypadPreview() {
@@ -17,8 +17,20 @@ function KeypadPreview() {
     { label: 'W', tone: 'bg-wicket', text: 'text-wicket-foreground' },
   ];
 
+  /*
+   * `Card`, not a hand-drawn box.
+   *
+   * This was `border-border relative border p-4` — byte-for-byte a `Card`
+   * apart from the padding, and missing the one thing `Card` adds: the
+   * registration marks at its corners. The leftover `relative` is the
+   * fingerprint, since nothing inside was ever positioned against it.
+   *
+   * In this system a card is a line drawing rather than a surface, so those
+   * marks are most of what makes it read as a drawn object. Without them the
+   * frame is just a rectangle, which is exactly how it looked.
+   */
   return (
-    <View className="border-border relative border p-4">
+    <Card>
       <View className="border-border flex-row border-l border-t">
         {keys.map((k) => (
           <View
@@ -32,7 +44,7 @@ function KeypadPreview() {
       <Text className="text-foreground/70 mt-3 text-[13px] leading-5">
         One thumb, one tap per ball. Everything else is calculated.
       </Text>
-    </View>
+    </Card>
   );
 }
 
@@ -63,18 +75,21 @@ export default function Welcome() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <ScrollView contentContainerClassName="px-5 pb-6 pt-6 grow">
-        <Text className="text-foreground font-heading text-[40px] uppercase leading-[38px]">
+        {/* 44 on 38. Condensed caps carry a leading tighter than their own
+            size, and the two lines are meant to stack as one block rather
+            than read as two. There are no descenders in either word. */}
+        <Text className="text-foreground font-heading text-[44px] uppercase leading-[38px]">
           Open{'\n'}Innings
         </Text>
         <View className="mt-2">
           <Kicker>Score every ball</Kicker>
         </View>
 
-        <View className="mt-6">
+        <View className="mt-5">
           <KeypadPreview />
         </View>
 
-        <View className="mt-7 gap-6">
+        <View className="mt-6 gap-5">
           {POINTS.map((p) => (
             <View key={p.no} className="flex-row gap-3">
               <Text className="text-steel-700 font-heading w-7 shrink-0 text-[13px] tracking-[1.2px]">
@@ -92,7 +107,7 @@ export default function Welcome() {
             them off-screen on short ones. */}
         <View className="grow" />
 
-        <View className="mt-8">
+        <View className="mt-6">
           {/*
             A button says what happens when it is pressed.
 
@@ -103,9 +118,6 @@ export default function Welcome() {
             deciding whether to trust it.
           */}
           <Button label="Create an account" onPress={() => router.push('/signup')} />
-          <Text className="text-foreground/70 mt-2 text-center text-[13.5px] leading-[18px]">
-            Scoring needs one — a scorebook has to belong to someone. Watching does not.
-          </Text>
 
           {/*
             The escape hatch, and the reason this screen is not a wall.
@@ -115,7 +127,7 @@ export default function Welcome() {
             was a box asking for a URL. There is live cricket behind it now, so
             the label can name it.
           */}
-          <View className="mt-4">
+          <View className="mt-3">
             <Button
               label="Watch live cricket"
               variant="secondary"
