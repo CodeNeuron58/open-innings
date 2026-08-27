@@ -13,6 +13,7 @@
  */
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
+import { version } from '@/package.json';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,15 @@ export async function GET() {
   const body = {
     status: 'ok',
     service: 'open-innings-web',
-    version: '0.1.0',
+    /*
+     * Read from package.json rather than written out here.
+     *
+     * This is the endpoint you curl to ask which build is actually live, so a
+     * literal that nobody remembers to bump answers the one question it exists
+     * to answer with last release's number. It sat at 0.1.0 through every
+     * deploy up to v50.
+     */
+    version,
     timestamp: new Date().toISOString(),
   };
 

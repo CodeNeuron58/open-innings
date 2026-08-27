@@ -1,6 +1,6 @@
 {
   "name": "@open-innings/shared",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "private": true,
   "description": "API contract shared by the web backend and the mobile client \u2014 enums, Zod schemas, DTOs, and isomorphic helpers. No I/O, no database driver.",
   "license": "AGPL-3.0",

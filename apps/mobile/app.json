@@ -2,7 +2,7 @@
   "expo": {
     "name": "Open Innings",
     "slug": "open-innings",
-    "version": "0.1.0",
+    "version": "0.9.0",
     "orientation": "portrait",
     "scheme": "openinnings",
     "userInterfaceStyle": "automatic",

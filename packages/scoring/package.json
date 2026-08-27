@@ -1,6 +1,6 @@
 {
   "name": "@open-innings/scoring",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Pure-function cricket scoring engine. No I/O, no framework, no DOM \u2014 runs anywhere TypeScript does.",
   "license": "AGPL-3.0",
