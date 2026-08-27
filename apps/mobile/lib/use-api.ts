@@ -43,6 +43,15 @@ type QueryResult<T> = {
   /** True on the first load only — refreshes shouldn't blank the screen. */
   isLoading: boolean;
   isRefreshing: boolean;
+  /**
+   * When the data on hand last came back from the server, as epoch ms.
+   *
+   * Recorded here because this is the only place that knows. A screen can only
+   * guess at it, and guessing means a `setState` in an effect keyed on the
+   * data's array identity — which is both a lint error and a cascading render
+   * waiting to happen.
+   */
+  syncedAt: number | null;
   refresh: () => Promise<void>;
 };
 
@@ -51,6 +60,7 @@ type QueryState<T> = {
   error: string | null;
   isLoading: boolean;
   isRefreshing: boolean;
+  syncedAt: number | null;
 };
 
 const fresh = <T>(): QueryState<T> => ({
@@ -58,6 +68,7 @@ const fresh = <T>(): QueryState<T> => ({
   error: null,
   isLoading: true,
   isRefreshing: false,
+  syncedAt: null,
 });
 
 /** What to show when something that is not an ApiError or NetworkError escapes. */
@@ -129,7 +140,7 @@ function useQueryCore<T>(
     try {
       const data = await fetcherRef.current(signal);
       if (signal?.aborted) return;
-      setState({ data, error: null, isLoading: false, isRefreshing: false });
+      setState({ data, error: null, isLoading: false, isRefreshing: false, syncedAt: Date.now() });
     } catch (err) {
       if (signal?.aborted) return;
       const message = await onErrorRef.current(err);

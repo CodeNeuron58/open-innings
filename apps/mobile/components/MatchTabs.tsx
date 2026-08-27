@@ -8,7 +8,21 @@ import { useSession } from '../lib/session';
 
 export type MatchTab = 'matches' | 'score' | 'card' | 'more';
 
-export function MatchTabs({ matchId, active }: { matchId: string; active: MatchTab }) {
+export function MatchTabs({
+  matchId,
+  active,
+}: {
+  /**
+   * The match Score and Card point at.
+   *
+   * Null on the global list, which is about no match in particular. Those two
+   * tabs then render without a handler, which this bar already draws as
+   * dimmed and unpressable — the same treatment a guest's Score tab gets.
+   * Passing the live match's id where there is one makes them work.
+   */
+  matchId: string | null;
+  active: MatchTab;
+}) {
   const router = useRouter();
   const { isGuest } = useSession();
 
@@ -24,18 +38,20 @@ export function MatchTabs({ matchId, active }: { matchId: string; active: MatchT
     isGuest
       ? { key: 'matches', label: 'Open', go: () => router.replace('/browse') }
       : { key: 'matches', label: 'Matches', go: () => router.replace('/matches') },
-    isGuest
+    isGuest || matchId === null
       ? { key: 'score', label: 'Score' }
       : {
           key: 'score',
           label: 'Score',
           go: () => router.replace({ pathname: '/matches/[id]/score', params: { id: matchId } }),
         },
-    {
-      key: 'card',
-      label: 'Card',
-      go: () => router.replace({ pathname: '/matches/[id]/card', params: { id: matchId } }),
-    },
+    matchId === null
+      ? { key: 'card', label: 'Card' }
+      : {
+          key: 'card',
+          label: 'Card',
+          go: () => router.replace({ pathname: '/matches/[id]/card', params: { id: matchId } }),
+        },
     { key: 'more', label: 'More', go: () => router.replace('/more') },
   ];
 

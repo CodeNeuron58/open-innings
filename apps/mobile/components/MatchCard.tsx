@@ -13,6 +13,12 @@ import { Pressable, Text, View } from 'react-native';
 import { formatOvers } from '@open-innings/scoring';
 import type { MatchListResponse } from '@open-innings/shared';
 import { formatLabel } from '../lib/formats';
+import { Corners } from './ui';
+
+/** `1st`, `2nd`, `3rd`, `4th` — the super over runs to four. */
+function ordinalInnings(n: number): string {
+  return ['', '1st', '2nd', '3rd', '4th'][n] ?? `${n}th`;
+}
 
 export type MatchRow = MatchListResponse['matches'][number];
 
@@ -117,6 +123,57 @@ export function lineOf(m: MatchRow, innings: MatchRow['innings'][number]): strin
   return `${name} ${innings.runs}-${innings.wickets} (${formatOvers(innings.ballsBowled)})`;
 }
 
+/** The side batting in a given innings. */
+export function battingNameOf(m: MatchRow, innings: MatchRow['innings'][number]): string {
+  return innings.battingTeamId === m.teamAId
+    ? (m.teamAName ?? 'Team A')
+    : (m.teamBName ?? 'Team B');
+}
+
+/**
+ * `142-7 (20)` — the figures alone, without the side's name.
+ *
+ * All out drops the wicket count, because "138 all out" is written `138` on
+ * every scoreboard there has ever been and `138-10` on none of them.
+ */
+export function scoreOf(innings: MatchRow['innings'][number]): string {
+  const wickets = innings.wickets >= 10 ? '' : `-${innings.wickets}`;
+  return `${innings.runs}${wickets} (${formatOvers(innings.ballsBowled)})`;
+}
+
+/**
+ * Which side won, where one did.
+ *
+ * The list row carries `result` rather than a winning team id, so it is
+ * derived. A tie returns null and neither side is emphasised, which is the
+ * correct thing for a tie to look like.
+ */
+export function winnerIdOf(m: MatchRow): string | null {
+  if (m.result === 'team_a_win') return m.teamAId;
+  if (m.result === 'team_b_win') return m.teamBId;
+  return null;
+}
+
+/**
+ * One side's line: who, and what they made.
+ *
+ * The name goes left and the figures right, so a column of matches can be read
+ * straight down without reading a word of it. `dim` is the losing side — the
+ * result is legible from the weight of the type before the sentence under it
+ * is reached.
+ */
+function ScoreLine({ name, score, dim }: { name: string; score: string; dim: boolean }) {
+  const tone = dim ? 'text-foreground/50' : 'text-foreground font-heading';
+  return (
+    <View className="flex-row items-baseline gap-3">
+      <Text className={`${tone} min-w-0 flex-1 text-[16px]`} numberOfLines={1}>
+        {name}
+      </Text>
+      <Text className={`${tone} shrink-0 text-[16px]`}>{score}</Text>
+    </View>
+  );
+}
+
 /**
  * How far off the chase is, where there is one.
  *
@@ -149,8 +206,9 @@ export function LiveMatch({
   /** Omitted on a list of matches the reader does not own. */
   onOptions?: () => void;
 }) {
+  const innings = [...match.innings].sort((a, b) => a.inningsNumber - b.inningsNumber);
   // The innings being played now — the last one on the sheet.
-  const current = match.innings[match.innings.length - 1] ?? null;
+  const current = innings[innings.length - 1] ?? null;
   const chase = current ? chaseOf(match, current) : null;
 
   return (
@@ -164,12 +222,16 @@ export function LiveMatch({
       accessibilityHint={onOptions ? 'Hold for options, or use the options button' : undefined}
       onPress={onPress}
       onLongPress={onOptions}
-      className="border-border border p-4 active:opacity-70"
+      className="border-border relative border p-4 active:opacity-70"
     >
+      {/* The registration marks every framed object in this system carries.
+          This card was drawn by hand and never had them. */}
+      <Corners />
+
       <View className="flex-row items-center gap-2">
         <View className="bg-primary h-1.5 w-1.5" />
         <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.5px]">
-          Live
+          {current ? `Live · ${ordinalInnings(current.inningsNumber)} innings` : 'Live'}
         </Text>
         {/* Shows active watchers, hidden if < 2. */}
         {match.watching >= 2 ? (
@@ -192,29 +254,35 @@ export function LiveMatch({
         ) : null}
       </View>
 
-      <Text className="text-foreground font-heading mt-3 text-[17px]" numberOfLines={1}>
-        {titleOf(match)}
-      </Text>
-
-      {/* The score, which is the reason this row is on the screen. */}
-      {current ? (
-        <View className="mt-2.5">
-          <Text className="text-foreground font-heading text-[22px]" numberOfLines={1}>
-            {lineOf(match, current)}
-          </Text>
-          {chase ? (
-            <Text className="text-steel-700 font-heading mt-1 text-[13.5px]">{chase}</Text>
-          ) : null}
+      {/*
+        Both innings, in the order they were played, with the side at the
+        crease carrying the weight. A chase is two numbers compared — printing
+        only the current one made the reader hold the other in their head.
+      */}
+      {innings.length > 0 ? (
+        <View className="mt-3 gap-0.5">
+          {innings.map((i) => (
+            <ScoreLine
+              key={i.inningsNumber}
+              name={battingNameOf(match, i)}
+              score={scoreOf(i)}
+              dim={current !== null && i.inningsNumber !== current.inningsNumber}
+            />
+          ))}
         </View>
       ) : (
-        <Text className="text-foreground/60 mt-2 text-[13.5px]">Not a ball bowled yet</Text>
+        <Text className="text-foreground font-heading mt-3 text-[16px]" numberOfLines={1}>
+          {titleOf(match)}
+        </Text>
       )}
 
-      <Text className="text-foreground/70 font-heading mt-2.5 text-[13.5px] uppercase tracking-[1.2px]">
-        {[formatLabel(match.format), `${match.oversPerInnings} overs a side`, match.venue]
-          .filter(Boolean)
-          .join('  ·  ')}
-      </Text>
+      {chase ? (
+        <Text className="text-foreground/70 font-heading mt-2 text-[11px] uppercase tracking-[1.2px]">
+          {chase}
+        </Text>
+      ) : innings.length === 0 ? (
+        <Text className="text-foreground/60 mt-2 text-[13.5px]">Not a ball bowled yet</Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -229,25 +297,58 @@ export function FinishedMatch({
   /** Omitted on a list of matches the reader does not own. */
   onOptions?: () => void;
 }) {
+  const winner = winnerIdOf(match);
+  // Innings order is the order they were played, which is the order a
+  // scorecard prints them.
+  const innings = [...match.innings].sort((a, b) => a.inningsNumber - b.inningsNumber);
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={titleOf(match)}
+      accessibilityLabel={[
+        titleOf(match),
+        ...innings.map((i) => `${battingNameOf(match, i)} ${scoreOf(i)}`),
+        match.summary,
+      ]
+        .filter(Boolean)
+        .join(', ')}
       accessibilityHint={onOptions ? 'Hold for options, or use the options button' : undefined}
       onPress={onPress}
       onLongPress={onOptions}
       className="border-border border-b py-4 active:opacity-70"
     >
-      <View className="flex-row items-center gap-2">
-        <Text className="text-foreground font-heading min-w-0 flex-1 text-[16px]" numberOfLines={1}>
-          {titleOf(match)}
-        </Text>
+      {/*
+        Both innings, not the fixture's name.
+
+        This row used to read "Koramangala XI v HSR Strikers" and then the
+        result in small caps — a match with no score on it, in a list whose
+        whole job is scores. The figures were on the row all along; nothing
+        drew them.
+      */}
+      <View className="flex-row items-start gap-2">
+        <View className="min-w-0 flex-1 gap-0.5">
+          {innings.length > 0 ? (
+            innings.map((i) => (
+              <ScoreLine
+                key={i.inningsNumber}
+                name={battingNameOf(match, i)}
+                score={scoreOf(i)}
+                dim={winner !== null && i.battingTeamId !== winner}
+              />
+            ))
+          ) : (
+            <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
+              {titleOf(match)}
+            </Text>
+          )}
+        </View>
         {onOptions ? (
           <MoreButton label={`Options for ${titleOf(match)}`} onPress={onOptions} />
         ) : null}
       </View>
+
       <Text
-        className="text-foreground/60 font-heading mt-1.5 text-[11px] uppercase tracking-[1.2px]"
+        className="text-foreground/60 font-heading mt-2 text-[11px] uppercase tracking-[1.2px]"
         numberOfLines={1}
       >
         {[

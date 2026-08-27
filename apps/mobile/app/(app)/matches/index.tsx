@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import type { MatchListResponse } from '@open-innings/shared';
 import { api } from '../../../lib/api';
+import { MatchTabs } from '../../../components/MatchTabs';
 import { formatLabel } from '../../../lib/formats';
 import { useApiQuery } from '../../../lib/use-api';
 import { useTheme } from '../../../lib/use-theme';
@@ -30,8 +31,6 @@ function searchable(m: MatchRow): string {
     .toLowerCase();
 }
 
-type Section = { key: string; matches: MatchRow[] };
-
 /**
  * A season, as months.
  *
@@ -41,20 +40,6 @@ type Section = { key: string; matches: MatchRow[] };
  * different date in every country this is used in, and inventing one would be
  * wrong somewhere.
  */
-function groupByMonth(rows: MatchRow[]): Section[] {
-  const out: Section[] = [];
-  for (const m of rows) {
-    const when = new Date(m.startedAt ?? m.createdAt);
-    const key = Number.isNaN(when.getTime())
-      ? 'Undated'
-      : when.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-
-    const last = out[out.length - 1];
-    if (last && last.key === key) last.matches.push(m);
-    else out.push({ key, matches: [m] });
-  }
-  return out;
-}
 
 export default function Matches() {
   const router = useRouter();
@@ -95,21 +80,46 @@ export default function Matches() {
    * every match the account owns, so a server round trip per keystroke would
    * buy nothing.
    */
+  /*
+   * The clock time the list last came back, not a duration.
+   *
+   * "Synced 15:41" needs no timer and cannot go stale on screen the way
+   * "2 minutes ago" does the moment the component stops re-rendering. The
+   * moment itself comes from the query, which is the only thing that knows it.
+   */
+  const syncedAt =
+    query.syncedAt === null
+      ? null
+      : new Date(query.syncedAt).toLocaleTimeString('en-IN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+
   const term = search.trim().toLowerCase();
   const done = matches
     .filter((m) => !isLive(m) && !isScheduled(m))
     .filter((m) => (term.length === 0 ? true : searchable(m).includes(term)));
-
-  const sections = groupByMonth(done);
 
   return (
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="px-5 pb-3 pt-4">
-        <View className="flex-row items-baseline justify-between">
-          <Text className="text-foreground font-heading text-[26px] uppercase">Matches</Text>
-          {/* Sync status omitted as all balls sync immediately. */}
+        <View className="flex-row items-baseline justify-between gap-3">
+          <Text className="text-foreground font-heading text-[28px]">Matches</Text>
+          {/*
+            When the list last came back from the server.
+            This said "omitted as all balls sync immediately", which stopped
+            being true when scoring went offline-first. A scorer on a ground
+            with no signal needs to know whether what they are looking at is
+            the server's answer or their phone's memory of it.
+          */}
+          {syncedAt ? (
+            <Text className="text-foreground/55 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
+              Synced {syncedAt}
+            </Text>
+          ) : null}
         </View>
 
         <View className="mt-4">
@@ -141,8 +151,8 @@ export default function Matches() {
       ) : null}
 
       <FlatList
-        data={sections}
-        keyExtractor={(s) => s.key}
+        data={done}
+        keyExtractor={(m) => m.id}
         contentContainerClassName="px-5 pb-10"
         refreshControl={
           <RefreshControl refreshing={query.isRefreshing} onRefresh={query.refresh} />
@@ -234,35 +244,36 @@ export default function Matches() {
             </View>
           ) : null
         }
+        /*
+          One `Completed` heading and a flat list, rather than a heading per
+          month.
+
+          Grouping earns its place on a long list; on the four or five a club
+          side plays in a season it puts a label above almost every row. The
+          date is already in each row's own line, which is where somebody
+          looks for it.
+        */
         renderItem={({ item }) => (
-          <View className="pb-2 pt-4">
-            <Kicker>{item.key}</Kicker>
-            <View className="pt-1">
-              {item.matches.map((m) => (
-                <FinishedMatch
-                  key={m.id}
-                  match={m}
-                  onPress={() => router.push(`/matches/${m.id}/score`)}
-                  onOptions={() => setSettingsFor(m)}
-                />
-              ))}
-            </View>
-          </View>
+          <FinishedMatch
+            match={item}
+            onPress={() => router.push(`/matches/${item.id}/score`)}
+            onOptions={() => setSettingsFor(item)}
+          />
         )}
       />
 
-      {/* No MatchTabs on global matches list. */}
-      <View className="border-border flex-row gap-2 border-t px-5 py-3">
-        <View className="flex-1">
-          <Button label="Players" variant="secondary" onPress={() => router.push('/players')} />
-        </View>
-        <View className="flex-1">
-          <Button label="Teams" variant="secondary" onPress={() => router.push('/teams')} />
-        </View>
-        <View className="flex-1">
-          <Button label="More" variant="secondary" onPress={() => router.push('/more')} />
-        </View>
-      </View>
+      {/*
+        The same bar as every other screen.
+
+        This was three secondary buttons — Players, Teams, More — which put a
+        different set of destinations at the bottom of this screen than at the
+        bottom of every other one. Players and teams are reachable under More,
+        where the rest of the cricket settings already live.
+
+        Score and Card follow the match being played, and dim themselves when
+        there is not one.
+      */}
+      <MatchTabs matchId={live[0]?.id ?? null} active="matches" />
 
       {/*
         Starting a match that was set up in advance.
