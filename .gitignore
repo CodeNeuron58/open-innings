@@ -82,3 +82,10 @@ skills-lock.json
 WIRING.md
 ignore_its_personal.md
 new-design
+
+# The pivot audit's checklist. All 61 findings are closed and the work is in
+# master, so what it now reads as is an open work order for something already
+# shipped. Kept on disk because its last three sections are still live — the
+# unfinished type scale, the primary button under AA, and the fact that none
+# of it has been seen on a screen.
+PIVOT-TRACKER.md
