@@ -121,6 +121,16 @@ async function getOrCreateDevUser(): Promise<string> {
       displayName: DEV_USER.displayName,
       passwordHash,
       passwordSalt: salt,
+      /*
+       * Already verified, because `dev@local` is not a real address.
+       *
+       * The app holds unverified accounts at the six-digit screen, which is
+       * right for a person and pointless here: a code would be issued for a
+       * mailbox that does not exist, and the only way through is reading it
+       * out of the dev server's console on every reseed. The gate is exercised
+       * by real signups; this fixture exists to get you to a match.
+       */
+      emailVerifiedAt: new Date(),
     })
     .returning({ id: users.id });
   return inserted[0]!.id;
