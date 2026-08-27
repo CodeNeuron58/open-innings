@@ -28,19 +28,34 @@ import {
  * its own marks is the only way it gets them. The parent must be `relative`.
  */
 export function Corners({ tone = 'border' }: { tone?: 'border' | 'inverse' }) {
-  const color = tone === 'inverse' ? 'bg-background' : 'bg-neutral-400';
+  /*
+   * 11px arms at 55% of the text colour, both taken from the system's own
+   * `.corner`: an 11×11 box inset -6px whose two 1px rules cross on the
+   * border, coloured `color-mix(in srgb, var(--color-text) 55%, transparent)`.
+   *
+   * These were 7px and `neutral-400`, which is the same mark drawn a third
+   * smaller and a good deal fainter — enough that the frame stopped reading as
+   * a drawn object and the primary button looked like a plain filled slab.
+   *
+   * The opacity is load-bearing rather than a shortcut for a ramp step. Half
+   * of every mark falls outside the object it frames, so on the primary button
+   * one arm crosses steel and the other the page ground; a flat grey would be
+   * wrong against one of them whichever step it picked. It also follows the
+   * theme, so the marks stay legible when `foreground` flips on a dark ground.
+   */
+  const color = tone === 'inverse' ? 'bg-background' : 'bg-foreground/55';
   const arm = `absolute ${color}`;
   return (
     <>
       {/* Each corner is a horizontal and a vertical arm crossing at the edge. */}
-      <View pointerEvents="none" className={`${arm} -left-[3px] -top-px h-px w-[7px]`} />
-      <View pointerEvents="none" className={`${arm} -left-px -top-[3px] h-[7px] w-px`} />
-      <View pointerEvents="none" className={`${arm} -right-[3px] -top-px h-px w-[7px]`} />
-      <View pointerEvents="none" className={`${arm} -right-px -top-[3px] h-[7px] w-px`} />
-      <View pointerEvents="none" className={`${arm} -bottom-px -left-[3px] h-px w-[7px]`} />
-      <View pointerEvents="none" className={`${arm} -bottom-[3px] -left-px h-[7px] w-px`} />
-      <View pointerEvents="none" className={`${arm} -bottom-px -right-[3px] h-px w-[7px]`} />
-      <View pointerEvents="none" className={`${arm} -bottom-[3px] -right-px h-[7px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -left-[5px] -top-px h-px w-[11px]`} />
+      <View pointerEvents="none" className={`${arm} -left-px -top-[5px] h-[11px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -right-[5px] -top-px h-px w-[11px]`} />
+      <View pointerEvents="none" className={`${arm} -right-px -top-[5px] h-[11px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -bottom-px -left-[5px] h-px w-[11px]`} />
+      <View pointerEvents="none" className={`${arm} -bottom-[5px] -left-px h-[11px] w-px`} />
+      <View pointerEvents="none" className={`${arm} -bottom-px -right-[5px] h-px w-[11px]`} />
+      <View pointerEvents="none" className={`${arm} -bottom-[5px] -right-px h-[11px] w-px`} />
     </>
   );
 }
@@ -117,7 +132,8 @@ export function Button({
           }
         />
       ) : (
-        <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[1.2px]`}>
+        // 0.06em at 15px is 0.9px, not the 1.2px this had tracked out to.
+        <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[0.9px]`}>
           {label}
         </Text>
       )}
@@ -183,9 +199,15 @@ export function ErrorBanner({ message }: { message: string }) {
  * drawing, not a surface, so it takes the page ground and lets the hairline
  * border and the corner marks define it.
  */
-export function Card({ children }: { children: React.ReactNode }) {
+export function Card({
+  children,
+  className = 'p-5',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <View className="border-border relative border p-5">
+    <View className={`border-border relative border ${className}`}>
       <Corners />
       {children}
     </View>
