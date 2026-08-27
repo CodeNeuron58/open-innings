@@ -23,10 +23,12 @@ const CSS = readFileSync(join(__dirname, '..', 'global.css'), 'utf8');
 
 /** Every `--color-*: R G B` in one block of the stylesheet. */
 function paletteFor(scheme: 'light' | 'dark'): Record<string, [number, number, number]> {
-  // The dark set is the one nested inside the media query; the light set is
-  // everything before it.
-  const darkAt = CSS.indexOf('prefers-color-scheme: dark');
-  expect(darkAt, 'global.css must define a dark set').toBeGreaterThan(-1);
+  // The dark set is the one under `.dark:root`; the light set is everything
+  // before it. That selector is load-bearing — react-native-css-interop
+  // matches it structurally, and a near-miss like `:root.dark` compiles to
+  // nothing and silently ships a dark mode that renders light.
+  const darkAt = CSS.indexOf('.dark:root');
+  expect(darkAt, 'global.css must define a dark set under .dark:root').toBeGreaterThan(-1);
 
   const block = scheme === 'light' ? CSS.slice(0, darkAt) : CSS.slice(darkAt);
   const out: Record<string, [number, number, number]> = {};
@@ -56,6 +58,26 @@ function contrast(a: [number, number, number], b: [number, number, number]): num
 
 const light = paletteFor('light');
 const dark = paletteFor('dark');
+
+describe('the dark set is reachable by the switch in More', () => {
+  it('hangs off .dark:root, not a media query', () => {
+    // `@media (prefers-color-scheme: dark)` answers to the phone and to
+    // nothing else, so the Theme control in More could not move it. Going back
+    // to one would not fail a typecheck, a lint or a build — the app would
+    // simply stop honouring the setting, and only on a device.
+    // Comments stripped first — the block above the dark set explains why the
+    // media query is gone, and naming it there must not fail this.
+    const rules = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(rules).toContain('.dark:root');
+    expect(rules).not.toContain('prefers-color-scheme');
+  });
+
+  it('keeps the light set on bare :root, so it is the ground state', () => {
+    // Light is the default. It must not be conditional on anything, or an
+    // unstyled first frame renders on whatever the device felt like.
+    expect(CSS.indexOf(':root {')).toBeLessThan(CSS.indexOf('.dark:root'));
+  });
+});
 
 describe('the palette is defined twice and agrees with itself', () => {
   it('defines every light token in the dark set too', () => {

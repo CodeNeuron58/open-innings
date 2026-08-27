@@ -4,17 +4,49 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { colorScheme } from 'nativewind';
 
 const STORE_KEY = 'oi_settings_v1';
+
+/**
+ * What the app looks like, and who decides.
+ *
+ * `system` is offered but is not the default. A scorebook is a light thing —
+ * paper, ruled lines, pencil — and that is what somebody should meet the first
+ * time they open it, whatever their phone happens to be set to at sunset.
+ * Anyone who wants otherwise says so once, in More, and it sticks.
+ */
+export type ThemeChoice = 'light' | 'dark' | 'system';
+
+export const THEME_CHOICES: { value: ThemeChoice; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
 
 export type Settings = {
   /** Hold the screen on while a match is being scored. */
   keepAwakeWhileScoring: boolean;
+  /** Light, dark, or follow the phone. */
+  theme: ThemeChoice;
 };
 
 const DEFAULTS: Settings = {
   keepAwakeWhileScoring: true,
+  theme: 'light',
 };
+
+/**
+ * Push the choice into NativeWind, which owns the `dark` class the palette in
+ * `global.css` hangs off.
+ *
+ * Called on load and on every change rather than in a render, because it
+ * mutates state outside React and doing that during a render is how you get a
+ * warning and a frame of the wrong colours.
+ */
+function applyTheme(choice: ThemeChoice): void {
+  colorScheme.set(choice);
+}
 
 type SettingsState = Settings & {
   set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
@@ -31,6 +63,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
+    // Before the stored value is read, so the first frame is the default and
+    // not whatever the device happens to be. NativeWind starts on `system`.
+    applyTheme(DEFAULTS.theme);
+
     SecureStore.getItemAsync(STORE_KEY)
       .then((raw) => {
         if (cancelled || !raw) return;
@@ -38,7 +74,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (parsed && typeof parsed === 'object') {
           // Merged over the defaults rather than replacing them, so a setting
           // added in a later version has a value for someone upgrading.
-          setSettings({ ...DEFAULTS, ...(parsed as Partial<Settings>) });
+          const merged = { ...DEFAULTS, ...(parsed as Partial<Settings>) };
+          setSettings(merged);
+          applyTheme(merged.theme);
         }
       })
       .catch(() => {
@@ -57,6 +95,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const set = useCallback(<K extends keyof Settings>(key: K, value: Settings[K]) => {
     setSettings((current) => {
       const next = { ...current, [key]: value };
+      if (key === 'theme') applyTheme(next.theme);
       // Applied immediately and written in the background — a toggle that
       // waits on disk before moving feels broken.
       void SecureStore.setItemAsync(STORE_KEY, JSON.stringify(next)).catch(() => {});

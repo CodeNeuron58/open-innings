@@ -25,7 +25,14 @@
  */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: 'media',
+  /*
+   * `class`, not `media`.
+   *
+   * `media` reads the phone and cannot be overruled, so the theme was whatever
+   * Android said and the app had no say. The palette in global.css now hangs
+   * off `.dark:root`, and `lib/settings.tsx` decides which way that goes.
+   */
+  darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {

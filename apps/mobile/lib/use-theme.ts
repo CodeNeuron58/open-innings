@@ -1,25 +1,33 @@
 /**
- * The device's colour scheme, and the palette that goes with it.
+ * The colour scheme in force, and the palette that goes with it.
  *
  * Separate from `theme.ts` because that file has to stay importable by the
  * drift test, and `vitest.config.ts` runs over `lib/` with no React Native
  * resolution at all — deliberately, as its own note explains.
  */
-import { useColorScheme } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { statusBarStyle, themeColors, type ThemeColors } from './theme';
 
 /**
- * The palette for the scheme the device is in.
+ * The palette for the scheme the app is in.
  *
- * `useColorScheme` re-renders on a change, so a phone that flips to dark at
- * sunset takes these with it rather than keeping whichever set was resolved
- * when the screen first mounted.
+ * NativeWind's hook, not React Native's. React Native's reports the *device*,
+ * which is the wrong answer now that the theme is a setting — somebody with a
+ * dark phone who chose Light would have got light screens with a dark status
+ * bar and grey-on-grey placeholder text, because the CSS followed the choice
+ * and these few values followed the phone.
+ *
+ * This is the same source `.dark:root` hangs off, so the two cannot disagree.
+ * It re-renders on a change, whether that change came from the switch in More
+ * or from a phone on `system` reaching sunset.
  */
 export function useTheme(): ThemeColors {
-  return themeColors(useColorScheme());
+  const { colorScheme } = useColorScheme();
+  return themeColors(colorScheme ?? null);
 }
 
 /** Which status bar sits on the current ground. */
 export function useStatusBarStyle(): 'light' | 'dark' {
-  return statusBarStyle(useColorScheme());
+  const { colorScheme } = useColorScheme();
+  return statusBarStyle(colorScheme ?? null);
 }

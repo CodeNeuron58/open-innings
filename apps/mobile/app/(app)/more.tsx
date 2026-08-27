@@ -8,7 +8,7 @@ import { Stack, useRouter } from 'expo-router';
 import { api } from '../../lib/api';
 import { useApiQuery } from '../../lib/use-api';
 import { useSession } from '../../lib/session';
-import { useSettings } from '../../lib/settings';
+import { useSettings, THEME_CHOICES, type ThemeChoice } from '../../lib/settings';
 import { useTheme } from '../../lib/use-theme';
 import { useSupporter } from '../../lib/purchases';
 import { Button, Kicker } from '../../components/ui';
@@ -106,6 +106,63 @@ function ToggleRow({
   );
 }
 
+/**
+ * A row whose value is one of a few, picked in place.
+ *
+ * A `Switch` cannot say "follow the phone", and sending somebody to another
+ * screen to choose between three words is more navigation than the choice is
+ * worth. The chips match the ones the squad and role pickers already use.
+ */
+function ChoiceRow<T extends string>({
+  label,
+  note,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  note?: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (next: T) => void;
+}) {
+  return (
+    <View className="border-border border-b py-2.5">
+      <Text className="text-foreground text-[15px]">{label}</Text>
+      {note ? (
+        <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={2}>
+          {note}
+        </Text>
+      ) : null}
+      <View className="mt-2 flex-row flex-wrap gap-1.5">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${label}: ${option.label}`}
+              onPress={() => onChange(option.value)}
+              className={`h-10 shrink-0 justify-center border px-4 ${
+                selected ? 'bg-scoreboard border-scoreboard' : 'border-input'
+              } active:opacity-70`}
+            >
+              <Text
+                className={`font-heading text-[12.5px] ${
+                  selected ? 'text-scoreboard-text' : 'text-foreground'
+                }`}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="pt-6">
@@ -142,7 +199,7 @@ export default function More() {
     }
   }
   const { isSupporter } = useSupporter();
-  const { keepAwakeWhileScoring, set } = useSettings();
+  const { keepAwakeWhileScoring, theme, set } = useSettings();
 
   const teams = useApiQuery((t, signal) => api.teams(t, signal));
   const clubCount = teams.data?.teams.length ?? 0;
@@ -322,6 +379,16 @@ export default function More() {
           half. They come back when they work; the one true thing among them is
           said as a sentence at the foot of the screen instead.
         */}
+        <Group title="Appearance">
+          <ChoiceRow<ThemeChoice>
+            label="Theme"
+            note="Light unless you say otherwise. System follows your phone."
+            value={theme}
+            options={THEME_CHOICES}
+            onChange={(next) => set('theme', next)}
+          />
+        </Group>
+
         <Group title="Scoring">
           <ToggleRow
             label="Keep screen awake"

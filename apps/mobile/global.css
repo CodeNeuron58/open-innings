@@ -97,77 +97,89 @@
     --color-live-foreground: 242 242 243;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      /* Near-black with a cool bias, so it sits under the steel accent rather
-         than beside it. A pure neutral black reads as unconsidered next to a
-         scheme whose only colour is a blue-grey. */
-      --color-background: 18 20 22;
-      --color-foreground: 232 233 234;
-      --color-border: 46 51 55;
-      --color-input: 68 74 79;
-      --color-ring: 148 188 227;
+  /*
+   * The dark set.
+   *
+   * `.dark:root`, not `@media (prefers-color-scheme: dark)`, because the
+   * theme is now a choice rather than a report of what the phone is doing.
+   * A media query answers to the device and nothing else, so an in-app
+   * switch could never have moved it.
+   *
+   * This exact shape is what react-native-css-interop looks for when
+   * `darkMode` is `class` — a class named `dark` followed by `:root`. It is
+   * matched structurally, so `:root.dark` or a descendant selector will not
+   * do, and getting it wrong fails silently: the variables simply never
+   * apply and every dark screen renders in light colours.
+   */
+  .dark:root {
+    /* Near-black with a cool bias, so it sits under the steel accent rather
+       than beside it. A pure neutral black reads as unconsidered next to a
+       scheme whose only colour is a blue-grey. */
+    --color-background: 18 20 22;
+    --color-foreground: 232 233 234;
+    --color-border: 46 51 55;
+    --color-input: 68 74 79;
+    --color-ring: 148 188 227;
 
-      /* The accent moves up its own ramp. Steel-600 on paper is steel-500's
-         value here — the same hue, at a lightness that carries on a dark
-         ground. */
-      --color-primary: 116 157 196;
-      --color-primary-foreground: 18 20 22;
-      --color-secondary: 36 40 43;
-      --color-secondary-foreground: 232 233 234;
-      --color-muted: 36 40 43;
-      --color-muted-foreground: 154 160 165;
-      --color-accent: 44 69 93;
-      --color-accent-foreground: 214 235 255;
-      /* The light-mode red is 179 38 30, which is unreadable on near-black. */
-      --color-destructive: 232 123 109;
-      --color-destructive-foreground: 18 20 22;
-      --color-card: 18 20 22;
-      --color-card-foreground: 232 233 234;
+    /* The accent moves up its own ramp. Steel-600 on paper is steel-500's
+       value here — the same hue, at a lightness that carries on a dark
+       ground. */
+    --color-primary: 116 157 196;
+    --color-primary-foreground: 18 20 22;
+    --color-secondary: 36 40 43;
+    --color-secondary-foreground: 232 233 234;
+    --color-muted: 36 40 43;
+    --color-muted-foreground: 154 160 165;
+    --color-accent: 44 69 93;
+    --color-accent-foreground: 214 235 255;
+    /* The light-mode red is 179 38 30, which is unreadable on near-black. */
+    --color-destructive: 232 123 109;
+    --color-destructive-foreground: 18 20 22;
+    --color-card: 18 20 22;
+    --color-card-foreground: 232 233 234;
 
-      /* Both ramps reverse: 100 is the lightest step on paper and the darkest
-         here, so `bg-neutral-100` stays "the quietest fill" in both. */
-      --color-neutral-100: 26 29 31;
-      --color-neutral-200: 36 40 43;
-      --color-neutral-300: 46 51 55;
-      --color-neutral-400: 68 74 79;
-      --color-neutral-500: 110 117 123;
-      --color-neutral-600: 143 150 156;
-      --color-neutral-700: 176 183 189;
-      --color-neutral-800: 205 210 214;
-      --color-neutral-900: 232 233 234;
+    /* Both ramps reverse: 100 is the lightest step on paper and the darkest
+       here, so `bg-neutral-100` stays "the quietest fill" in both. */
+    --color-neutral-100: 26 29 31;
+    --color-neutral-200: 36 40 43;
+    --color-neutral-300: 46 51 55;
+    --color-neutral-400: 68 74 79;
+    --color-neutral-500: 110 117 123;
+    --color-neutral-600: 143 150 156;
+    --color-neutral-700: 176 183 189;
+    --color-neutral-800: 205 210 214;
+    --color-neutral-900: 232 233 234;
 
-      --color-steel-100: 26 37 48;
-      --color-steel-200: 36 52 68;
-      --color-steel-300: 51 74 97;
-      --color-steel-400: 74 106 137;
-      --color-steel-500: 116 157 196;
-      --color-steel-600: 148 188 227;
-      --color-steel-700: 181 217 253;
-      --color-steel-800: 214 235 255;
-      --color-steel-900: 238 246 255;
+    --color-steel-100: 26 37 48;
+    --color-steel-200: 36 52 68;
+    --color-steel-300: 51 74 97;
+    --color-steel-400: 74 106 137;
+    --color-steel-500: 116 157 196;
+    --color-steel-600: 148 188 227;
+    --color-steel-700: 181 217 253;
+    --color-steel-800: 214 235 255;
+    --color-steel-900: 238 246 255;
 
-      /* Unchanged. See the note at the top — the plate is the same object in
-         both themes, a step lighter than the page here instead of much darker. */
-      --color-scoreboard: 29 45 61;
-      --color-scoreboard-panel: 44 69 93;
-      --color-scoreboard-border: 65 97 128;
-      --color-scoreboard-text: 242 242 243;
-      --color-scoreboard-muted: 148 188 227;
-      --color-scoreboard-accent: 181 217 253;
+    /* Unchanged. See the note at the top — the plate is the same object in
+       both themes, a step lighter than the page here instead of much darker. */
+    --color-scoreboard: 29 45 61;
+    --color-scoreboard-panel: 44 69 93;
+    --color-scoreboard-border: 65 97 128;
+    --color-scoreboard-text: 242 242 243;
+    --color-scoreboard-muted: 148 188 227;
+    --color-scoreboard-accent: 181 217 253;
 
-      /* A four and a six still differ by value, not by hue. A wicket inverts,
-         because the darkest mark on paper has to be the lightest here. */
-      --color-four: 51 74 97;
-      --color-four-foreground: 214 235 255;
-      --color-six: 74 106 137;
-      --color-six-foreground: 238 246 255;
-      --color-wicket: 232 233 234;
-      --color-wicket-foreground: 18 20 22;
-      --color-extra: 116 157 196;
-      --color-extra-foreground: 18 20 22;
-      --color-live: 116 157 196;
-      --color-live-foreground: 18 20 22;
-    }
+    /* A four and a six still differ by value, not by hue. A wicket inverts,
+       because the darkest mark on paper has to be the lightest here. */
+    --color-four: 51 74 97;
+    --color-four-foreground: 214 235 255;
+    --color-six: 74 106 137;
+    --color-six-foreground: 238 246 255;
+    --color-wicket: 232 233 234;
+    --color-wicket-foreground: 18 20 22;
+    --color-extra: 116 157 196;
+    --color-extra-foreground: 18 20 22;
+    --color-live: 116 157 196;
+    --color-live-foreground: 18 20 22;
   }
 }
