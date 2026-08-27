@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { loginSchema } from '@open-innings/shared';
 import { useSession } from '../../lib/session';
 import { ApiError, NetworkError } from '../../lib/api';
-import { Button, ErrorBanner, Field } from '../../components/ui';
+import { Button, ErrorBanner, Field, Kicker } from '../../components/ui';
 
 export default function Login() {
   const router = useRouter();
@@ -50,13 +50,24 @@ export default function Login() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerClassName="flex-grow justify-center p-6 gap-6">
-          <View className="gap-1">
-            <Text className="text-primary text-xs font-bold uppercase tracking-widest">
-              Open Innings
+        <ScrollView contentContainerClassName="flex-grow px-6 pt-6 pb-10 gap-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+          >
+            <Text className="text-foreground/70 text-2xl leading-none -mt-1">‹</Text>
+          </Pressable>
+
+          <View className="gap-2.5">
+            <Kicker>Open Innings</Kicker>
+            <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
+              Sign in
             </Text>
-            <Text className="text-foreground text-3xl font-bold">Sign in</Text>
-            <Text className="text-muted-foreground text-sm">Free cricket scoring. Forever.</Text>
+            <Text className="font-sans text-[14.5px] leading-[22px] text-neutral-700">
+              Free cricket scoring. Forever.
+            </Text>
           </View>
 
           {error ? <ErrorBanner message={error} /> : null}
@@ -104,15 +115,27 @@ export default function Login() {
           <Pressable
             accessibilityRole="link"
             onPress={() => router.push('/reset' as any)}
-            className="items-center py-1 active:opacity-60"
+            className="items-center py-2 active:opacity-60"
           >
-            <Text className="text-muted-foreground text-sm underline">Forgot your password?</Text>
+            <Text className="text-neutral-600 font-sans text-[14.5px] underline">Forgot your password?</Text>
           </Pressable>
 
-          <View className="flex-row justify-center gap-1">
-            <Text className="text-muted-foreground text-sm">No account yet?</Text>
-            <Link href="/signup" className="text-primary text-sm font-semibold">
-              Create one
+          <View className="my-1 flex-row items-center gap-3">
+            <View className="bg-border h-px flex-1" />
+            <Text className="font-heading text-[12px] uppercase tracking-[1.5px] text-neutral-600">
+              or
+            </Text>
+            <View className="bg-border h-px flex-1" />
+          </View>
+
+          <View className="flex-row justify-center items-center gap-2">
+            <Text className="text-neutral-600 font-sans text-[14.5px]">No account yet?</Text>
+            <Link href="/signup" asChild>
+              <Pressable className="py-2 active:opacity-60">
+                <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1px]">
+                  Create one
+                </Text>
+              </Pressable>
             </Link>
           </View>
         </ScrollView>

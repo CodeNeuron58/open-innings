@@ -25,12 +25,12 @@ import { Button, Card, Kicker } from '../../components/ui';
 /** The keypad preview — a still of the one interaction the whole app is. */
 function KeypadPreview() {
   const keys = [
-    { label: '0', tone: 'bg-background', text: 'text-foreground', size: 'text-[19px]' },
-    { label: '1', tone: 'bg-background', text: 'text-foreground', size: 'text-[19px]' },
-    { label: '4', tone: 'bg-four', text: 'text-four-foreground', size: 'text-[19px]' },
-    // 17px, not 19. A letter at the figures' size out-weighs them, and this
+    { label: '0', tone: 'bg-background', text: 'text-foreground', size: 'text-[22px]' },
+    { label: '1', tone: 'bg-background', text: 'text-foreground', size: 'text-[22px]' },
+    { label: '4', tone: 'bg-four', text: 'text-four-foreground', size: 'text-[22px]' },
+    // 20px, not 22. A letter at the figures' size out-weighs them, and this
     // one is the darkest cell on the board already.
-    { label: 'W', tone: 'bg-wicket', text: 'text-wicket-foreground', size: 'text-[17px]' },
+    { label: 'W', tone: 'bg-wicket', text: 'text-wicket-foreground', size: 'text-[20px]' },
   ];
 
   /*
@@ -51,18 +51,18 @@ function KeypadPreview() {
    * keys — which sit at the page ground — read as cut out of the card.
    */
   return (
-    <Card className="bg-neutral-100 p-4">
+    <Card className="bg-neutral-100 p-5">
       <View className="border-border flex-row border-l border-t">
         {keys.map((k) => (
           <View
             key={k.label}
-            className={`${k.tone} border-border h-11 flex-1 items-center justify-center border-b border-r`}
+            className={`${k.tone} border-border h-[52px] flex-1 items-center justify-center border-b border-r`}
           >
             <Text className={`${k.text} ${k.size} font-heading`}>{k.label}</Text>
           </View>
         ))}
       </View>
-      <Text className="mt-2.5 font-sans text-[12.5px] leading-[19px] text-neutral-700">
+      <Text className="mt-3.5 font-sans text-[14px] leading-[21px] text-neutral-700">
         One thumb, one tap per ball. Everything else is calculated.
       </Text>
     </Card>
@@ -96,39 +96,36 @@ export default function Welcome() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/*
-        Two blocks, not one scroll with a spacer in it: the drawing is a
-        `flex:1` body over a `flex:none` footer, and they carry different
-        padding — 34/26/0 against 20/26/22. `grow` on the container and on the
-        body is what pins the actions to the bottom of a tall screen while
-        still letting a short one scroll them into reach.
+        Using flex-grow with justify-between allows the content to space naturally 
+        without creating unnecessarily massive gaps on tall screens. 
       */}
-      <ScrollView contentContainerClassName="grow">
-        <View className="grow px-[26px] pt-[34px]">
-          {/* 40 on 39. Condensed caps carry a leading tighter than their own
+      <ScrollView contentContainerClassName="flex-grow justify-between px-[26px] py-[32px]">
+        <View>
+          {/* 46 on 45. Condensed caps carry a leading tighter than their own
               size, and the two lines are meant to stack as one block rather
               than read as two. There are no descenders in either word. */}
-          <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
+          <Text className="text-foreground font-heading text-[46px] uppercase leading-[45px] tracking-[-1px]">
             Open{'\n'}Innings
           </Text>
-          <View className="mt-2">
+          <View className="mt-2.5">
             <Kicker>Score every ball</Kicker>
           </View>
 
-          <View className="mt-[34px]">
+          <View className="mt-[36px]">
             <KeypadPreview />
           </View>
 
-          <View className="mt-[30px] gap-5">
+          <View className="mt-[36px] gap-6">
             {POINTS.map((p) => (
-              <View key={p.no} className="flex-row gap-3">
-                <Text className="text-steel-700 font-heading w-[22px] shrink-0 text-[15px]">
+              <View key={p.no} className="flex-row gap-4">
+                <Text className="text-steel-700 font-heading w-[24px] shrink-0 text-[17px] mt-0.5">
                   {p.no}
                 </Text>
                 <View className="flex-1">
-                  <Text className="text-foreground font-heading text-[17px] leading-[20px]">
+                  <Text className="text-foreground font-heading text-[19px] leading-[22px]">
                     {p.title}
                   </Text>
-                  <Text className="mt-0.5 font-sans text-[13px] leading-[19px] text-neutral-700">
+                  <Text className="mt-1 font-sans text-[14.5px] leading-[22px] text-neutral-700">
                     {p.body}
                   </Text>
                 </View>
@@ -137,7 +134,7 @@ export default function Welcome() {
           </View>
         </View>
 
-        <View className="px-[26px] pb-[22px] pt-5">
+        <View className="mt-[42px]">
           {/*
             A button says what happens when it is pressed.
 
@@ -165,9 +162,9 @@ export default function Welcome() {
             spacing, so it is borrowed rather than invented. Sixteen above and
             below is A3's measure, not a new one.
           */}
-          <View className="my-4 flex-row items-center gap-3">
+          <View className="my-5 flex-row items-center gap-3">
             <View className="bg-border h-px flex-1" />
-            <Text className="font-heading text-[11px] uppercase tracking-[1.5px] text-neutral-600">
+            <Text className="font-heading text-[12px] uppercase tracking-[1.5px] text-neutral-600">
               or
             </Text>
             <View className="bg-border h-px flex-1" />
@@ -182,8 +179,8 @@ export default function Welcome() {
             }}
           />
 
-          <View className="mt-3 flex-row items-center justify-center gap-1.5">
-            <Text className="font-heading text-[11px] uppercase tracking-[1.5px] text-neutral-600">
+          <View className="mt-5 flex-row items-center justify-center gap-1.5">
+            <Text className="font-heading text-[12.5px] uppercase tracking-[1.5px] text-neutral-600">
               Already scoring?
             </Text>
             {/*
@@ -197,7 +194,7 @@ export default function Welcome() {
               hitSlop={12}
               onPress={() => router.push('/login')}
             >
-              <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.5px]">
+              <Text className="text-steel-700 font-heading text-[12.5px] uppercase tracking-[1.5px]">
                 Sign in
               </Text>
             </Pressable>

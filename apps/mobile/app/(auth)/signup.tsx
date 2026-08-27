@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signupSchema } from '@open-innings/shared';
 import { useSession } from '../../lib/session';
 import { ApiError, NetworkError } from '../../lib/api';
-import { Button, ErrorBanner, Field } from '../../components/ui';
+import { Button, ErrorBanner, Field, Kicker } from '../../components/ui';
 
 export default function Signup() {
+  const router = useRouter();
   const { signUp } = useSession();
 
   const [email, setEmail] = useState('');
@@ -67,13 +68,22 @@ export default function Signup() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
-        <ScrollView contentContainerClassName="flex-grow justify-center p-6 gap-6">
-          <View className="gap-1">
-            <Text className="text-primary text-xs font-bold uppercase tracking-widest">
-              Open Innings
+        <ScrollView contentContainerClassName="flex-grow px-6 pt-6 pb-10 gap-6">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => router.back()}
+            className="h-10 w-10 items-start justify-center"
+          >
+            <Text className="text-foreground/70 text-2xl leading-none -mt-1">‹</Text>
+          </Pressable>
+
+          <View className="gap-2.5">
+            <Kicker>Open Innings</Kicker>
+            <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
+              Create an account
             </Text>
-            <Text className="text-foreground text-3xl font-bold">Create an account</Text>
-            <Text className="text-muted-foreground text-sm">
+            <Text className="font-sans text-[14.5px] leading-[22px] text-neutral-700">
               Score your club&apos;s matches. No paywall, no ads for scorers.
             </Text>
           </View>
@@ -167,10 +177,22 @@ export default function Signup() {
 
           <Button label="Create account" onPress={submit} loading={busy} />
 
-          <View className="flex-row justify-center gap-1">
-            <Text className="text-muted-foreground text-sm">Already have an account?</Text>
-            <Link href="/login" className="text-primary text-sm font-semibold">
-              Sign in
+          <View className="my-1 flex-row items-center gap-3">
+            <View className="bg-border h-px flex-1" />
+            <Text className="font-heading text-[12px] uppercase tracking-[1.5px] text-neutral-600">
+              or
+            </Text>
+            <View className="bg-border h-px flex-1" />
+          </View>
+
+          <View className="flex-row justify-center items-center gap-2">
+            <Text className="text-neutral-600 font-sans text-[14.5px]">Already have an account?</Text>
+            <Link href="/login" asChild>
+              <Pressable className="py-2 active:opacity-60">
+                <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1px]">
+                  Sign in
+                </Text>
+              </Pressable>
             </Link>
           </View>
         </ScrollView>

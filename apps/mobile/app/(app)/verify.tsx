@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { api, ApiError } from '../../lib/api';
 import { useSession } from '../../lib/session';
-import { Button, ErrorBanner } from '../../components/ui';
+import { Button, ErrorBanner, Kicker } from '../../components/ui';
 
 const CODE_LENGTH = 6;
 
@@ -111,14 +111,15 @@ export default function VerifyEmail() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="flex-1 px-5 pb-4 pt-3">
-        {/* No back arrow. This is the last step of signing up, and the only
-            ways out are forwards through it or signing out. */}
-        <Text className="text-foreground font-heading mt-6 text-[30px] leading-[34px]">
-          Six digits
-        </Text>
-        <Text className="text-foreground/70 mt-2 text-[13.5px] leading-[19px]">
-          Sent to {user?.email ?? 'your email'}. Enter it to finish setting up your account.
-        </Text>
+        <View className="gap-2.5 mt-2">
+          <Kicker>Open Innings</Kicker>
+          <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
+            Six digits
+          </Text>
+          <Text className="text-neutral-700 font-sans text-[14.5px] leading-[22px]">
+            Sent to {user?.email ?? 'your email'}. Enter it to finish setting up your account.
+          </Text>
+        </View>
 
         {error ? (
           <View className="mt-3">
@@ -158,7 +159,7 @@ export default function VerifyEmail() {
             disabled={secondsLeft > 0 || busy}
           >
             <Text
-              className={`font-heading text-[11px] uppercase tracking-[1.4px] ${
+              className={`font-heading text-[12.5px] uppercase tracking-[1.4px] ${
                 secondsLeft > 0 ? 'text-neutral-600' : 'text-steel-700'
               }`}
             >
@@ -180,7 +181,7 @@ export default function VerifyEmail() {
             disabled={busy}
             onPress={() => void signOut()}
           >
-            <Text className="font-heading text-[11px] uppercase tracking-[1.4px] text-neutral-600">
+            <Text className="font-heading text-[12.5px] uppercase tracking-[1.4px] text-neutral-600">
               Wrong email? Sign out
             </Text>
           </Pressable>

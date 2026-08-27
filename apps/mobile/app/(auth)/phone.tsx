@@ -8,7 +8,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { useSession } from '../../lib/session';
-import { Button } from '../../components/ui';
+import { Button, Kicker } from '../../components/ui';
 
 /** Ten digits, the length of an Indian mobile number. */
 const LOCAL_NUMBER_LENGTH = 10;
@@ -53,23 +53,26 @@ export default function PhoneSignIn() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView contentContainerClassName="px-5 pb-6 pt-3 grow">
+      <ScrollView contentContainerClassName="flex-grow px-6 pt-6 pb-10">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={() => router.back()}
-          className="h-10 w-10 items-start justify-center"
+          className="h-10 w-10 items-start justify-center mb-1"
         >
-          <Text className="text-foreground/70 text-xl">‹</Text>
+          <Text className="text-foreground/70 text-2xl leading-none -mt-1">‹</Text>
         </Pressable>
 
-        <Text className="text-foreground font-heading mt-3 text-[30px] leading-[34px]">
-          Your number,{'\n'}your scorebook
-        </Text>
-        <Text className="text-foreground/70 mt-3 text-[14px] leading-5">
-          Used to keep your matches on any phone and to hold your career page. Nothing else, and
-          never sold.
-        </Text>
+        <View className="gap-2.5 mt-2">
+          <Kicker>Open Innings</Kicker>
+          <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
+            Your number,{'\n'}your scorebook
+          </Text>
+          <Text className="font-sans text-[14.5px] leading-[22px] text-neutral-700">
+            Used to keep your matches on any phone and to hold your career page. Nothing else, and
+            never sold.
+          </Text>
+        </View>
 
         <View className="mt-7">
           <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
@@ -110,7 +113,7 @@ export default function PhoneSignIn() {
 
         <View className="my-5 flex-row items-center gap-3">
           <View className="bg-border h-px flex-1" />
-          <Text className="text-foreground/50 font-heading text-[11px] uppercase tracking-[1.4px]">
+          <Text className="font-heading text-[12px] uppercase tracking-[1.5px] text-neutral-600">
             or
           </Text>
           <View className="bg-border h-px flex-1" />
@@ -128,10 +131,10 @@ export default function PhoneSignIn() {
 
         <View className="grow" />
 
-        <Text className="text-foreground/55 mt-8 text-[12px] leading-5">
+        <Text className="text-neutral-600 font-sans mt-8 text-[12.5px] leading-5">
           Local matches stay on this phone and can be exported. A career page needs a number.
         </Text>
-        <Text className="text-foreground/55 mt-3 text-[12px] leading-5">
+        <Text className="text-neutral-600 font-sans mt-3 text-[12.5px] leading-5">
           By continuing you accept the terms. The source is on GitHub if you would rather read the
           code.
         </Text>

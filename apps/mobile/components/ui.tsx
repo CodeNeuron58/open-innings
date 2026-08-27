@@ -109,7 +109,7 @@ export function Button({
       accessibilityState={{ disabled: isInert, busy: loading }}
       onPress={onPress}
       disabled={isInert}
-      className={`${surface} h-12 flex-row items-center justify-center border px-5 ${
+      className={`${surface} h-[52px] w-full flex-row items-center justify-center border px-5 ${
         isInert ? 'opacity-50' : 'active:opacity-80'
       }`}
     >
@@ -133,7 +133,7 @@ export function Button({
         />
       ) : (
         // 0.06em at 15px is 0.9px, not the 1.2px this had tracked out to.
-        <Text className={`${text} font-heading shrink-0 text-[15px] uppercase tracking-[0.9px]`}>
+        <Text className={`${text} font-heading shrink-0 text-[16px] uppercase tracking-[1px]`}>
           {label}
         </Text>
       )}
@@ -155,8 +155,8 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
 ) {
   const theme = useTheme();
   return (
-    <View className="gap-1.5">
-      <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+    <View className="gap-2.5">
+      <Text className="font-heading text-[12.5px] uppercase tracking-[1.6px] text-neutral-700">
         {label}
       </Text>
       <View className="relative justify-center">
@@ -164,9 +164,9 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
           ref={ref}
           accessibilityLabel={label}
           placeholderTextColor={theme.placeholder}
-          className={`text-foreground h-12 border bg-neutral-100 px-4 ${
+          className={`text-foreground h-[52px] border bg-neutral-100 px-4 ${
             rightAccessory ? 'pr-14' : ''
-          } font-sans text-base ${error ? 'border-destructive' : 'border-input'}`}
+          } font-sans text-[15px] ${error ? 'border-destructive' : 'border-input'}`}
           {...props}
         />
         {rightAccessory ? (
@@ -175,7 +175,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
           </View>
         ) : null}
       </View>
-      {error ? <Text className="text-destructive font-sans text-xs">{error}</Text> : null}
+      {error ? <Text className="text-destructive font-sans text-[13px]">{error}</Text> : null}
     </View>
   );
 });
@@ -217,7 +217,7 @@ export function Card({
 /** Section label — the kicker. Uppercase, tracked out, accent-coloured. */
 export function Kicker({ children }: { children: React.ReactNode }) {
   return (
-    <Text className="text-steel-700 font-heading text-[11px] uppercase tracking-[1.8px]">
+    <Text className="text-steel-700 font-heading text-[13px] uppercase tracking-[1.8px]">
       {children}
     </Text>
   );

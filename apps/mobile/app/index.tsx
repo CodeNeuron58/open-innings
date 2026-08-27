@@ -35,10 +35,10 @@ export default function Index() {
     <View className="bg-scoreboard flex-1">
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView className="flex-1 justify-end px-6 pb-6">
-        <Text className="text-scoreboard-text font-heading text-[44px] uppercase leading-[42px]">
+        <Text className="text-scoreboard-text font-heading text-[46px] uppercase leading-[45px] tracking-[-1px]">
           Open{'\n'}Innings
         </Text>
-        <Text className="text-scoreboard-muted font-heading mt-3 text-[11px] uppercase tracking-[2px]">
+        <Text className="text-scoreboard-muted font-heading mt-2.5 text-[13px] uppercase tracking-[1.8px]">
           Score every ball
         </Text>
 
