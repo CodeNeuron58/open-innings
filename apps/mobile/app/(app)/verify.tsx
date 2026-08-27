@@ -1,6 +1,14 @@
 /**
  * Confirming your email with a six-digit code.
- * Non-blocking screen (can be skipped) that enables password resets.
+ *
+ * The last step of signing up, and a blocking one: `(app)/_layout.tsx` sends
+ * every unverified account here and lets nothing else in. That is why there is
+ * no back arrow and no "do this later" — either of them would be a way past a
+ * gate, and a gate you can walk around is decoration.
+ *
+ * The way out is signing out, which is the honest answer to "I typed my
+ * address wrong". There is no endpoint for changing the address on an
+ * unverified account, so the only real fix is a different account.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -20,7 +28,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as co
 
 export default function VerifyEmail() {
   const router = useRouter();
-  const { user, token, refreshSession } = useSession();
+  const { user, token, refreshSession, signOut } = useSession();
 
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,10 +63,17 @@ export default function VerifyEmail() {
     setNote(null);
     try {
       await api.confirmEmail(token, code);
-      // The session carries `emailVerifiedAt`, and the prompt in settings
-      // reads it — so refreshing is what makes the banner disappear.
+      /*
+       * The session carries `emailVerifiedAt`, and the guard in
+       * `(app)/_layout.tsx` reads it — so refreshing is what actually opens
+       * the gate. It has to finish before we navigate, or the guard re-reads
+       * the stale value and bounces straight back here.
+       */
       await refreshSession();
-      router.back();
+      // `replace`, not `back` — there is nothing behind this screen. Somebody
+      // arriving from signup has no history, and `back()` left them staring
+      // at a screen that had just told them it was finished.
+      router.replace('/matches');
     } catch (err) {
       // Forward the specific server error message directly.
       setError(err instanceof ApiError ? err.message : 'That did not go through. Try again.');
@@ -96,20 +111,13 @@ export default function VerifyEmail() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="flex-1 px-5 pb-4 pt-3">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-          className="h-10 w-10 items-start justify-center"
-        >
-          <Text className="text-foreground/70 text-xl">‹</Text>
-        </Pressable>
-
-        <Text className="text-foreground font-heading mt-3 text-[30px] leading-[34px]">
+        {/* No back arrow. This is the last step of signing up, and the only
+            ways out are forwards through it or signing out. */}
+        <Text className="text-foreground font-heading mt-6 text-[30px] leading-[34px]">
           Six digits
         </Text>
-        <Text className="text-foreground/70 mt-2 text-[13.5px]">
-          Sent to {user?.email ?? 'your email'}.
+        <Text className="text-foreground/70 mt-2 text-[13.5px] leading-[19px]">
+          Sent to {user?.email ?? 'your email'}. Enter it to finish setting up your account.
         </Text>
 
         {error ? (
@@ -158,12 +166,22 @@ export default function VerifyEmail() {
             </Text>
           </Pressable>
 
-          {/* Confirming gates nothing — it unlocks a password reset being able
-              to reach you. Saying so, next to a way out, is what keeps that
-              true rather than merely intended. */}
-          <Pressable accessibilityRole="button" onPress={() => router.back()}>
+          {/*
+            The escape hatch, and it has to be here.
+
+            Somebody who mistyped their address cannot receive the code, and
+            there is no endpoint for changing the address on an unverified
+            account — so without this they are locked in a room with no doors.
+            Signing out returns them to the welcome screen to try again.
+          */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign out and use a different email"
+            disabled={busy}
+            onPress={() => void signOut()}
+          >
             <Text className="font-heading text-[11px] uppercase tracking-[1.4px] text-neutral-600">
-              Do this later
+              Wrong email? Sign out
             </Text>
           </Pressable>
         </View>
