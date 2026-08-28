@@ -45,31 +45,30 @@ function Row({
       accessibilityLabel={disabledNote ? `${label} — ${disabledNote}` : label}
       onPress={onPress}
       disabled={inert}
-      className={`border-border flex-row items-center gap-3 border-b py-3.5 ${
+      className={`border-border flex-row items-center gap-3 border-b py-4 ${
         inert ? 'opacity-45' : 'active:opacity-60'
       }`}
     >
       <View className="min-w-0 flex-1">
-        <Text className="text-foreground text-[15px]" numberOfLines={1}>
+        <Text className="text-foreground text-[16px]" numberOfLines={1}>
           {label}
         </Text>
         {disabledNote ? (
-          <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={1}>
+          <Text className="text-foreground/70 mt-1 text-[13px]" numberOfLines={1}>
             {disabledNote}
           </Text>
         ) : null}
       </View>
       {value ? (
-        <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.2px] text-neutral-700">
+        <Text className="font-heading shrink-0 text-[11.5px] uppercase tracking-[1.4px] text-primary">
           {value}
         </Text>
       ) : null}
-      {!inert ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
+      {!inert ? <Text className="text-foreground/30 shrink-0 text-[18px]">›</Text> : null}
     </Pressable>
   );
 }
 
-/** A row that actually stores something. */
 function ToggleRow({
   label,
   note,
@@ -83,11 +82,11 @@ function ToggleRow({
 }) {
   const theme = useTheme();
   return (
-    <View className="border-border flex-row items-center gap-3 border-b py-2.5">
+    <View className="border-border flex-row items-center gap-4 border-b py-4">
       <View className="min-w-0 flex-1">
-        <Text className="text-foreground text-[15px]">{label}</Text>
+        <Text className="text-foreground text-[16px]">{label}</Text>
         {note ? (
-          <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={2}>
+          <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">
             {note}
           </Text>
         ) : null}
@@ -106,13 +105,6 @@ function ToggleRow({
   );
 }
 
-/**
- * A row whose value is one of a few, picked in place.
- *
- * A `Switch` cannot say "follow the phone", and sending somebody to another
- * screen to choose between three words is more navigation than the choice is
- * worth. The chips match the ones the squad and role pickers already use.
- */
 function ChoiceRow<T extends string>({
   label,
   note,
@@ -127,14 +119,14 @@ function ChoiceRow<T extends string>({
   onChange: (next: T) => void;
 }) {
   return (
-    <View className="border-border border-b py-2.5">
-      <Text className="text-foreground text-[15px]">{label}</Text>
+    <View className="border-border border-b py-4">
+      <Text className="text-foreground text-[16px]">{label}</Text>
       {note ? (
-        <Text className="text-foreground/70 mt-0.5 text-[11px]" numberOfLines={2}>
+        <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">
           {note}
         </Text>
       ) : null}
-      <View className="mt-2 flex-row flex-wrap gap-1.5">
+      <View className="mt-3.5 flex-row flex-wrap gap-2">
         {options.map((option) => {
           const selected = option.value === value;
           return (
@@ -144,13 +136,13 @@ function ChoiceRow<T extends string>({
               accessibilityState={{ selected }}
               accessibilityLabel={`${label}: ${option.label}`}
               onPress={() => onChange(option.value)}
-              className={`h-10 shrink-0 justify-center border px-4 ${
-                selected ? 'bg-scoreboard border-scoreboard' : 'border-input'
+              className={`h-11 flex-1 min-w-[90px] justify-center border ${
+                selected ? 'bg-primary border-primary' : 'bg-transparent border-input'
               } active:opacity-70`}
             >
               <Text
-                className={`font-heading text-[12.5px] ${
-                  selected ? 'text-scoreboard-text' : 'text-foreground'
+                className={`font-heading text-center text-[13px] uppercase tracking-[1.2px] ${
+                  selected ? 'text-primary-foreground' : 'text-foreground'
                 }`}
               >
                 {option.label}
@@ -225,19 +217,19 @@ export default function More() {
                 : () => router.push('/profile')
           }
           disabled={isGuest}
-          className="border-border flex-row items-center gap-3 border p-3 active:opacity-70"
+          className="border-border flex-row items-center gap-4 border p-4 active:opacity-70"
         >
-          <View className="border-border h-11 w-11 items-center justify-center border">
-            <Text className="text-foreground font-heading text-[15px]">
+          <View className="bg-foreground h-14 w-14 items-center justify-center">
+            <Text className="text-background font-heading text-[18px] tracking-[1px]">
               {initialsOf(displayName)}
             </Text>
           </View>
           <View className="min-w-0 flex-1">
-            <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
+            <Text className="text-foreground font-heading text-[20px]" numberOfLines={1}>
               {displayName}
             </Text>
             <Text
-              className="font-heading mt-0.5 text-[11px] uppercase tracking-[1.2px] text-neutral-700"
+              className="text-primary font-heading mt-0.5 text-[11px] uppercase tracking-[1.3px]"
               numberOfLines={1}
             >
               {user?.email
@@ -249,15 +241,15 @@ export default function More() {
                   : 'No account'}
             </Text>
           </View>
-          {!isGuest ? <Text className="text-foreground/35 shrink-0 text-[16px]">›</Text> : null}
+          {!isGuest ? <Text className="text-foreground/30 shrink-0 text-[20px]">›</Text> : null}
         </Pressable>
 
         {/* Supporter plan status or pitch. */}
         {isSupporter ? (
-          <View className="border-steel-300 bg-steel-100 mt-3 flex-row items-center justify-between border p-3.5">
+          <View className="border-steel-300 bg-steel-100 mt-4 flex-row items-center justify-between border p-4">
             <View className="min-w-0 flex-1">
-              <Text className="text-steel-900 font-heading text-[15px]">Supporter active</Text>
-              <Text className="text-steel-800/75 mt-0.5 text-[13.5px]">
+              <Text className="text-steel-900 font-heading text-[16px]">Supporter active</Text>
+              <Text className="text-steel-800/75 mt-0.5 text-[13px]">
                 Ads are disabled across the app
               </Text>
             </View>
@@ -267,9 +259,9 @@ export default function More() {
               onPress={() =>
                 void Linking.openURL('https://play.google.com/store/account/subscriptions')
               }
-              className="border-steel-400 border px-2.5 py-1.5 active:opacity-60"
+              className="border-steel-400 border px-3 py-2 active:opacity-60"
             >
-              <Text className="text-steel-900 font-heading text-[11px] uppercase tracking-[1.2px]">
+              <Text className="text-steel-900 font-heading text-[11.5px] uppercase tracking-[1.4px]">
                 Manage
               </Text>
             </Pressable>
@@ -279,15 +271,15 @@ export default function More() {
             accessibilityRole="button"
             accessibilityLabel="Remove ads — see the plans"
             onPress={() => router.push('/supporter')}
-            className="border-steel-300 bg-steel-100 mt-3 flex-row items-center gap-3 border p-3.5 active:opacity-70"
+            className="border-steel-300 bg-steel-100 mt-4 flex-row items-center gap-3 border p-4 active:opacity-70"
           >
             <View className="min-w-0 flex-1">
-              <Text className="text-steel-900 font-heading text-[15px]">Remove ads</Text>
-              <Text className="text-steel-800/75 mt-0.5 text-[13.5px]">
+              <Text className="text-steel-900 font-heading text-[16px]">Remove ads</Text>
+              <Text className="text-steel-800/75 mt-0.5 text-[13px]">
                 Everything else stays free
               </Text>
             </View>
-            <Text className="text-steel-700 font-heading shrink-0 text-[11px] uppercase tracking-[1.3px]">
+            <Text className="text-steel-700 font-heading shrink-0 text-[11.5px] uppercase tracking-[1.4px]">
               See plan
             </Text>
           </Pressable>
@@ -348,17 +340,11 @@ export default function More() {
             disabledNote={isGuest ? 'Needs an account' : undefined}
             onPress={() => router.push('/teams')}
           />
-          {/* Link to claimed player profile if available, or setup wizard if unclaimed. */}
+          {/* Link to claimed player profile if available. Unclaimed setup is handled by the main profile card at the top. */}
           {playerId ? (
             <Row
               label="My career"
               onPress={() => router.push({ pathname: '/players/[id]', params: { id: playerId } })}
-            />
-          ) : user && !isGuest ? (
-            <Row
-              label="Set up my player profile"
-              value="Unclaimed"
-              onPress={() => router.push('/profile')}
             />
           ) : null}
           <Row
@@ -415,13 +401,8 @@ export default function More() {
           <DeleteAccount token={token} email={user.email} onDeleted={() => void signOut()} />
         ) : null}
 
-        <Text className="text-foreground/75 pt-6 text-[13.5px] leading-[19px]">
-          Every scorecard is public and always has been. That link is the thing worth sharing, and
-          it needs no account to read.
-        </Text>
-        <Text className="text-foreground/65 pt-3 text-[13.5px] leading-[19px]">
-          AGPL-3.0. Every figure in this app is derived from ball logs, so nothing is typed twice
-          and a corrected ball corrects a career.
+        <Text className="text-foreground/50 pt-8 pb-4 text-center text-[12.5px]">
+          Released under the AGPL-3.0 license.
         </Text>
       </ScrollView>
     </SafeAreaView>
