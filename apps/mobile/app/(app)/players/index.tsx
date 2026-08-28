@@ -12,6 +12,7 @@ import { useSession } from '../../../lib/session';
 import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { Button, ErrorBanner, Field, Kicker } from '../../../components/ui';
 import { SkeletonScreen } from '../../../components/Skeleton';
+import { MergePlayers } from '../../../components/MergePlayers';
 
 export default function Players() {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function Players() {
   const [adding, setAdding] = useState(false);
   const [fullName, setFullName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
+  const [merging, setMerging] = useState(false);
+  /** What the last merge moved. Cleared on the next thing that happens here. */
+  const [mergeNote, setMergeNote] = useState<string | null>(null);
 
   async function addPlayer() {
     setNameError(null);
@@ -65,14 +69,31 @@ export default function Players() {
             {players.length} {players.length === 1 ? 'player' : 'players'}
           </Text>
         </View>
-        <Button
-          label={adding ? 'Cancel' : 'Add'}
-          variant={adding ? 'ghost' : 'primary'}
-          onPress={() => {
-            setAdding((v) => !v);
-            setNameError(null);
-          }}
-        />
+        <View className="flex-row items-center gap-2">
+          {/*
+            Only offered once there is something to merge. One player cannot be
+            a duplicate of anything, and a control that can only refuse is
+            worse than no control.
+          */}
+          {players.length >= 2 && !adding ? (
+            <Button
+              label="Merge"
+              variant="ghost"
+              onPress={() => {
+                setMergeNote(null);
+                setMerging(true);
+              }}
+            />
+          ) : null}
+          <Button
+            label={adding ? 'Cancel' : 'Add'}
+            variant={adding ? 'ghost' : 'primary'}
+            onPress={() => {
+              setAdding((v) => !v);
+              setNameError(null);
+            }}
+          />
+        </View>
       </View>
 
       {adding ? (
@@ -99,6 +120,19 @@ export default function Players() {
         </View>
       ) : null}
 
+      {/*
+        What the merge actually did, in counts. A merge that says only "done"
+        leaves you wondering whether it found the deliveries, and the one thing
+        you cannot do afterwards is check by undoing it.
+      */}
+      {mergeNote ? (
+        <View className="border-border border-l-steel-700 mx-5 mb-3 border border-l-2 px-4 py-3">
+          <Text className="text-foreground/80 font-sans text-[13px] leading-[19px]">
+            {mergeNote}
+          </Text>
+        </View>
+      ) : null}
+
       <FlatList
         data={players}
         keyExtractor={(p) => p.id}
@@ -115,6 +149,23 @@ export default function Players() {
       <View className="border-border border-t px-5 py-3">
         <Button label="Back to matches" variant="ghost" onPress={() => router.back()} />
       </View>
+
+      {merging ? (
+        <MergePlayers
+          players={players}
+          onDismiss={() => setMerging(false)}
+          onMerged={async (summary) => {
+            setMerging(false);
+            setMergeNote(summary);
+            // The dissolved player is gone and the survivor's figures changed,
+            // so the list is stale the instant this returns.
+            await refresh();
+            // A claimed player that was merged away leaves the session pointing
+            // at a row that no longer exists.
+            await refreshSession();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
