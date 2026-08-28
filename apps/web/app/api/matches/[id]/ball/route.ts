@@ -96,6 +96,26 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
       // Engine cannot derive Law 17.4 mid-over replacements.
       bowlerReplacedMidOver: parsed.bowlerReplacedMidOver,
       commentary: parsed.commentary,
+      /*
+       * Four fields the schema accepts and this object used to leave out.
+       *
+       * What is persisted below is `newBall` — the engine's own output — so a
+       * field missing here never reaches the engine, comes back undefined, and
+       * is written as null. The column, the schema and the insert were all
+       * correct; the gap was one object literal in the middle, which is the
+       * hardest place to see it because nothing fails.
+       *
+       * `overthrowRuns` and `battersCrossed` are shipped features that were
+       * silently dropped on this path. Corrections go through
+       * `replaceBallSequence` instead and carry them, so recording a delivery
+       * lost them and correcting the same delivery put them back — which is
+       * why `correct-smoke` proved overthrows worked while recording one never
+       * did.
+       */
+      overthrowRuns: parsed.overthrowRuns,
+      battersCrossed: parsed.battersCrossed,
+      shotAngle: parsed.shotAngle,
+      shotDistance: parsed.shotDistance,
     };
 
     // Reconstruct state from existing balls

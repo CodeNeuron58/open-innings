@@ -818,9 +818,39 @@ async function main() {
         batsmanId: striker,
         nonStrikerId: nonStriker,
         bowlerId: bowler,
+        /*
+         * Shot placement, on the first of the two only.
+         *
+         * The columns landed in migration 0019 and nothing wrote them until
+         * the console learned to, so the whole path — schema, insert, replay,
+         * card — had never once carried a real value. One delivery with a
+         * placement and one without also proves absence stays expressible,
+         * which is the ordinary case and the one a CHECK constraint could
+         * quietly take away.
+         */
+        ...(label === 'first' ? { shotAngle: 42, shotDistance: 73 } : {}),
       });
       ok(res.status === 200 || res.status === 201, `score the ${label} dot → ok`, res);
     }
+
+    /*
+     * Half a placement is not a point. An angle with no distance is a
+     * direction with no length, and the database says so too in
+     * `ball_events_shot_placement_pair` — this proves the schema refuses it
+     * first, with a message, rather than letting the constraint raise a 500.
+     */
+    const halfPlacement = await call('POST', `/api/matches/${matchId}/ball`, {
+      inningsId,
+      eventType: 'dot',
+      runsOffBat: 0,
+      extraRuns: 0,
+      totalRuns: 0,
+      batsmanId: striker,
+      nonStrikerId: nonStriker,
+      bowlerId: bowler,
+      shotAngle: 42,
+    });
+    ok(halfPlacement.status === 400, 'an angle with no distance → 400', halfPlacement);
 
     const batterId = striker;
     const career = await call('GET', `/api/players/${batterId}/stats`);
@@ -1157,6 +1187,33 @@ async function main() {
      * reader, and the aggregation only looked up players who batted or bowled
      * until fielders were added to it.
      */
+    /*
+     * The placement written above, read back off the card.
+     *
+     * This is the whole reason the columns exist: a wagon wheel is drawn from
+     * this response, and until now the card never carried the two fields at
+     * all — so a delivery could be stored with a placement and the app would
+     * have no way to know.
+     */
+    ok(
+      secondCard?.deliveries?.[0]?.shotAngle === 42 &&
+        secondCard?.deliveries?.[0]?.shotDistance === 73,
+      'the card carries the shot placement that was recorded',
+      {
+        angle: secondCard?.deliveries?.[0]?.shotAngle,
+        distance: secondCard?.deliveries?.[0]?.shotDistance,
+      },
+    );
+    ok(
+      secondCard?.deliveries?.[1]?.shotAngle === null &&
+        secondCard?.deliveries?.[1]?.shotDistance === null,
+      'a delivery with no placement reports null for both',
+      {
+        angle: secondCard?.deliveries?.[1]?.shotAngle,
+        distance: secondCard?.deliveries?.[1]?.shotDistance,
+      },
+    );
+
     const firstDelivery = secondCard?.deliveries?.[0];
     ok(
       typeof firstDelivery?.batsmanName === 'string' &&
@@ -1553,6 +1610,44 @@ async function main() {
       afterFix.json.state?.currentInnings?.runs === 1,
       'the cached score agrees with the ball log',
       afterFix.json.state?.currentInnings,
+    );
+
+    /*
+     * The four fields that reached the column only if you corrected a ball.
+     *
+     * `POST /ball` builds the engine's input as an object literal and left out
+     * `overthrowRuns`, `battersCrossed`, `shotAngle` and `shotDistance`. What
+     * gets persisted is the engine's own output, so a field missing from that
+     * literal came back undefined and was written as null — while `PATCH`,
+     * which goes through `replaceBallSequence`, carried all four. Recording a
+     * delivery lost them; correcting the same delivery put them back.
+     *
+     * Asserted off the POST response, which is the state the app renders from,
+     * so a regression shows up as the scorer's own screen being wrong.
+     */
+    // The correction above rotated the strike, so the pair is the one the
+    // replay just settled on rather than the one this match opened with.
+    const onStrike = afterFix.json.state?.currentInnings?.strikerId as string;
+    const offStrike = afterFix.json.state?.currentInnings?.nonStrikerId as string;
+    const carried = await deliver({
+      eventType: '2',
+      runsOffBat: 2,
+      overthrowRuns: 2,
+      battersCrossed: true,
+      shotAngle: 137,
+      shotDistance: 88,
+      batsmanId: onStrike,
+      nonStrikerId: offStrike,
+    });
+    ok(carried.status === 200, 'a delivery carrying every optional field → 200', carried);
+    const carriedBalls = (carried.json.state?.balls ?? []) as Json[];
+    const last = carriedBalls[carriedBalls.length - 1];
+    ok(last?.overthrowRuns === 2, 'overthrows survive being recorded', last?.overthrowRuns);
+    ok(last?.battersCrossed === true, 'the crossing override survives', last?.battersCrossed);
+    ok(
+      last?.shotAngle === 137 && last?.shotDistance === 88,
+      'shot placement survives being recorded',
+      { angle: last?.shotAngle, distance: last?.shotDistance },
     );
 
     // ── 9f. Player identity across accounts ─────────────────────────────────
