@@ -402,6 +402,9 @@ export type CardDelivery = {
   outBatterName: string | null;
   fielderName: string | null;
   commentary: string | null;
+  /** Where the ball went. Null unless the scorer captured it. */
+  shotAngle: number | null;
+  shotDistance: number | null;
 };
 
 export type CardInnings = {
@@ -535,6 +538,8 @@ export async function matchCardFor(matchId: string): Promise<MatchCard> {
         outBatterName: b.wicketPlayerId ? nameOf(String(b.wicketPlayerId)) : null,
         fielderName: b.fielderId ? nameOf(String(b.fielderId)) : null,
         commentary: b.commentary ?? null,
+        shotAngle: b.shotAngle ?? null,
+        shotDistance: b.shotDistance ?? null,
       })),
     };
   });

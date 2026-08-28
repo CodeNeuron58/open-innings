@@ -364,6 +364,15 @@ export type CardDelivery = {
   fielderName: string | null;
   /** A scorer's own note, if they wrote one. Wins over generated commentary. */
   commentary: string | null;
+  /**
+   * Where the ball went, for the wagon wheel. Null on every delivery whose
+   * placement was not captured, which is most of them — see the columns'
+   * note in `schema.ts`. Angle is degrees clockwise from straight down the
+   * ground in the striker's own frame; distance is a percentage of the way
+   * to the rope.
+   */
+  shotAngle: number | null;
+  shotDistance: number | null;
 };
 
 /** One innings, in full. */
