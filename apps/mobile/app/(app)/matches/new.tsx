@@ -28,6 +28,7 @@ import { useTheme } from '../../../lib/use-theme';
 import { Button, ErrorBanner, Field, Kicker, LoadingScreen } from '../../../components/ui';
 import { AddPlayerSheet, NewTeamSheet } from '../../../components/SetupSheets';
 import { MatchStartedSheet } from '../../../components/MatchStarted';
+import { SheetShell } from '../../../components/scorer/Sheets';
 
 /**
  * The formats offered at the toss.
@@ -162,7 +163,7 @@ function StepHeader({ step, title, onBack }: { step: number; title: string; onBa
       </Pressable>
       <Text className="text-foreground font-heading flex-1 text-[19px]">{title}</Text>
       <Text className="font-heading text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
-        Step {step} of 3
+        Step {step} of 4
       </Text>
     </View>
   );
@@ -174,7 +175,7 @@ export default function NewMatch() {
   const teamsQuery = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal));
   const mutation = useApiMutation();
 
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [error, setError] = useState<string | null>(null);
 
   // Step 1
@@ -216,6 +217,7 @@ export default function NewMatch() {
    * always leave, do it elsewhere, come back and find your place again.
    */
   const [newTeamFor, setNewTeamFor] = useState<'home' | 'away' | null>(null);
+  const [selectingTeamFor, setSelectingTeamFor] = useState<'home' | 'away' | null>(null);
   const [addingPlayer, setAddingPlayer] = useState(false);
 
   // Step 3
@@ -374,6 +376,52 @@ export default function NewMatch() {
    */
   const sheets = (
     <>
+      {selectingTeamFor ? (
+        <SheetShell title={`Select ${selectingTeamFor} team`} onDismiss={() => setSelectingTeamFor(null)}>
+          <ScrollView className="max-h-[60vh]">
+            <View className="gap-2 pb-6 px-2">
+              {teams
+                .filter((t) => t.id !== (selectingTeamFor === 'home' ? awayId : homeId))
+                .map((t) => (
+                  <Pressable
+                    key={t.id}
+                    onPress={() => {
+                      const id = t.id;
+                      if (selectingTeamFor === 'home') {
+                        setHomeId(id);
+                        if (tossWinnerId && tossWinnerId !== id && tossWinnerId !== awayId) {
+                          setTossWinnerId(null);
+                          setTossDecision(null);
+                        }
+                      } else {
+                        setAwayId(id);
+                        if (tossWinnerId && tossWinnerId !== homeId && tossWinnerId !== id) {
+                          setTossWinnerId(null);
+                          setTossDecision(null);
+                        }
+                      }
+                      resetSelections();
+                      setSelectingTeamFor(null);
+                    }}
+                    className="border-border border-b py-4 active:opacity-70"
+                  >
+                    <Text className="text-foreground text-[16px]">{t.name}</Text>
+                  </Pressable>
+                ))}
+              <Pressable
+                onPress={() => {
+                  setNewTeamFor(selectingTeamFor);
+                  setSelectingTeamFor(null);
+                }}
+                className="py-4 active:opacity-70"
+              >
+                <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1.3px]">+ New team</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </SheetShell>
+      ) : null}
+
       {newTeamFor ? (
         <NewTeamSheet
           onCreate={(name) => void createTeam(name)}
@@ -465,100 +513,31 @@ export default function NewMatch() {
           </View>
 
           {/* Configures per-bowler limit (usually 1/5th of innings) enforced by the engine. */}
-          <View className="mt-5">
-            <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
-              Overs per bowler
-            </Text>
-            <View className="mt-1.5">
-              <Chips
-                options={[
-                  { value: STANDARD_QUOTA, label: STANDARD_QUOTA },
-                  { value: NO_QUOTA, label: NO_QUOTA },
-                ]}
-                value={limitBowlers ? STANDARD_QUOTA : NO_QUOTA}
-                onChange={(v) => setLimitBowlers(v === STANDARD_QUOTA)}
-              />
-            </View>
-            <Text className="text-foreground/65 mt-1.5 text-[12.5px] leading-[17px]">
-              {limitBowlers
-                ? `A fifth of the innings — ${Math.max(1, Math.ceil(overs / 5))} over${
-                    Math.max(1, Math.ceil(overs / 5)) === 1 ? '' : 's'
-                  } each. Not applied if the side is too small to cover the innings.`
-                : 'Anyone can bowl any number of overs.'}
-            </Text>
-          </View>
-
           <View className="mt-7">
             <Kicker>Teams</Kicker>
 
-            {teams.length === 0 ? (
-              /*
-               * The dead end this screen used to walk into.
-               *
-               * With no teams the two chip rows rendered as nothing at all and
-               * the primary button sat disabled, with no statement anywhere of
-               * what was missing or where to get it.
-               */
-              <View className="border-border mt-3 border p-4">
-                <Text className="text-foreground font-heading text-[15px]">
-                  No teams on your books yet
-                </Text>
-                <Text className="text-foreground/70 mt-1.5 text-[13.5px] leading-[19px]">
-                  A match is between two of them. Name them here and add who turned out — nothing
-                  needs setting up first.
-                </Text>
-                <View className="mt-3.5">
-                  <Button label="Name the home side" onPress={() => setNewTeamFor('home')} />
+            <View className="mt-3 gap-4">
+              <Pressable onPress={() => setSelectingTeamFor('home')} accessibilityRole="button">
+                <View pointerEvents="none">
+                  <Field
+                    label="Home"
+                    value={nameOf(homeId)}
+                    placeholder="Select team..."
+                    editable={false}
+                  />
                 </View>
-              </View>
-            ) : (
-              <View className="mt-3 gap-4">
-                <View>
-                  <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
-                    Home
-                  </Text>
-                  <View className="mt-1.5 gap-2">
-                    <Chips
-                      options={teams
-                        .filter((t) => t.id !== awayId)
-                        .map((t) => ({ value: t.id, label: t.name }))}
-                      value={homeId}
-                      onChange={(id) => {
-                        setHomeId(id);
-                        if (tossWinnerId && tossWinnerId !== id && tossWinnerId !== awayId) {
-                          setTossWinnerId(null);
-                          setTossDecision(null);
-                        }
-                        resetSelections();
-                      }}
-                    />
-                    <NewTeamChip onPress={() => setNewTeamFor('home')} />
-                  </View>
+              </Pressable>
+              <Pressable onPress={() => setSelectingTeamFor('away')} accessibilityRole="button">
+                <View pointerEvents="none">
+                  <Field
+                    label="Away"
+                    value={nameOf(awayId)}
+                    placeholder="Select team..."
+                    editable={false}
+                  />
                 </View>
-                <View>
-                  <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
-                    Away
-                  </Text>
-                  <View className="mt-1.5 gap-2">
-                    <Chips
-                      options={teams
-                        .filter((t) => t.id !== homeId)
-                        .map((t) => ({ value: t.id, label: t.name }))}
-                      value={awayId}
-                      onChange={(id) => {
-                        setAwayId(id);
-                        if (tossWinnerId && tossWinnerId !== homeId && tossWinnerId !== id) {
-                          setTossWinnerId(null);
-                          setTossDecision(null);
-                        }
-                        resetSelections();
-                      }}
-                    />
-                    <NewTeamChip onPress={() => setNewTeamFor('away')} />
-                  </View>
-                </View>
-              </View>
-            )}
+              </Pressable>
+            </View>
           </View>
 
           {homeId && awayId ? (
@@ -606,9 +585,66 @@ export default function NewMatch() {
             </View>
           ) : null}
 
-          {/* Optional, and asked for here rather than hidden behind a
-              long-press on the match list — which is where they used to live,
-              so every match in the list read "Match". */}
+          {error ? (
+            <View className="mt-5">
+              <ErrorBanner message={error} />
+            </View>
+          ) : null}
+
+          <View className="mt-8">
+            <Button
+              label="Match details"
+              disabled={!canPickSquads}
+              onPress={() => {
+                // The toss is all-or-nothing, exactly as the server's schema
+                // requires — said here rather than by a disabled button that
+                // does not explain itself.
+                if (tossWinnerId && !tossDecision) {
+                  setError('Say what the toss winner chose to do.');
+                  return;
+                }
+                setError(null);
+                setStep(2);
+              }}
+            />
+          </View>
+        </ScrollView>
+        {sheets}
+      </SafeAreaView>
+    );
+  }
+
+  // ── Step 2 — Match Details ──────────────────────────────────────────────
+  if (step === 2) {
+    return (
+      <SafeAreaView className="bg-background flex-1">
+        <Stack.Screen options={{ headerShown: false }} />
+        <StepHeader step={2} title="Match details" onBack={() => setStep(1)} />
+
+        <ScrollView contentContainerClassName="px-5 pb-8 pt-5" keyboardShouldPersistTaps="handled">
+          <View>
+            <Text className="font-heading text-[11px] uppercase tracking-[1.6px] text-neutral-700">
+              Overs per bowler
+            </Text>
+            <View className="mt-1.5">
+              <Chips
+                options={[
+                  { value: STANDARD_QUOTA, label: STANDARD_QUOTA },
+                  { value: NO_QUOTA, label: NO_QUOTA },
+                ]}
+                value={limitBowlers ? STANDARD_QUOTA : NO_QUOTA}
+                onChange={(v) => setLimitBowlers(v === STANDARD_QUOTA)}
+              />
+            </View>
+            <Text className="text-foreground/65 mt-1.5 text-[12.5px] leading-[17px]">
+              {limitBowlers
+                ? `A fifth of the innings — ${Math.max(1, Math.ceil(overs / 5))} over${
+                    Math.max(1, Math.ceil(overs / 5)) === 1 ? '' : 's'
+                  } each. Not applied if the side is too small to cover the innings.`
+                : 'Anyone can bowl any number of overs.'}
+            </Text>
+          </View>
+
           <View className="mt-7">
             <Kicker>When</Kicker>
             <View className="mt-3">
@@ -648,26 +684,12 @@ export default function NewMatch() {
             />
           </View>
 
-          {error ? (
-            <View className="mt-5">
-              <ErrorBanner message={error} />
-            </View>
-          ) : null}
-
           <View className="mt-8">
             <Button
               label="Pick the sides"
-              disabled={!canPickSquads}
               onPress={() => {
-                // The toss is all-or-nothing, exactly as the server's schema
-                // requires — said here rather than by a disabled button that
-                // does not explain itself.
-                if (tossWinnerId && !tossDecision) {
-                  setError('Say what the toss winner chose to do.');
-                  return;
-                }
                 setError(null);
-                setStep(2);
+                setStep(3);
               }}
             />
           </View>
@@ -677,8 +699,8 @@ export default function NewMatch() {
     );
   }
 
-  // ── Step 2 — both XIs ───────────────────────────────────────────────────
-  if (step === 2) {
+  // ── Step 3 — both XIs ───────────────────────────────────────────────────
+  if (step === 3) {
     const onHome = picking === 'home';
     const teamId = onHome ? homeId : awayId;
     const roster = onHome ? homePlayers : awayPlayers;
@@ -701,7 +723,7 @@ export default function NewMatch() {
     return (
       <SafeAreaView className="bg-background flex-1">
         <Stack.Screen options={{ headerShown: false }} />
-        <StepHeader step={2} title="Who is playing" onBack={() => setStep(1)} />
+        <StepHeader step={3} title="Who is playing" onBack={() => setStep(2)} />
 
         {/* Both sides at once, so the one still to do is never out of sight.
             This step used to show the batting side only — the fielding side
@@ -843,7 +865,7 @@ export default function NewMatch() {
             label={playWhen === 'now' ? 'Openers & bowler' : 'Save the match'}
             disabled={!squadsReady}
             loading={playWhen !== 'now' && mutation.busy}
-            onPress={() => (playWhen === 'now' ? setStep(3) : void submit())}
+            onPress={() => (playWhen === 'now' ? setStep(4) : void submit())}
           />
         </View>
         {sheets}
@@ -862,11 +884,11 @@ export default function NewMatch() {
     );
   }
 
-  // ── Step 3 — who's on ───────────────────────────────────────────────────
+  // ── Step 4 — who's on ───────────────────────────────────────────────────
   return (
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
-      <StepHeader step={3} title="Who's on?" onBack={() => setStep(2)} />
+      <StepHeader step={4} title="Who's on?" onBack={() => setStep(3)} />
 
       {/*
         Three questions, one open at a time.

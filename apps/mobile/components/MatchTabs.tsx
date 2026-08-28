@@ -56,7 +56,7 @@ export function MatchTabs({
   ];
 
   return (
-    <View className="border-border flex-row border-t">
+    <View className="border-border flex-row border-t h-[52px]">
       {items.map((item) => {
         const isActive = item.key === active;
         const isDead = !item.go;
@@ -67,13 +67,15 @@ export function MatchTabs({
             accessibilityState={{ selected: isActive, disabled: isDead }}
             onPress={item.go}
             disabled={isDead || isActive}
-            className={`flex-1 items-center py-2.5 ${isDead ? 'opacity-35' : 'active:opacity-60'}`}
+            className={`flex-1 items-center justify-center relative ${
+              isDead ? 'opacity-35' : 'active:opacity-60'
+            }`}
           >
-            {/* The active mark is a rule above the label, not a filled pill —
-                this system draws, it does not fill. */}
-            <View className={`mb-1.5 h-0.5 w-8 ${isActive ? 'bg-primary' : 'bg-transparent'}`} />
+            {isActive && (
+              <View className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />
+            )}
             <Text
-              className={`font-heading text-[10px] uppercase tracking-[1.3px] ${
+              className={`font-heading text-[12px] uppercase tracking-[1px] ${
                 isActive ? 'text-foreground' : 'text-neutral-600'
               }`}
             >
