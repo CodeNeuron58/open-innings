@@ -48,6 +48,8 @@ import {
   type WicketEntry,
 } from '../../../../components/scorer/Sheets';
 import { ConsoleMenu } from '../../../../components/scorer/ConsoleMenu';
+import { ShotPlacement } from '../../../../components/scorer/ShotPlacement';
+import type { Placement } from '../../../../lib/wagon-wheel';
 
 export default function Scorer() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -156,6 +158,8 @@ export default function Scorer() {
   const [showRetirement, setShowRetirement] = useState(false);
   const [showOverthrow, setShowOverthrow] = useState(false);
   const [showExtraRunsSheet, setShowExtraRunsSheet] = useState(false);
+  /** Runs on the key being held, while its shot is being placed. */
+  const [placingRuns, setPlacingRuns] = useState<RunKey | null>(null);
   // State for correcting a previous delivery.
   // Kept open on success to show what the correction changed.
   const [correcting, setCorrecting] = useState<string | null>(null);
@@ -584,7 +588,7 @@ export default function Scorer() {
     });
   }
 
-  function scoreRuns(runsOffBat: RunKey) {
+  function scoreRuns(runsOffBat: RunKey, placement: Placement | null = null) {
     if (pendingExtra) {
       const extra = pendingExtra;
       setPendingExtra(null);
@@ -605,6 +609,13 @@ export default function Scorer() {
       nonStrikerId: effNonStriker,
       bowlerId: effBowler,
       bowlerReplacedMidOver: midOverBowlerId !== null,
+      /*
+       * Both or neither, which the shared schema and a database CHECK both
+       * insist on. Spreading one object rather than setting two fields is how
+       * that stays true here — there is no arrangement of this that sends an
+       * angle without a distance.
+       */
+      ...(placement ? { shotAngle: placement.angle, shotDistance: placement.distance } : {}),
     });
   }
 
@@ -916,6 +927,20 @@ export default function Scorer() {
                       : undefined
                   }
                   onPress={() => (k.runs === undefined ? setShowWicket(true) : scoreRuns(k.runs))}
+                  /*
+                   * Hold to say where it went.
+                   *
+                   * Only where the bat was involved and a run was scored: a
+                   * dot is the key that most needs to stay instant, the wicket
+                   * key opens its own sheet, and with an extra armed the
+                   * delivery being built is a wide or a bye, which never
+                   * touched the bat.
+                   */
+                  onLongPress={
+                    k.runs !== undefined && k.runs > 0 && !pendingExtra
+                      ? () => setPlacingRuns(k.runs as RunKey)
+                      : undefined
+                  }
                   disabled={mutation.busy}
                 />
               ))}
@@ -1463,6 +1488,24 @@ export default function Scorer() {
         />
       ) : null}
 
+      {/*
+        Reached by holding a runs key. Cancelling records nothing at all — the
+        hold asked a question and was withdrawn — while "record without it"
+        scores exactly the delivery the tap would have.
+      */}
+      {placingRuns !== null ? (
+        <ShotPlacement
+          runs={placingRuns}
+          batterName={nameOf(effStriker)}
+          onCancel={() => setPlacingRuns(null)}
+          onRecord={(placement) => {
+            const runs = placingRuns;
+            setPlacingRuns(null);
+            scoreRuns(runs, placement);
+          }}
+        />
+      ) : null}
+
       {showExtraRunsSheet && pendingExtra ? (
         <ExtraRunsSheet
           kind={pendingExtra}
@@ -1797,6 +1840,7 @@ function Key({
   tone,
   text,
   onPress,
+  onLongPress,
   disabled,
 }: {
   label: string;
@@ -1807,6 +1851,8 @@ function Key({
   tone: string;
   text: string;
   onPress: () => void;
+  /** Hold to place the shot. Omitted where placement makes no sense. */
+  onLongPress?: () => void;
   disabled: boolean;
 }) {
   return (
@@ -1828,6 +1874,16 @@ function Key({
         tap(runs === undefined ? 'wicket' : feelForBall(runs, false));
         onPress();
       }}
+      onLongPress={
+        onLongPress
+          ? () => {
+              // A different feel from a recorded ball, because nothing has
+              // been recorded yet — this opened a question.
+              tap('undo');
+              onLongPress();
+            }
+          : undefined
+      }
       disabled={disabled}
       // w-1/4 with a right/bottom hairline gives the drawn grid without gaps.
       className={`${tone} border-border h-[58px] w-1/4 items-center justify-center border-b border-r ${

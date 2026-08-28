@@ -15,8 +15,9 @@ import { MatchTabs } from '../../../../components/MatchTabs';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
 import { InningsScorecard } from '../../../../components/card/InningsScorecard';
 import { OverByOver } from '../../../../components/card/OverByOver';
+import { WagonWheelPanel } from '../../../../components/card/WagonWheelPanel';
 
-type Tab = 'scorecard' | 'overs';
+type Tab = 'scorecard' | 'overs' | 'wheel';
 
 export default function MatchCard() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -140,6 +141,7 @@ export default function MatchCard() {
           [
             ['scorecard', 'Scorecard'],
             ['overs', 'Over by over'],
+            ['wheel', 'Wheel'],
           ] as const
         ).map(([key, label]) => (
           <Pressable
@@ -170,8 +172,10 @@ export default function MatchCard() {
       >
         {tab === 'scorecard' ? (
           <InningsScorecard innings={innings} />
-        ) : (
+        ) : tab === 'overs' ? (
           <OverByOver innings={innings} />
+        ) : (
+          <WagonWheelPanel innings={innings} />
         )}
       </ScrollView>
 
