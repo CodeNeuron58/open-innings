@@ -60,7 +60,7 @@ function Row({
         ) : null}
       </View>
       {value ? (
-        <Text className="font-heading shrink-0 text-[11.5px] uppercase tracking-[1.4px] text-primary">
+        <Text className="font-heading text-primary shrink-0 text-[11.5px] uppercase tracking-[1.4px]">
           {value}
         </Text>
       ) : null}
@@ -86,9 +86,7 @@ function ToggleRow({
       <View className="min-w-0 flex-1">
         <Text className="text-foreground text-[16px]">{label}</Text>
         {note ? (
-          <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">
-            {note}
-          </Text>
+          <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">{note}</Text>
         ) : null}
       </View>
       <Switch
@@ -122,9 +120,7 @@ function ChoiceRow<T extends string>({
     <View className="border-border border-b py-4">
       <Text className="text-foreground text-[16px]">{label}</Text>
       {note ? (
-        <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">
-          {note}
-        </Text>
+        <Text className="text-foreground/70 mt-1 text-[13px] leading-[18px]">{note}</Text>
       ) : null}
       <View className="mt-3.5 flex-row flex-wrap gap-2">
         {options.map((option) => {
@@ -136,8 +132,8 @@ function ChoiceRow<T extends string>({
               accessibilityState={{ selected }}
               accessibilityLabel={`${label}: ${option.label}`}
               onPress={() => onChange(option.value)}
-              className={`h-11 flex-1 min-w-[90px] justify-center border ${
-                selected ? 'bg-primary border-primary' : 'bg-transparent border-input'
+              className={`h-11 min-w-[90px] flex-1 justify-center border ${
+                selected ? 'bg-primary border-primary' : 'border-input bg-transparent'
               } active:opacity-70`}
             >
               <Text
@@ -401,7 +397,7 @@ export default function More() {
           <DeleteAccount token={token} email={user.email} onDeleted={() => void signOut()} />
         ) : null}
 
-        <Text className="text-foreground/50 pt-8 pb-4 text-center text-[12.5px]">
+        <Text className="text-foreground/50 pb-4 pt-8 text-center text-[12.5px]">
           Released under the AGPL-3.0 license.
         </Text>
       </ScrollView>
