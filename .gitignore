@@ -89,3 +89,17 @@ new-design
 # unfinished type scale, the primary button under AA, and the fact that none
 # of it has been seen on a screen.
 PIVOT-TRACKER.md
+
+# Two docs that were in the repo and are now personal notes.
+#
+# `docs/wiring.md` is the built-but-not-wired tracker — most of it is resolved,
+# it links to files that were never public, and a stale list of known gaps in a
+# public repo is worse than none. Its live findings (the unfinished type scale,
+# the contrast floor) are worth keeping, which is why it is here rather than
+# deleted. Not the same file as WIRING.md above.
+#
+# `docs/deployment.md` records the original one-VM plan that was not taken.
+# docs/hosting.md describes what actually runs, and its sizing math now lives
+# there too — two hosting documents is how somebody follows the wrong one.
+docs/wiring.md
+docs/deployment.md
