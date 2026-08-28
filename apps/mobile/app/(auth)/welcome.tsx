@@ -118,7 +118,7 @@ export default function Welcome() {
           <View className="mt-[36px] gap-6">
             {POINTS.map((p) => (
               <View key={p.no} className="flex-row gap-4">
-                <Text className="text-steel-700 font-heading w-[24px] shrink-0 text-[17px] mt-0.5">
+                <Text className="text-steel-700 font-heading mt-0.5 w-[24px] shrink-0 text-[17px]">
                   {p.no}
                 </Text>
                 <View className="flex-1">

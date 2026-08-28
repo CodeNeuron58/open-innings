@@ -111,12 +111,12 @@ export default function VerifyEmail() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View className="flex-1 px-5 pb-4 pt-3">
-        <View className="gap-2.5 mt-2">
+        <View className="mt-2 gap-2.5">
           <Kicker>Open Innings</Kicker>
           <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
             Six digits
           </Text>
-          <Text className="text-neutral-700 font-sans text-[14.5px] leading-[22px]">
+          <Text className="font-sans text-[14.5px] leading-[22px] text-neutral-700">
             Sent to {user?.email ?? 'your email'}. Enter it to finish setting up your account.
           </Text>
         </View>

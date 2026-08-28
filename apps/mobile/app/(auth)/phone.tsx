@@ -58,12 +58,12 @@ export default function PhoneSignIn() {
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={() => router.back()}
-          className="h-10 w-10 items-start justify-center mb-1"
+          className="mb-1 h-10 w-10 items-start justify-center"
         >
-          <Text className="text-foreground/70 text-2xl leading-none -mt-1">‹</Text>
+          <Text className="text-foreground/70 -mt-1 text-2xl leading-none">‹</Text>
         </Pressable>
 
-        <View className="gap-2.5 mt-2">
+        <View className="mt-2 gap-2.5">
           <Kicker>Open Innings</Kicker>
           <Text className="text-foreground font-heading text-[40px] uppercase leading-[39px] tracking-[-1px]">
             Your number,{'\n'}your scorebook
@@ -131,10 +131,10 @@ export default function PhoneSignIn() {
 
         <View className="grow" />
 
-        <Text className="text-neutral-600 font-sans mt-8 text-[12.5px] leading-5">
+        <Text className="mt-8 font-sans text-[12.5px] leading-5 text-neutral-600">
           Local matches stay on this phone and can be exported. A career page needs a number.
         </Text>
-        <Text className="text-neutral-600 font-sans mt-3 text-[12.5px] leading-5">
+        <Text className="mt-3 font-sans text-[12.5px] leading-5 text-neutral-600">
           By continuing you accept the terms. The source is on GitHub if you would rather read the
           code.
         </Text>
