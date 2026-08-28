@@ -1,410 +1,223 @@
-# Hosting — where it runs, and why
+# Hosting
 
-`deployment.md` is the **original plan** (one VM, Postgres alongside,
-Cloudflare in front). This file is **where hosting actually landed**: what was
-tried, what it costs, and every option ranked so none of it gets
-re-researched.
+Where it runs, what that costs, and what was ranked and rejected — so nobody
+re-researches this at 1am.
 
-**Status: 🟢 DECIDED — deploying to Heroku.**
-Covered by the GitHub Student Developer Pack: **$13/month for 24 months**,
-against a $12/month bill (Basic dyno $7 + Postgres Essential-0 $5).
-
-An Oracle `E2.1.Micro` (`openinnings-prod`, Hyderabad) was provisioned the
-same day and is **kept as the fallback** — free, India-region, and the place
-to go if Heroku's latency proves intolerable.
-
-**Last updated: 2026-08-16**
-
-The deploy is the critical path. Everything downstream is queued behind it:
-
-```
-deploy → preview APK with a reachable API → closed testing
-       → 12 testers × 14 days (unskippable) → apply → ~7 day review → live
-```
-
-Working back from the Sept 30 deadline, **the deploy has to land by ~Aug 30.**
+**Live at <https://openinnings.com> since 17 August 2026.** Heroku, EU
+(Ireland), auto-deploying from `master`.
 
 ---
 
-## The Oracle capacity story — resolved, kept for reference
+## What is running
 
-Oracle returned **"Out of capacity for shape VM.Standard.A1.Flex in
-availability domain AD-1"** on every attempt at the Ampere shape.
+| Piece              | Choice                          | Cost       |
+| ------------------ | ------------------------------- | ---------- |
+| Compute            | Heroku **Basic** dyno           | $7/mo      |
+| Database           | Heroku Postgres **Essential-0** | $5/mo      |
+| DNS + certificates | Cloudflare (free) + Heroku ACM  | $0         |
+| Domain             | `openinnings.com`               | ~$1/mo     |
+| **Total**          |                                 | **$12/mo** |
 
-This is the well-known Ampere shortage on Always Free accounts, not a
-misconfiguration. Oracle oversubscribes ARM capacity in popular regions and
-Hyderabad is one of them. **`E2.1.Micro` succeeded immediately**, which is the
-useful finding: the region wasn't full, only Ampere was.
+Covered by the GitHub Student Developer Pack — $13/month of credit for 24
+months, so the bill is zero until roughly August 2028.
 
-### Attempt log
+**Use Basic, never Eco.** Eco sleeps after 30 minutes, and the whole growth
+loop is a stranger opening a shared scorecard link. A cold start on that link
+is the one place this app cannot afford to be slow.
 
-| Date       | Shape                         | Result             |
-| ---------- | ----------------------------- | ------------------ |
-| 2026-08-16 | A1.Flex, 2 OCPU / 12 GB       | Out of capacity    |
-| 2026-08-16 | A1.Flex, 1 OCPU / 6 GB        | Out of capacity    |
-| 2026-08-16 | **E2.1.Micro, 1 OCPU / 1 GB** | ✅ **Provisioned** |
-
-**Conclusion: the shortage is Ampere-specific, not regional.** Hyderabad has
-capacity; A1 is simply oversubscribed. Anyone hitting this should try E2
-before concluding the region is full or reaching for a card.
-
-_Add a row per attempt. If a pattern shows (e.g. early morning IST works),
-that's worth knowing._
-
-### Escapes that do NOT work — don't waste time on these
-
-- **"Try a different availability domain"** (Oracle's own suggestion) —
-  Hyderabad has exactly **one** AD. There is nothing to switch to.
-- **Switching region** — Always Free resources only exist in the account's
-  **home region**, fixed permanently at signup. Hyderabad is now permanent.
-- **Upgrading to Pay-As-You-Go** — would unlock capacity priority, but the
-  whole point is not paying, and PAYG removes the guarantee of never being
-  charged.
-
----
-
-## Option 0 — Heroku ✅ CHOSEN, 2026-08-16
-
-**$0 for 24 months via the GitHub Student Developer Pack.**
-
-Missed on the first pass because Heroku's public free tier died in 2022 — but
-the Student Pack offer is live and covers the whole bill:
-
-| Piece                     | Cost                            |
-| ------------------------- | ------------------------------- |
-| Basic dyno (never sleeps) | $7/mo                           |
-| Postgres Essential-0      | $5/mo                           |
-| **Total**                 | **$12/mo** against a $13 credit |
-
-Use the **Basic** dyno, never Eco ($5) — Eco sleeps after 30 minutes, and a
-shared scorecard link that cold-starts for a stranger breaks the growth loop.
-
-### Why it fits this repo unusually well
+### Why Heroku fits this repo unusually well
 
 The pnpm-monorepo friction that normally makes Heroku painful doesn't apply:
 
 - `packageManager: pnpm@9.12.0` — the Node buildpack reads it and uses pnpm
-- root `build` → `pnpm --filter web build` — no monorepo buildpack needed
+- root `build` → `pnpm --filter web build`, so no monorepo buildpack is needed
 - root `start` → `pnpm --filter web start`; `next start` honours `$PORT`
 
-**Heroku also builds on a separate build dyno with more memory than the
-runtime dyno**, which means the "build off-server in CI" work below becomes
-unnecessary. That was the largest remaining task.
-
-### What it removes
-
-SSH, swap, Postgres install and tuning, systemd, Cloudflare Tunnel, backup
-scripting, and the CI build pipeline. Roughly 4–6 hours of unfamiliar ops
-collapses to about two, then `git push heroku main` forever after.
+Heroku also compiles on a **separate build dyno with more memory than the
+runtime dyno**, which removes the single biggest obstacle to the cheap
+alternatives below: `next build` needs 2–4GB and gets OOM-killed on a 1GB VM.
 
 ### The cost, honestly
 
-**No India region** — US (Virginia) or EU (Ireland) only, so ~150–200ms from
-Tripura against ~30ms to Hyderabad. The scorer POSTs every ball and waits for
-the replayed state, so that lag is felt on all 240 taps.
+**There is no India region.** US (Virginia) or EU (Ireland) only, so ~150–200ms
+from north-east India against ~30ms to a Mumbai or Hyderabad box. The scorer
+POSTs every ball, so that lag is felt on all 240 taps of a T20.
 
-**The mitigation is offline-first scoring (Tier 3 in `FEATURES.md`), which is
-needed regardless** — grounds have patchy signal or none, and today a dropped
-connection mid-over stops scoring dead. Hosting in Hyderabad would let that
-keep being postponed. Heroku forces the issue, and the resulting app is
-better at a real ground either way.
-
-**This raises Tier 3's priority from "if the schedule allows" to "the thing
-that makes the deploy choice correct."**
-
-### Known gotchas
-
-- **SSL** — Heroku sets `DATABASE_URL` with no SSL parameters, but its
-  Postgres requires TLS with a self-signed certificate. Expect the first
-  connection to fail; fix with `?sslmode=require`, or `no-verify` if
-  certificate verification is the complaint. Note Heroku **rotates**
-  `DATABASE_URL`, so don't hardcode a hand-edited copy.
-- **Connections** — Essential-0 allows 20; `lib/db/client.ts` uses `max: 10`.
-  Fine on one dyno, at the ceiling on two.
-- **Storage** — Essential-0 caps at 1 GB. Per the sizing math in
-  `deployment.md` that's roughly two years of heavy use.
-- **Backups** — Essential tiers have no rollback/continuous protection.
-  A scheduled `pg_dump` is still needed.
-- **Migrations** — use a Procfile `release:` phase so they run on deploy:
-  ```
-  release: pnpm db:migrate
-  web: pnpm start
-  ```
-  **Never `db:seed`** — it publishes `dev@local` / `devpassword123`.
-- **Credit expiry** — 24 months, so ~Aug 2028. Irrelevant to this hackathon,
-  but not forever. Oracle remains the exit.
+The mitigation is **offline-first scoring, which is built** — a tap writes to
+SQLite and to the screen and returns, and a drain loop handles the network. It
+was needed regardless, because grounds have patchy signal or none. Hosting in
+India would have let that keep being postponed.
 
 ---
 
-## Option A — `E2.1.Micro` — provisioned, held as fallback
+## Sizing — is this actually free?
 
-**Free. One instance provisioned 2026-08-16, kept running. A second is still
-available if it's ever needed — that escape hatch costs nothing.**
+`ball_events` is the only table that grows fast. Everything else — users,
+teams, players, matches, innings — stays tiny regardless of user count.
 
-Not the deploy target as of the Heroku decision above, but the reason the
-project is never trapped: if Heroku's latency hurts, or the credit lapses,
-this is a free India-region machine already sitting there.
+- One `ball_events` row: seven UUID columns plus small ints, enums, booleans, a
+  timestamp and index overhead ≈ **250–300 bytes**
+- A T20 match, both innings, extras and wickets included ≈ **280 rows** ≈ 80KB
+- A genuinely active season — 200 weekly scorers over six months — is
+  200 × 26 × 280 ≈ 1.45M rows ≈ **400–450MB in year one**
 
-⚠️ **Don't click Stop on it.** A stopped instance must re-acquire capacity to
-start again, and A1 capacity failed twice on the day it was created. Also note
-Oracle reclaims genuinely idle Always Free instances after ~7 days once the
-Free Trial ends — if that happens, E2 had capacity easily, so recreating it is
-not the ordeal A1 was.
+That number is why the free managed-Postgres tiers were rejected: Neon and
+Supabase both cap around **500MB**, which this reaches at a level of activity
+well short of what "1,000 users" sounds like. Essential-0's **1GB** is roughly
+two years of heavy use; a self-hosted VM's 200GB is effectively unbounded at
+this scale.
 
-`VM.Standard.E2.1.Micro` is the _other_ Always Free shape: **AMD x86, 1 OCPU,
-1 GB RAM, and you get two of them.** It's the older shape, far less contended
-than Ampere, so capacity is usually available when A1 is not.
-
-The reason this wasn't the first choice is 1 GB of RAM — `next build` needs
-2–4 GB and gets OOM-killed at 1 GB. **That objection dissolves entirely if the
-build happens off-server** (see "Build off-server" below), because `next start`
-only needs ~200–400 MB.
-
-**Two instances also means the memory pressure can be split:**
-
-| Instance | Runs                  | Typical RSS |
-| -------- | --------------------- | ----------- |
-| `oi-app` | Node, `next start`    | ~200–400 MB |
-| `oi-db`  | Postgres, tuned small | ~200–400 MB |
-
-Each fits in 1 GB with room to spare. They talk over the VCN's private
-network, so the database is never exposed to the internet — which is a
-security improvement over the single-VM plan, not a compromise.
-
-**Trade-offs, honestly:** E2.1.Micro is slow and burstable, with 480 Mbps
-networking. For bursty weekend cricket traffic that's fine. It is genuinely
-worse than 2 OCPU / 12 GB of Ampere — but it exists, and Ampere doesn't.
-
-x86 instead of ARM is a mild bonus: fewer native-module surprises.
+**Storage is the constraint, not compute.** Traffic is bursty — weekend
+cricket, not constant SaaS load.
 
 ---
 
-## Option B — Keep retrying A1
-
-**Free. Unbounded wait. Do this in the background, never as the plan.**
-
-Capacity frees up unpredictably as other tenants release instances.
-
-- Try **1 OCPU / 6 GB** before 2 OCPU / 12 GB — smaller asks draw from a
-  different slice and succeed more often.
-- Off-peak hours (IST late night / early morning) anecdotally do better.
-- It can be scripted against the OCI CLI, but a manual attempt each day costs
-  a minute and avoids building a retry harness we'd throw away.
-
-**The trap:** people run retry loops for _weeks_. That is the single most
-likely way this hackathon gets lost — not to a hard problem, but to waiting
-politely for a queue with no ETA.
-
----
-
-## Option C — Pay for a small VM
-
-**~₹500/month. The guaranteed-to-work option. Deliberately last.**
-
-Only if A and B have both failed by the cutoff below.
-
-| Provider     | Region              | Spec          | Cost  |
-| ------------ | ------------------- | ------------- | ----- |
-| Linode       | Mumbai              | 1 vCPU / 1 GB | $5/mo |
-| Vultr        | Bangalore or Mumbai | 1 vCPU / 1 GB | $6/mo |
-| DigitalOcean | Bangalore           | 1 vCPU / 1 GB | $6/mo |
-
-An India region is not optional — every ball POSTs from a ground, so a
-Europe/US box would add ~150 ms to each tap.
-
-Note these are all **1 GB**, same as `E2.1.Micro`. Paying doesn't remove the
-need to build off-server; it only removes the capacity lottery. Roughly
-₹1,000 total to reach Sept 30.
-
----
-
-## Appendix — the full option map
-
-Checked 2026-08-16. Recorded so nobody re-researches this at 1am.
-
-The binding constraints are: **an India-region host** (every ball POSTs from a
-ground; ~150ms+ each way is felt), **always-on** (a shared scorecard link must
-open instantly for someone who has never heard of us — no sleep timers), and
-**a real Postgres that doesn't expire**.
-
-| Option                        | India? | Verdict                                                     |
-| ----------------------------- | ------ | ----------------------------------------------------------- |
-| **Oracle E2.1.Micro** ✅      | Yes    | **Taken.** Free forever, no card, second one in hand        |
-| **Azure for Students**        | Yes    | **Best fallback** — $100, no card, Central India. See below |
-| Second Oracle E2.1.Micro      | Yes    | Free. The escape hatch if 1 GB gets tight                   |
-| Home machine + CF Tunnel      | Yes    | Free and viable, but uptime risk. See below                 |
-| AWS Lightsail Mumbai          | Yes    | $5/mo. Simple, no free tier                                 |
-| Linode / Vultr / DO           | Yes    | $5–6/mo — Option C above                                    |
-| Google Cloud free e2-micro    | **No** | Genuinely always-free, but US-only regions → ~200ms+        |
-| Hetzner CX22                  | **No** | €3.79 for 2 vCPU/4 GB, best value anywhere — but ~130ms     |
-| Koyeb free                    | Partly | Singapore ~60–80ms; tiny free tier, no Postgres             |
-| **DigitalOcean student $200** | —      | ☠️ **DEAD** — DO left the Student Pack on 2026-08-01        |
-| AWS / Azure standard free     | Yes    | 12 months only, then billed. A trap, not a tier             |
-| Render / Railway / Fly        | —      | Sleep timers, expiry, or paid. See `deployment.md`          |
-| Vercel / Netlify              | —      | Non-commercial terms + serverless. See `deployment.md`      |
-
-**Google Cloud's free e2-micro** deserves a note because it's otherwise the
-closest thing to Oracle's offer — genuinely perpetual, 1 vCPU / 1 GB, 30 GB
-disk. It is free **only** in `us-west1`, `us-central1` and `us-east1`. Launch
-it anywhere else and you're billed at full rate. For an app where every ball
-bowled is a POST from a ground in India, that's disqualifying on latency
-alone.
-
-### Azure for Students — the best fallback
-
-**$100 credit, no credit card required, renewable while enrolled.** Azure has
-**Central India** and **South India** regions, so latency is fine.
-
-A `B1s` VM (1 vCPU / 1 GB) runs roughly $8/month, so $100 is about a year —
-comfortably past Sept 30. Requires being **18+**; the 13–17 variant exists but
-excludes VMs.
-
-Claim it via the GitHub Student Developer Pack. Worth registering for the Pack
-regardless — it's free and the other perks are real.
-
-### Home machine + Cloudflare Tunnel — free, and not a joke
-
-A spare laptop or Pi at home, with a Cloudflare Tunnel, genuinely works. The
-tunnel dials **out**, so there's no port forwarding, no static IP, and no
-router configuration — the same mechanism we're already using on the VM.
-
-**The risk is uptime, and it's a real one here.** Closed testing needs 12
-testers opted in for **14 consecutive days**. A power cut or a rebooted router
-during that window doesn't just look bad, it can cost testers. In Tripura
-that's not a hypothetical.
-
-Fine as a dev or staging box. Not what closed testing should depend on.
-
----
-
-## Build off-server — _not_ needed on Heroku, required on the fallback
-
-**Skip this section unless falling back to Oracle.** Heroku compiles on a
-separate build dyno with more memory than the runtime dyno, so `next build`
-works there without any of the below. That is a large part of why it won.
-
-On a 1 GB VM, `pnpm build` on the server gets OOM-killed. **Don't do it.**
-
-```
-GitHub Actions:  pnpm install → pnpm build → upload .next artifact
-Server:          pull artifact → pnpm start
-```
-
-Why it matters beyond RAM:
-
-- A 1 GB box becomes sufficient, which makes the free options viable at all
-- Deploys stop depending on the server having spare memory
-- Builds become reproducible, and a broken build fails in CI instead of
-  halfway through a production deploy
-- Deploy time drops from minutes to seconds
-
-This is standard practice regardless of hosting, and it's the single change
-that makes the cheap path work.
-
-## Postgres on 1 GB — Oracle fallback only
-
-**Not applicable on Heroku**, where Postgres is a managed add-on. Kept for the
-fallback path.
-
-Defaults assume a much larger machine. Tune before it OOMs:
-
-- `shared_buffers = 128MB`
-- `work_mem = 4MB`
-- `max_connections = 20` — the app pools; it doesn't need 100
-- **Add 2 GB of swap.** Not for normal running — as a cliff-edge guard so a
-  spike degrades instead of getting the process killed.
-
-Per `deployment.md`'s sizing math, `ball_events` reaches only ~400–450 MB
-after a full year of heavy use, so **storage is not the constraint. RAM is.**
-
----
-
-## Decision point — ✅ resolved 2026-08-16, no longer live
-
-The original line was: _if there is still no working server on 2026-08-25,
-pay for Option C_ — on the reasoning that being wrong about paying costs
-₹1,000, while being wrong about waiting costs the entire hackathon.
-
-**It never came due.** Two independent free paths exist: Heroku for 24 months
-on the Student Pack, and Oracle indefinitely.
-
-The reasoning is kept because it generalises. If the deploy is ever blocked
-again with the Sept 30 date approaching, set a dated line, and act on it
-rather than waiting hopefully. _"I don't want to pay"_ must not quietly become
-_"I ran out of time."_
-
----
-
-## Next actions
-
-Heroku path. Everything below is roughly two hours.
-
-- [x] Try `E2.1.Micro` — worked first time, 2026-08-16 (kept as fallback)
-- [x] Decide the host — **Heroku**, on the Student Pack credit
-- [ ] Claim the Heroku offer via the GitHub Student Developer Pack
-- [ ] Create the app, region **EU (Ireland)** — closer to India than Virginia
-- [ ] Add the **Postgres Essential-0** add-on ($5) and a **Basic** dyno ($7).
-      **Not Eco** — Eco sleeps, and a cold-starting scorecard link breaks the
-      share loop.
-- [ ] `Procfile` with a `release:` phase running `pnpm db:migrate`
-- [ ] Fix the SSL connection string (expect this to fail once first)
-- [ ] `pnpm smoke:api` against the deployed URL — it's self-contained and safe
-- [ ] Point `openinnings.com` at the app; confirm `/app-ads.txt` serves
-- [ ] Set `EXPO_PUBLIC_API_URL` in the preview + production EAS profiles
-- [ ] Schedule a `pg_dump` — Essential tiers have no rollback
-
-**Option C (paying) and the Aug 25 decision point are now moot.** Two
-independent free paths exist: Heroku for 24 months, Oracle indefinitely.
-
----
-
-## Running it — the operational bits
-
-**Live at `https://openinnings.com`** since 2026-08-17. Auto-deploys from
-`master`; the Procfile's release phase runs migrations on every deploy.
+## Operating it
 
 ### Backups — read this before touching the schema
 
-Essential-tier Postgres has **no rollback and no continuous protection**;
-those start at Standard. So the only thing between a bad migration and a lost
-season is a dump somebody remembered to take.
+Essential-tier Postgres has **no rollback and no continuous protection**; those
+start at Standard. So the only thing between a bad migration and a lost season
+is a dump somebody remembered to take.
 
 That matters more here than in most apps. Every figure — every career average,
-every scorecard, every share card — is derived from `ball_events`. Losing it
-is not losing a cache that can be rebuilt. It is losing the match.
+every scorecard, every share card — is derived from `ball_events`. Losing it is
+not losing a cache that can be rebuilt. It is losing the match.
 
 ```sh
 pnpm db:backup                              # a local .dump, off Heroku entirely
-heroku pg:backups:capture -a open-innings   # Heroku's own snapshot, short retention
+heroku pg:backups:capture -a open-innings   # Heroku's own, short retention
 ```
 
 Use both, for different jobs: Heroku's for "undo the last hour", the local one
-for "keep a copy somewhere Heroku cannot lose". Run one **before every schema
-change**. Restoring is `pg_restore --clean --no-owner --dbname "$DATABASE_URL"`.
+for "keep a copy somewhere Heroku cannot lose". **Run one before every schema
+change.** Restoring is:
 
-The dump is custom-format, so a single table can be restored from it — which
-is what you actually want when one table is wrong and the rest is fine.
+```sh
+pg_restore --clean --no-owner --dbname "$DATABASE_URL" backups/<file>.dump
+```
+
+The dump is custom-format, so a single table can be restored from it — which is
+what you actually want when one table is wrong and the rest is fine.
+
+### Migrations run on deploy
+
+```
+release: pnpm db:migrate
+web: pnpm start
+```
+
+The `Procfile`'s release phase applies pending migrations on every deploy, and
+a failed release aborts the deploy rather than leaving a half-migrated app
+serving traffic.
+
+**Never `db:seed` in a release phase.** It creates `dev@local` with a password
+published in this repository. The script refuses non-local databases, but the
+right answer is not to invite it.
 
 ### Two settings that are hard to undo
 
-- **Region is Europe**, chosen at creation and unchangeable. Closest Heroku
-  region to India.
-- **Basic dyno, never Eco.** Eco sleeps after 30 minutes; a scorer opening the
-  app at a ground would wait through a cold start before every match.
+- **Region is Europe**, chosen at creation and unchangeable. It is the closest
+  Heroku region to India.
+- **Basic dyno, never Eco.** See above.
 
-### Things that bit during setup, so they do not bite twice
+### Things that bit during setup, so they don't bite twice
 
 - **TLS is decided in code**, not on the connection string. Heroku rewrites
-  `DATABASE_URL` on credential rotation, so `?sslmode=require` appended by hand
-  disappears. See `lib/db/ssl.ts`.
+  `DATABASE_URL` on credential rotation, so a hand-appended `?sslmode=require`
+  silently disappears. See `lib/db/ssl.ts`.
+- **Connections.** Essential-0 allows 20; `lib/db/client.ts` uses `max: 10`.
+  Fine on one dyno, at the ceiling on two.
 - **ACM is not automatic.** Adding a domain does not issue a certificate —
   Settings → Configure SSL → _Automatic Certificate Management_. Until then the
-  domain simply refuses connections, with no obvious cause.
+  domain refuses connections with no obvious cause.
 - **Cloudflare records must be grey (DNS only).** Proxied records stop Heroku
   validating the domain, so the certificate never issues.
 - **`NEXT_PUBLIC_*` is inlined at build time.** Changing it on a running app
-  does nothing until the next rebuild — the dashboard shows the new value and
+  does nothing until the next rebuild — the dashboard shows the new value while
   the app serves the old one. `APP_URL` is read at runtime instead.
 - **HTTP does not redirect by itself.** Next does not, and Cloudflare cannot
   while records are unproxied. Handled in `next.config.ts` off
   `x-forwarded-proto`.
+
+---
+
+## The fallback, and self-hosting
+
+An Oracle Cloud **`VM.Standard.E2.1.Micro`** (`openinnings-prod`, Hyderabad)
+was provisioned on 16 August and is kept running. Free, India-region, and the
+reason this project is never trapped: if Heroku's latency hurts or the credit
+lapses, there is already a machine to move to.
+
+⚠️ **Don't stop it.** A stopped Always Free instance must re-acquire capacity to
+start again, and Oracle reclaims genuinely idle ones after about a week.
+
+If you are self-hosting this yourself, the whole thing is one Postgres database
+and one Node process:
+
+```sh
+pnpm build && pnpm db:migrate && pnpm start
+```
+
+There is no ad server, no analytics vendor and no third-party auth in your own
+build.
+
+### On a 1GB box, build somewhere else
+
+`pnpm build` gets OOM-killed on 1GB. `next start` only needs ~200–400MB, so:
+
+```
+CI:      pnpm install → pnpm build → upload the .next artifact
+Server:  pull the artifact → pnpm start
+```
+
+This is worth doing regardless of RAM: builds become reproducible, and a broken
+build fails in CI rather than halfway through a production deploy.
+
+### Postgres tuning on 1GB
+
+Defaults assume a much larger machine.
+
+- `shared_buffers = 128MB`
+- `work_mem = 4MB`
+- `max_connections = 20` — the app pools; it does not need 100
+- **Add 2GB of swap** — not for normal running, but as a cliff-edge guard so a
+  spike degrades instead of getting the process killed
+
+---
+
+## The options, ranked
+
+Checked August 2026. The binding constraints are: **an India region** (every
+ball POSTs from a ground), **always-on** (a shared link must open instantly for
+a stranger — no sleep timers), and **a real Postgres that doesn't expire**.
+
+| Option                       | India? | Verdict                                                       |
+| ---------------------------- | ------ | ------------------------------------------------------------- |
+| **Heroku (Student Pack)** ✅ | No     | **Running.** $13/mo credit covers a $12 bill for 24 months    |
+| **Oracle E2.1.Micro** ✅     | Yes    | **Provisioned, held as the fallback.** Free, no card          |
+| Azure for Students           | Yes    | Best paid-credit fallback — $100, no card, Central India      |
+| AWS Lightsail Mumbai         | Yes    | $5/mo, simple, no free tier                                   |
+| Linode / Vultr / DO          | Yes    | $5–6/mo. All 1GB, so build off-server                         |
+| Home machine + CF Tunnel     | Yes    | Genuinely works. Uptime risk makes it a staging box, not this |
+| Google Cloud free e2-micro   | **No** | Perpetually free but US-only regions → 200ms+                 |
+| Hetzner CX22                 | **No** | Best value anywhere at €3.79 — but ~130ms                     |
+| Neon / Supabase free         | —      | ~500MB cap. See the sizing math above                         |
+| Render / Railway / Fly       | —      | Sleep timers, expiry, or paid                                 |
+| Vercel Hobby                 | —      | Non-commercial terms, serverless, and hosts no database       |
+
+**Oracle's Ampere (A1) shapes are the trap.** Every attempt returned "Out of
+capacity" in Hyderabad — the well-known ARM shortage on Always Free accounts,
+not a misconfiguration. `E2.1.Micro` succeeded immediately, which is the useful
+finding: the region wasn't full, only Ampere was. Try E2 before concluding a
+region is full.
+
+Three escapes that do **not** work, all suggested by Oracle's own error page:
+a different availability domain (Hyderabad has exactly one), a different region
+(Always Free lives only in your home region, fixed at signup), and upgrading to
+Pay-As-You-Go (which removes the guarantee of never being charged).
+
+> **The general lesson, kept because it generalises.** People run A1 retry
+> loops for weeks. If a deploy is ever blocked again with a date approaching,
+> set a dated line and act on it rather than waiting hopefully. _"I don't want
+> to pay"_ must not quietly become _"I ran out of time"_.

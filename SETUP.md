@@ -1,88 +1,66 @@
-# Open Innings — Local Setup Guide
+# Open Innings — local setup
 
-Step-by-step instructions to get Open Innings running on your laptop. **No cloud accounts, no third-party signups, no credit cards.**
+Getting the project running on your machine. **No cloud accounts, no
+third-party signups, no credit card.**
 
-> **TL;DR**: install Postgres 16+ → install pnpm 9+ → clone repo → `pnpm install` → `cp .env.example .env.local` → `pnpm db:migrate` → `pnpm db:seed` → `pnpm dev` → open <http://localhost:3000>.
+> **TL;DR** — install Postgres 16+ and pnpm 9+ → `pnpm install` →
+> `cp apps/web/.env.example apps/web/.env.local` → `pnpm db:migrate` →
+> `pnpm db:seed` → `pnpm dev` → <http://localhost:3000>
 
 ---
 
 ## 1. Prerequisites
 
-You need three things installed before continuing:
-
-| Tool         | Version | Why                                           |
-| ------------ | ------- | --------------------------------------------- |
-| **Node.js**  | 20+     | Runs the Next.js app and build tools          |
-| **pnpm**     | 9+      | Package manager (we use pnpm workspaces)      |
-| **Postgres** | 16+     | The database (any 16.x or 18.x release works) |
-
-Optional but recommended: **Docker Desktop** (lets you skip native Postgres install).
-
-### Install Node.js
-
-Download from <https://nodejs.org> (the LTS version, currently 20.x or 22.x).
-
-Verify:
+| Tool         | Version | Why                                        |
+| ------------ | ------- | ------------------------------------------ |
+| **Node.js**  | 20+     | Runs the app and the build tools           |
+| **pnpm**     | 9+      | Package manager — this is a pnpm workspace |
+| **Postgres** | 16+     | The database. Any 16.x or later works      |
 
 ```bash
-node --version    # should print v20.x or v22.x
-```
-
-### Install pnpm
-
-```bash
+node --version     # v20.x or newer
 npm install -g pnpm
+pnpm --version     # 9.x or newer
 ```
 
-Verify:
+### Postgres on Windows
 
-```bash
-pnpm --version    # should print 9.x or 10.x
-```
-
-### Install Postgres (pick one)
-
-#### Option A — Native install (recommended)
-
-1. Go to <https://www.postgresql.org/download/windows/>
-2. Click **"Interactive installer by EDB"**
-3. Pick **PostgreSQL 16.x for Windows x86-64** (or 18.x — both work)
-4. Run the installer:
-   - Components: install **PostgreSQL Server**, **pgAdmin 4**, **Command Line Tools**. Uncheck **Stack Builder** (we don't need it).
-   - Password for the `postgres` superuser: pick any — defaults below assume `postgres`
-   - Port: **5432** (default)
-   - Locale: default
-5. Verify it works by opening a **new** PowerShell window (so the updated PATH loads) and running:
+1. Download the **Interactive installer by EDB** from
+   <https://www.postgresql.org/download/windows/>
+2. Install **PostgreSQL Server**, **pgAdmin 4** and **Command Line Tools**.
+   Uncheck Stack Builder.
+3. Set a password for the `postgres` superuser — the defaults below assume
+   `postgres`.
+4. Keep port **5432**.
+5. Open a **new** PowerShell window so the updated PATH loads, then check:
    ```powershell
    psql -U postgres -h localhost
-   # enter the password you just set
    ```
-   Type `\q` to quit.
+   `\q` to quit.
+
+On macOS, `brew install postgresql@16 && brew services start postgresql@16` is
+the equivalent.
 
 ---
 
-## 2. Clone the repository
+## 2. Clone and install
 
 ```bash
 git clone https://github.com/CodeNeuron58/open-innings.git
 cd open-innings
-```
-
-## 3. Install dependencies
-
-```bash
 pnpm install
 ```
 
-This installs all packages across the monorepo (just `apps/web` for now, but the workspace is set up for future apps).
+This installs all four workspaces: `apps/web`, `apps/mobile`,
+`packages/scoring` and `packages/shared`.
 
-## 4. Configure environment
+## 3. Configure
 
 ```bash
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-Open `apps/web/.env.local` and confirm the values match your Postgres setup. The defaults work out-of-the-box:
+The defaults work out of the box against a local Postgres:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/open_innings"
@@ -90,231 +68,186 @@ SESSION_SECRET="dev-only-change-me-before-production-please-use-32-bytes-min"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-If you set a different password during Postgres install, update `DATABASE_URL` accordingly. If you used Docker, the defaults are already correct.
+If you set a different Postgres password, update `DATABASE_URL` to match.
 
-## 5. Create the database
+## 4. Create the database
 
-If you're using **native Postgres**, create the empty database once:
-
-```powershell
+```bash
 psql -U postgres -h localhost -c "create database open_innings;"
 ```
 
-## 6. Apply database migrations
+## 5. Migrate
 
 ```bash
 pnpm db:migrate
 ```
 
-This runs all SQL files in `apps/web/supabase/migrations/` in lexical order, tracking applied ones in a `__open_innings_migrations` table. Re-running is a no-op.
+This applies every SQL file in `apps/web/supabase/migrations/` in lexical
+order, recording what it has done in a `__open_innings_migrations` table.
+Re-running is a no-op. There are currently **22 migrations**.
 
-You should see:
-
-```
-→ Applying 17 migration(s):
-  0000_initial_schema.sql ... ok
-  ...
-  0017_overthrow_constraint_and_indexes.sql ... ok
-✓ All migrations applied.
-```
-
-## 7. Seed the database (optional but recommended for first run)
+## 6. Seed (optional, but do it on a first run)
 
 ```bash
 pnpm db:seed
 ```
 
-This creates a dev user, two teams, eight players, and one live match ready to score. You'll see:
+Creates a dev user, two teams, eight players and one live match with the
+openers already set, ready to score.
 
-```
-✓ Dev user: dev@local (password: devpassword123)
-✓ Teams: India, Australia
-✓ 8 players
-✓ Rosters assigned
-✓ Sample match: /matches/<id>/score
-🎉 Seed complete. Sign in at /login with:
-    email:    dev@local
-    password: devpassword123
-```
+> ⚠️ **The seed creates `dev@local` / `devpassword123`, and that password is
+> published in this repository.** The script refuses to run with
+> `NODE_ENV=production` or against a non-local `DATABASE_URL` — you would have
+> to set `OI_SEED_REMOTE=1` to override it, and you should not. Production gets
+> `pnpm db:migrate` and nothing else.
 
-The seed is **idempotent** — re-running won't duplicate rows. Safe to run any time.
+It is idempotent; re-running will not duplicate rows.
 
-## 8. Start the dev server
+## 7. Run it
 
 ```bash
 pnpm dev
 ```
 
-Open <http://localhost:3000>. You should land on the homepage.
+Open <http://localhost:3000>, sign in with `dev@local` / `devpassword123`, go
+to **Matches → Score** on the seeded match, and tap `4`. The score should move.
 
-Click **Sign in** in the top-right and use the seeded credentials:
+---
 
-- **Email**: `dev@local`
-- **Password**: `devpassword123`
+## The Android app
 
-You'll land on the dashboard. Navigate to **Matches** → click **Score** on the seeded "Sample Match" → tap a button (try `4`) → see the score update.
+```bash
+cd apps/mobile
+pnpm start
+```
+
+Then open the **development build** on your phone. **Expo Go cannot run this
+project** — RevenueCat and AdMob are native modules that Expo Go does not
+ship. [apps/mobile/README.md](apps/mobile/README.md) covers building the dev
+client.
+
+You do not need to configure an API URL for local work. A phone cannot reach
+`localhost`, but it is on the same wifi as your machine, and `lib/config.ts`
+derives the API host from the address Metro is already serving on.
 
 ---
 
 ## Useful commands
 
-| Command           | What it does                                 |
-| ----------------- | -------------------------------------------- |
-| `pnpm dev`        | Start the Next.js dev server with hot reload |
-| `pnpm build`      | Production build                             |
-| `pnpm lint`       | ESLint                                       |
-| `pnpm typecheck`  | TypeScript validation (no emit)              |
-| `pnpm test`       | Run all tests (Vitest)                       |
-| `pnpm db:migrate` | Apply pending SQL migrations                 |
-| `pnpm db:seed`    | Populate the database with dev data          |
-| `pnpm db:studio`  | Open Drizzle Studio (visual DB browser)      |
-| `pnpm smoke:auth` | Run the auth round-trip smoke test           |
+| Command           | What it does                                              |
+| ----------------- | --------------------------------------------------------- |
+| `pnpm dev`        | Next.js dev server with hot reload                        |
+| `pnpm build`      | Production build                                          |
+| `pnpm test`       | 460 unit tests across all four workspaces                 |
+| `pnpm typecheck`  | TypeScript, no emit                                       |
+| `pnpm lint`       | ESLint                                                    |
+| `pnpm format`     | Prettier — also sorts Tailwind classes                    |
+| `pnpm db:migrate` | Apply pending migrations                                  |
+| `pnpm db:seed`    | Dev fixtures                                              |
+| `pnpm db:reset`   | Drop and recreate. Local only                             |
+| `pnpm db:verify`  | Replay every innings and report anything the rules refuse |
+| `pnpm db:backup`  | `pg_dump` to `backups/`                                   |
+| `pnpm db:studio`  | Drizzle Studio, a visual browser                          |
+| `pnpm smoke:api`  | 290 checks against a running server                       |
+
+### Running the smoke suites
+
+They drive real HTTP against a real database, so they need a server:
+
+```bash
+pnpm build
+pnpm start                                          # one shell
+SMOKE_BASE_URL=http://localhost:3000 pnpm smoke:api # another
+```
+
+`smoke:api`, `smoke:correct` and `smoke:browse` create their own accounts and
+clean up after themselves. **`smoke:score` and `smoke:p1` are destructive** —
+they wipe ball events, so local databases only.
+
+Two things that will confuse you once each:
+
+- **`smoke:api` cannot be run twice within an hour** against the same server.
+  It uses most of its own signup rate-limit allowance in one pass, and the
+  refusal surfaces as an unrelated assertion failing. Restart the server to
+  clear the in-process limiter.
+- **Run them against `pnpm start`, not `pnpm dev`.** On Windows the Turbopack
+  dev server does not register routes nested two levels under a dynamic
+  segment, so `/api/matches/[id]/ball/[ballId]` 404s there. `next build`
+  enumerates them correctly.
 
 ---
 
 ## Troubleshooting
 
-### `psql: command not found` (or "the term 'psql' is not recognized")
+### `psql: command not found`
 
-Postgres isn't in your PATH. Either:
-
-- **Native install**: close and reopen PowerShell so PATH refreshes, OR
-- Use the full path: `& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h localhost` (adjust the version number if you installed a different one)
-
-If PATH still won't pick it up after reopening PowerShell, add it manually:
+Postgres is not on your PATH. Close and reopen your terminal first — the
+installer updates PATH for new sessions only. Failing that:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\Program Files\PostgreSQL\16\bin", "User")
 ```
 
-Close and reopen PowerShell.
-
 ### `password authentication failed for user "postgres"`
 
-You used a different password during Postgres install than what's in `.env.local`. Either:
-
-- Update `DATABASE_URL` in `.env.local` to use the password you actually set, OR
-- Reset the postgres password (see next section).
-
-### Resetting the `postgres` password
-
-If you forgot what password you set during install, you can reset it:
-
-1. Open PowerShell **as Administrator**
-2. Stop Postgres:
-   ```powershell
-   taskkill /F /IM postgres.exe
-   ```
-3. Edit `C:\Program Files\PostgreSQL\16\data\pg_hba.conf` and find the line for `host all all 127.0.0.1/32`. Change `scram-sha-256` to `trust` (just temporarily).
-4. Start Postgres:
-   ```powershell
-   & "C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe" -D "C:\Program Files\PostgreSQL\16\data" start
-   ```
-5. Connect and reset:
-   ```powershell
-   & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -h localhost
-   ```
-   ```sql
-   ALTER USER postgres WITH PASSWORD 'postgres';
-   \q
-   ```
-6. Edit `pg_hba.conf` again and change `trust` back to `scram-sha-256`.
-7. Reload Postgres:
-   ```powershell
-   & "C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe" -D "C:\Program Files\PostgreSQL\16\data" reload
-   ```
-8. Update `DATABASE_URL` in `.env.local` to use the new password and try again.
+`DATABASE_URL` does not match the password you set during installation. Change
+one to match the other.
 
 ### `relation "users" does not exist`
 
-You skipped step 6. Run `pnpm db:migrate`.
+You skipped step 5. Run `pnpm db:migrate`.
 
-### `Error: connect ECONNREFUSED 127.0.0.1:5432`
+### `connect ECONNREFUSED 127.0.0.1:5432`
 
-Postgres isn't running. Either:
+Postgres is not running. On Windows, open `services.msc` and start
+`postgresql-x64-16`.
 
-- **Native**: open **Services** (`services.msc`), find `postgresql-x64-16` (or 18), click Start.
+### `Cannot find module '@node-rs/argon2'`
 
-### Sign-in form gives "Invalid email or password"
+The native argon2 binary failed to build. On Windows this usually means you
+need the **Visual Studio Build Tools** with the "Desktop development with C++"
+workload: <https://visualstudio.microsoft.com/downloads/>.
 
-You're not using the seeded credentials. The seed creates `dev@local` / `devpassword123`. If you ran `pnpm db:seed` but still get this, run the seed again — it's idempotent.
+### A burst of "not assignable to parameter of type" errors on routes you know exist
 
-### Dev server says "Another server is running on port 3000"
+Stale generated types, not a real error. Two separate caches do this:
 
-Either:
+```bash
+rm -rf apps/web/.next/dev          # Next's route types
+rm -rf apps/mobile/.expo/types     # Expo Router's, then re-run `pnpm start`
+```
 
-- Kill the old process: `taskkill /F /IM node.exe` (Windows) / `pkill node` (macOS/Linux)
-- Or use a different port: `pnpm dev -- -p 3001`
+Both are generated and gitignored, and neither regenerates on a schedule — so
+adding a screen leaves the old type file in place and every `href` to your new
+route fails against the old list.
 
-### `Cannot find module '@node-rs/argon2'` or similar on `pnpm install`
+### "Another server is running on port 3000"
 
-The native argon2 binary failed to build. On Windows this usually means you need the **Visual Studio Build Tools** with the "Desktop development with C++" workload installed: <https://visualstudio.microsoft.com/downloads/> (scroll to "Tools for Visual Studio" → "Build Tools for Visual Studio").
-
-If you don't want to install build tools, you can switch to a pure-JS argon2 implementation by replacing `@node-rs/argon2` with `argon2` in `apps/web/package.json` (it uses Node's `crypto` module and has no native build).
-
-### `pgAdmin` errors with "PermissionError" on startup
-
-Common on Windows when Postgres is installed in `Program Files` (which requires admin). Either:
-
-- Always run pgAdmin as Administrator, OR
-- Just skip pgAdmin — the `psql` CLI is all you need for everything in this guide.
+```bash
+npx kill-port 3000        # or: taskkill /F /IM node.exe on Windows
+```
 
 ---
 
-## Resetting everything
-
-If you want to start over from scratch:
+## Starting over
 
 ```bash
-# Drop and recreate the database
 psql -U postgres -h localhost -c "drop database open_innings;"
 psql -U postgres -h localhost -c "create database open_innings;"
-
-# Re-apply migrations and seed
 pnpm db:migrate
 pnpm db:seed
 ```
 
----
-
-## Project layout (where things live)
-
-```
-apps/web/
-├── app/
-│   ├── (app)/                # Authenticated routes (with nav)
-│   │   ├── dashboard/
-│   │   ├── players/
-│   │   ├── teams/
-│   │   └── matches/
-│   ├── (auth)/               # Public auth routes
-│   │   ├── login/
-│   │   └── signup/
-│   ├── m/[matchId]/          # PUBLIC scorecard (no auth required)
-│   ├── api/                  # Route handlers
-│   ├── globals.css
-│   └── layout.tsx
-├── components/
-│   ├── Nav.tsx
-│   ├── scorer/               # The big-button scoring UI
-│   └── scorecard/            # Read-only scorecard components
-├── lib/
-│   ├── auth/                 # argon2 + sessions + cookies
-│   ├── db/                   # Drizzle schema + queries
-│   └── services/             # matches, ball-correction, stats
-├── scripts/                  # migrate.ts, seed.ts, auth-smoke.ts, verify-replay.ts
-├── supabase/migrations/      # 17 SQL migrations
-├── .env.local                # YOUR config (not committed)
-└── .env.example              # Template (committed)
-```
-
-The core scoring engine lives in `packages/scoring/src/engine.ts` — a pure function `applyBall(state, event) → newState` with 155 unit tests covering MCC cricket rules.
+Or `pnpm db:reset`, which does the same thing and refuses to run against
+anything but a local database.
 
 ---
 
 ## Next steps
 
-- Read [docs/architecture.md](docs/architecture.md) for the design rationale
-- Try scoring a match manually
-- Look at the unit tests in `packages/scoring/src/__tests__/` to see how the engine is verified
-- Check `apps/web/scripts/auth-smoke.ts` to see how the auth layer is tested end-to-end
+- [docs/architecture.md](docs/architecture.md) — the three decisions that are
+  expensive to reverse
+- [docs/scoring-rules.md](docs/scoring-rules.md) — how each cricket law is
+  modelled
+- `packages/scoring/src/__tests__/` — how the engine is actually verified
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the workflow, and what CI checks

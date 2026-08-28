@@ -1,251 +1,253 @@
-# Cricket scoring rules — reference
+# Cricket scoring rules — how each one is modelled
 
-Open Innings follows the **MCC Laws of Cricket** (2022 edition) for limited-overs matches (T20, T10, ODI). This document is the source of truth for how the scoring engine implements each rule.
+Open Innings follows the **MCC Laws of Cricket** for limited-overs matches.
+This file explains _how_ the engine encodes them and _why_ each choice was
+made.
 
-> ⚠️ The scoring engine (`packages/scoring/src/engine.ts`) is the actual source of truth for _implementation_. This document explains the _intent_. When they conflict, the code wins — but file a bug.
+> **`packages/scoring/src/rules.ts` is the source of truth.** Every set named
+> below is exported from it, and the rest of the codebase — including the SQL
+> that computes career figures — imports those sets rather than restating them.
+> If this file and that one ever disagree, the code is right and this is a bug.
+> Please file it.
 
-## Law 1–20: The players, umpires, equipment
+The reason the rules live in exported sets rather than in `if` statements is
+that they are needed in more than one place. "Which dismissals credit the
+bowler" is asked by the engine, by the scorecard, and by a career-stats query
+in SQL. Three copies would drift; one export cannot.
 
-Out of scope for the scoring engine. We track:
+---
 
-- Teams (squad of 11 in ODI/T20, 6–8 in T10)
-- Captain, wicketkeeper
-- Substitute players (post v0.1)
+## The shape of a delivery
 
-## Law 17: Practice on the field
+Every ball is a row in `ball_events`, and the scoring parts of it are these:
 
-Out of scope.
+| Field             | Means                                                  |
+| ----------------- | ------------------------------------------------------ |
+| `runsOffBat`      | Credited to the striker                                |
+| `extraRuns`       | Credited to the team, not the batter                   |
+| `overthrowRuns`   | Runs from the fielding error, routed by the rule below |
+| `totalRuns`       | The sum — derived, never sent by a client              |
+| `isLegalDelivery` | Whether this ball counted toward the over — derived    |
+| `isFreeHit`       | Whether the _next_ ball is a free hit — derived        |
+| `battersCrossed`  | The scorer overruling run-parity for strike rotation   |
 
-## Law 18: Scoring runs
+`isLegalDelivery` and `isFreeHit` are stripped from client payloads on purpose.
+Accepting them would let a client mark an ordinary delivery illegal and stop
+the over ever advancing.
 
-### Law 18.1 — A run is scored
+---
 
-A run is credited to the batsman when they:
+## Law 18 — Scoring runs
 
-- Hit the ball and run to the other end
-- Run without hitting (called a "bye")
-- Run after hitting but ball didn't touch the bat (still a run off the bat)
-
-**In our schema:**
-
-- `runsOffBat` = runs credited to the batsman (0–6)
-- `extraRuns` = any extras (wides, no-balls, byes, leg-byes)
-- `totalRuns` = `runsOffBat + extraRuns`
-
-### Law 18.5 — Boundaries
-
-A "four" is when the ball touches the ground before crossing the boundary. A "six" is when it passes over the boundary on the full.
-
-- `eventType: '4'` → ball reached boundary after bouncing, +4 to batsman
-- `eventType: '6'` → ball cleared boundary, +6 to batsman
-- A boundary is always `runsOffBat`; never `extraRuns`
+A boundary is always `runsOffBat` and never an extra. `eventType: '4'` and
+`'6'` name their own runs, so a payload claiming `'4'` with three off the bat
+is refused rather than corrected.
 
 ### Law 18.6 — Overthrows
 
-Runs completed plus any from overthrows. In our engine, this is modelled as `runsOffBat: N` where N includes the overthrow runs. (We could split into `runsOffBat` and `overthrowRuns` for finer stats, but for v0.1 we aggregate.)
+Overthrows are recorded in their own column, not folded into `runsOffBat`, so
+the ball log can still say what happened. Where they are _credited_ depends on
+whether the bat was involved:
 
-## Law 19 — Boundaries
+```
+OVERTHROW_TO_EXTRAS_TYPES = { wide, bye, leg_bye, penalty }
+```
 
-A ball that crosses the boundary without bouncing is a 6. A ball that bounces first is a 4. All runs awarded.
+On those four the ball never touched the bat, so the overthrows are extras. On
+anything else they go to the striker, because he hit it and they ran.
 
-## Law 20 — Dead ball
+A four or a six cannot carry overthrows at all — the ball has reached the rope
+and is dead — and neither can a penalty, which was never bowled. That set is
+`OVERTHROW_IMPOSSIBLE_TYPES`, and the database enforces the arithmetic
+independently with a `CHECK` on `total_runs`.
 
-When the ball is "dead" (lost, strike called, etc.), the ball doesn't count. **In our engine:** dead-ball situations are not currently modelled. We treat all balls as live. v0.2 will add support for umpire-call dead balls.
+**Boundary counting excludes overthrows.** Four runs where two came from an
+overthrow is not a four in the 4s column. The batter did not hit a boundary.
+
+---
 
 ## Law 21 — No ball
 
-A no-ball is a delivery that is illegal (overstepping, breaking the popping crease, etc.). The batting team gets +1 penalty plus any runs off the bat. The batsman faces the next ball again ("free hit" in limited-overs).
+One run penalty, recorded as `extraRuns`. Runs struck off a no-ball belong to
+the batter, so a no-ball hit for four is `runsOffBat: 4, extraRuns: 1`. The
+delivery is not legal, so it does not count toward the over.
 
-**In our schema:**
+### Law 21.18 — The free hit
 
-- `eventType: 'no_ball'`
-- `extraRuns: 1 + runsOffBat` (penalty + runs)
-- `isLegalDelivery: false` (doesn't count toward the over)
-- The **next ball** has `isFreeHit: true` (in limited-overs)
-- Wicket on a free hit = only run-out counts (Law 21.18)
+The ball after a no-ball is a free hit, and the dismissals it permits are the
+no-ball's own, not "run out only":
 
-**Edge case:** batsman can be run out on a free hit. Our engine allows this.
+```
+NO_BALL_VALID_WICKETS = FREE_HIT_VALID_WICKETS =
+  { run_out, obstructing_field, handled_ball, hit_the_ball_twice, double_hit }
+```
 
-## Law 22 — Wide ball
+The free hit **survives an intervening wide**, because a wide is not a legal
+delivery and the free hit is granted for the next _ball faced_. Getting this
+wrong is the single most common bug in cricket scoring apps, and it is covered
+both by example tests and by a property test over arbitrary innings.
 
-A ball too wide or too high to be reachable. +1 penalty plus any runs off the bat. Re-bowled.
+---
 
-**In our schema:**
+## Law 22 — Wide
 
-- `eventType: 'wide'`
-- `extraRuns: 1 + runsOffBat` (penalty + runs)
-- `isLegalDelivery: false`
-- `runsOffBat: 0` (wide means batsman didn't hit it)
-- If byes are taken on a wide, they go in `extraRuns`, not `runsOffBat`
+One run penalty. `runsOffBat` is always zero — a wide by definition was not
+struck — and any byes run off it are extras. Not a legal delivery, and **not a
+ball faced**, which is why the striker's strike rate is unaffected:
 
-## Law 23 — Bye
+```
+BATSMAN_FACING_EXCLUDED_TYPES = { wide, penalty }
+```
 
-Runs completed when the ball hasn't been hit by the bat or hand. Not credited to the batsman.
+### Law 22.6 — Dismissals off a wide
 
-**In our schema:**
+```
+WIDE_VALID_WICKETS =
+  { stumped, run_out, hit_wicket, obstructing_field, handled_ball }
+```
 
-- `eventType: 'bye'`
-- `runsOffBat: 0`
-- `extraRuns: N` (the bye runs)
-- `isLegalDelivery: true`
+Bowled and caught are impossible off a wide, and the engine refuses them rather
+than recording a dismissal that could not have happened.
 
-## Law 24 — Leg bye
+---
 
-Same as bye, but the ball hit the batsman's body (not the bat) and they ran.
+## Laws 23 and 24 — Byes and leg byes
 
-**In our schema:**
+Both are legal deliveries and both **are** balls faced, so they count toward
+the striker's balls even though he scores nothing. Neither is charged to the
+bowler's analysis:
 
-- `eventType: 'leg_bye'`
-- `runsOffBat: 0`
-- `extraRuns: N`
-- `isLegalDelivery: true`
+```
+BOWLER_EXEMPT_EXTRAS = { bye, leg_bye, penalty }
+```
 
-**Important:** leg-byes cannot be taken if the ball hits the batsman in line with the stumps (potential LBW) — umpire's call. Our engine doesn't enforce this; the scorer decides.
+A leg bye cannot be taken if the ball struck the batter in line while no shot
+was offered — that is an umpire's decision, and the engine does not enforce it.
+The scorer records what the umpire signalled.
 
-## Law 25 — Penalty runs
+---
 
-Penalty runs awarded for various infractions (time-wasting, ball tampering, etc.). v0.1 doesn't model these.
+## Laws 41 and 42 — Penalty runs
 
-## Law 26 — Lost ball
+Five runs, awarded rather than run. `eventType: 'penalty'`, `extraRuns: 5`.
 
-If the ball is lost, the ball is dead and a new ball is taken. Runs scored before the ball was lost count. We model this as separate ball events in the same over.
+The schema pins the number exactly: **not at least five and not at most five**.
+Three runs is not a smaller penalty, it is a payload describing something else,
+so it is refused. A penalty is not a delivery — it does not use up a ball, is
+not a ball faced, and is not charged to the bowler.
 
-## Law 27 — Batsman returning to original end
+---
 
-When a batsman crosses and returns. The non-striker becomes striker, and vice versa. We model this in `batsmanId` and `nonStrikerId` of the next ball.
+## Law 25 — Which dismissals credit the bowler
 
-## Law 28 — The follow-on (Test cricket)
+```
+BOWLER_CREDITED_WICKETS =
+  { bowled, caught, caught_behind, lbw, stumped, hit_wicket }
+```
 
-Not implemented in v0.1 (Test cricket is v0.3+).
+A run out, an obstruction, handling the ball, hitting it twice, timing out and
+a retirement all fall to the batting side's account. The bowler's figures are
+unaffected, and the career-stats SQL imports this same set rather than listing
+the five again in SQL.
 
-## Law 29 — The wicket
+### Which dismissals count as a team wicket
 
-A wicket is one of:
+`TEAM_WICKET_COUNTED` is broader — it adds run out, obstruction, handled ball,
+timed out, retired out and hit the ball twice. **`retired_hurt` is not in it.**
+A batter who retires hurt has not been dismissed, may return at the fall of a
+wicket, and does not advance the score's wicket count.
 
-- **Bowled** — the ball hits the stumps
-- **Caught** — batsman hits the ball and a fielder catches before it bounces
-- **Caught behind** — same as caught, but the wicketkeeper caught it
-- **LBW** — Leg Before Wicket (would have hit the stumps)
-- **Run out** — batsman fails to make the crease
-- **Stumped** — wicketkeeper breaks the stumps while batsman is out of crease
-- **Hit wicket** — batsman breaks their own stumps
-- **Handled the ball** — batsman deliberately touches the ball
-- **Obstructing the field** — batsman deliberately obstructs a fielder
-- **Timed out** — next batsman fails to arrive in 3 minutes
-- **Retired hurt** — batsman retires due to injury, can return
-- **Retired out** — batsman retires voluntarily, cannot return
-- **Double hit / hit the ball twice** — batsman hits the ball twice
+### Which dismissals need a fielder named
 
-**In our schema:**
+```
+REQUIRES_FIELDER = { caught, caught_behind, run_out, stumped }
+```
 
-- `wicketType` enum
-- `wicketPlayerId` = who got out (for run-out, this could be either batsman)
-- `fielderId` = who took the catch / threw the ball (nullable)
-- **Important:** run-out is a wicket type, not a ball event. We attach it to the ball where the run-out happened.
+The engine also refuses a delivery where the same person bats and bowls, or
+fields their own dismissal.
 
-**Free hit rule (Law 21.18):** On a free hit, only run-out counts. The engine rejects other wicket types when `isFreeHit: true`.
+---
 
-## Law 30 — Bowled
+## Retirements are not deliveries
 
-A ball that hits the stumps. Batsman is out.
+```
+NON_DELIVERY_WICKETS = { retired_hurt, retired_out, timed_out }
+```
 
-## Law 31 — Timed out
+All three are recorded as `eventType: 'wicket'`, which from the event type
+alone looks like a fair ball — so `isLegalDelivery` has to be derived from this
+set rather than from the event type.
 
-Not enforced in v0.1.
+Getting it wrong costs the batting side a ball off the over every time somebody
+retires, and in a tight chase that is a ball they never got back. Law 40 is the
+same argument for timing out: nothing was bowled.
 
-## Law 32 — Caught
+---
 
-A fielder catches the ball before it bounces after the batsman hit it. The bowler gets credit (counts toward bowler's wickets).
+## The over, and the innings
 
-**In our schema:** `wicketType: 'caught'`, `fielderId: <fielder>`. The `bowlerId` on the same ball gets the wicket.
+`BALLS_PER_OVER = 6`, and it is a constant rather than a setting. The Hundred
+and some box formats need otherwise; making it real means touching every
+over-based calculation, so the field is shown disabled rather than lying.
 
-## Law 33 — Handled the ball
+**Law 16.2 — no bowler bowls two consecutive overs.** Enforced, and it extends
+to part-overs: a bowler who bowled any of the previous over cannot start this
+one.
 
-Rare. Batsman deliberately touches the ball. The bowler does **NOT** get credit for this wicket.
+**Law 17.4 — the bowler may not change mid-over**, except when they cannot
+continue. The engine cannot derive that from the ball log, so
+`bowlerReplacedMidOver` is one of the few flags accepted from the client.
 
-**In our engine:** we count it as a wicket but exclude it from bowler wickets.
+**An innings ends** when the overs run out, the target is passed, or the side
+is all out — and "all out" is sized from the playing XI rather than fixed:
 
-## Law 34 — Hit the ball twice
+```
+STANDARD_MAX_WICKETS  = 10
+SUPER_OVER_MAX_WICKETS = 2
+SUPER_OVER_OVERS       = 1
+```
 
-Rare. Similar to handled the ball.
+A six-a-side team is all out at five. `maxWickets` is computed from
+`match_squads`, so a seven-a-side game out of a twelve-player roster ends the
+way it was actually played.
 
-## Law 35 — Hit wicket
+**The super over** is innings 3 and 4, and is offered only when the scores are
+level. A repeated super over — where the first is also tied — is not modelled.
 
-Batsman hits their own stumps with bat or body while playing the ball. Bowler gets credit.
+---
 
-## Law 36 — Leg Before Wicket (LBW)
+## Strike rotation
 
-Complex decision rule involving pitch, impact, and stumps. Our engine doesn't enforce — the scorer records the umpire's call.
+Two things decide who is on strike, and they **compose**: whether the batters
+crossed, and whether the over ended. A single off the last ball of an over
+leaves the same batter facing, because both flips apply.
 
-## Law 37 — Obstructing the field
+Rotation is normally derived from run parity. That cannot see a run out where
+the batters crossed and no run was completed, so `battersCrossed` lets the
+scorer overrule the arithmetic, and it is asked on the wicket sheet.
 
-Rare. Batsman deliberately obstructs.
+---
 
-## Law 38 — Run out
+## Shot placement
 
-Batsman fails to make the crease while the ball is in play. **Crucially:** the bowler does NOT get credit for this wicket.
+Optional, and captured only when a scorer holds a runs key rather than tapping
+it. `shotAngle` is degrees clockwise from straight down the ground in the
+striker's own frame; `shotDistance` is a percentage of the way to the rope.
 
-**In our engine:** run-out is excluded from bowler wickets.
+Both or neither — an angle with no distance is a direction with no length. The
+schema and a database `CHECK` both say so.
 
-## Law 39 — Stumped
+Handedness is stored on the player and is meant to be applied when the wheel is
+drawn. It is **not applied yet**, so a left-hander's wheel currently reads
+mirrored. That is a display gap, not a data one: what is stored is correct.
 
-Wicketkeeper breaks the stumps while the batsman is out of their crease and not attempting a run. Bowler gets credit.
+---
 
-**In our schema:** `wicketType: 'stumped'`, `fielderId: <wicketkeeper>`.
+## Not modelled
 
-## Law 40 — Retired out / retired not out
+Short runs (18.5), dead ball (20), DLS, powerplays, substitutes and impact
+players, balls per over other than six, and a repeated super over.
 
-**Retired hurt:** batsman leaves the field due to injury. Can return later. The "retired hurt" entry is NOT counted as a wicket in bowling stats. They return when ready.
-
-**Retired out:** batsman retires voluntarily without injury. Counts as a wicket. Cannot return.
-
-**In our engine:**
-
-- `wicketType: 'retired_hurt'` → no wicket counted, batsman marked as "retired", can resume
-- `wicketType: 'retired_out'` → wicket counted (does NOT count for bowler)
-
-## Free hit (Law 21.18)
-
-On the ball immediately following a no-ball in limited-overs cricket, the batsman cannot be dismissed (except by run-out). This is automatically tracked in our schema:
-
-- After a `no_ball` event, the next ball event has `isFreeHit: true`
-- When a wicket is recorded on a `isFreeHit` ball, the engine validates that only `run_out` is allowed
-
-## End of an over
-
-After 6 legal deliveries, the over is complete. Batsmen swap ends (striker becomes non-striker, and vice versa). A new bowler bowls the next over.
-
-**In our engine:** the engine tracks `ballsBowled` per innings. When the 6th legal ball is recorded:
-
-- The bowler changes (scorer must pick a new bowler)
-- The batsmen swap ends
-
-## End of an innings
-
-An innings ends when:
-
-- 10 wickets fall (all out)
-- The overs run out
-- The target is reached (2nd innings only)
-- The captain declares (Test only — v0.3)
-- The team forfeits
-
-**In our engine:** innings is marked `completed` automatically when any of these conditions are met.
-
-## End of a match
-
-A match ends when:
-
-- 2nd innings is completed (one team has more runs)
-- Tied — goes to Super Over (white-ball) or is a draw (Test)
-- Abandoned — no result
-
-**Super Over:** in a tied limited-overs match, each team plays 1 over to break the tie. We model this as a 3rd + 4th innings. v0.1 supports this.
-
-## Powerplay (fielding restrictions)
-
-Limited-overs matches restrict where fielders can stand for the first few overs. We display which powerplay is active, but the engine does NOT enforce fielder positions.
-
-## DLS (Duckworth-Lewis-Stern)
-
-Used in rain-affected matches to adjust the target. **Not implemented in v0.1** — requires the full DLS resource table, which is proprietary. Will be a v0.2 feature.
+Powerplays are displayed where a match declares them, but the engine does not
+enforce fielding restrictions — nothing in a ball log can see where the
+fielders were standing.

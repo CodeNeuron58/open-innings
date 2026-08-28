@@ -7,7 +7,7 @@
 [![CI](https://github.com/CodeNeuron58/open-innings/actions/workflows/ci.yml/badge.svg)](https://github.com/CodeNeuron58/open-innings/actions/workflows/ci.yml)
 [![Licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-20%2B-brightgreen.svg)](.nvmrc)
-[![Tests](https://img.shields.io/badge/tests-227%20unit%20%2B%20264%20smoke-success.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-460%20unit%20%2B%20310%20smoke-success.svg)](#testing)
 
 [Quick start](#quick-start) · [The engine](#the-engine) · [Cricket laws](#which-laws-are-enforced) · [API](#the-api) · [Architecture](docs/architecture.md) · [Contributing](CONTRIBUTING.md)
 
@@ -31,29 +31,30 @@ phone, and on being forkable by any club that wants to run its own copy.
 
 ## What works today
 
-The app runs end to end on real hardware: sign up, add players, build squads,
-create a match, score a full innings ball by ball, and share the result. The
-API is live at **`openinnings.com`**.
+The app runs end to end on real hardware: sign up, confirm your address, add
+players, build squads, create a match, score a full innings ball by ball, and
+share the result. The API is live at **`openinnings.com`**.
 
 ### Scoring
 
 |                               |                                                                                                                                             |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Pure engine**               | `applyBall(state, event) → newState`. No I/O, no framework. Runs unchanged in the browser and on the phone.                                 |
-| **Every delivery type**       | Dot, 1–6 (five included), wide, no-ball, bye, leg-bye, and 14 dismissal types.                                                              |
-| **One-handed keypad**         | 0–6, W and undo always on screen. Extras are armed modifiers — arm a wide, tap the runs.                                                    |
+| **Every delivery type**       | Dot, 1–6 (five included), wide, no-ball, bye, leg-bye, penalty, and 14 dismissal types.                                                     |
+| **One-handed keypad**         | 0–6, W and undo always on screen. Extras are armed modifiers — arm a wide, tap the runs, and the key says what it will score.               |
+| **Offline scoring**           | A tap writes to SQLite and to the screen and returns. The queue drains when there is signal; undo works with none.                          |
 | **Extras with variable runs** | Wide/bye/leg-bye 1–6, no-ball 1–7, split correctly between the bat and the extras column.                                                   |
 | **Free hit**                  | Granted by a no-ball, survives an intervening wide, and carries a no-ball's dismissals — not just a run out.                                |
-| **Strike rotation**           | Crossing and the change of ends **compose**, so a single off the last ball keeps the striker on strike.                                     |
+| **Strike rotation**           | Crossing and the change of ends **compose**, so a single off the last ball keeps the striker on strike. Overridable when they crossed.      |
 | **Maidens**                   | Runs off the bat only. Byes do not break one; a wicket maiden counts.                                                                       |
 | **Mandatory sheets**          | Bowler change at the end of an over, next batter after a wicket. No dismiss button — the engine cannot validate the next ball without them. |
-| **Bowler quota**              | A playing condition, per match, enforced by the engine. Off by default where the side could not cover the innings under it.                 |
-| **Squad-size-aware innings**  | A six-a-side team is all out at five. Ten wickets is not hardcoded.                                                                         |
+| **Bowler quota**              | A playing condition, per match. A courtesy in the UI rather than a law, and written so it can never trap a side with four bowlers.          |
+| **Squad-size-aware innings**  | A six-a-side team is all out at five. Ten wickets is not hardcoded, and the XI is per match, not per club.                                  |
 | **Super Over**                | Innings 3 and 4 — two wickets, one over, and only when the scores are level.                                                                |
 | **Innings break & result**    | Target, chase, run rate, required rate, and the result line.                                                                                |
 | **Abandon**                   | Rain, a dispute, or a match started by mistake. Recorded as a no result, not faked as a tie.                                                |
-| **Exact undo**                | Transactional. Every figure is derived, so removing a ball corrects everything downstream of it.                                            |
-| **Match editing**             | Title, venue, format, and the innings length — the last one replays the match to re-decide what the deliveries mean.                        |
+| **Correct any delivery**      | Not only the last one. The innings replays from the ball you changed, so everything after it follows.                                       |
+| **Shot placement**            | Hold a runs key to say where it went. A wagon wheel per innings and per batter. Optional — a tap still records in one tap.                  |
 
 ### Identity — the career record
 
@@ -66,8 +67,8 @@ API is live at **`openinnings.com`**.
 | **Fielding**              | Catches, run-outs, stumpings.                                                                             |
 | **Appearances**           | Counted from any role on the ball log — a specialist fielder has played.                                  |
 | **Form**                  | Last five innings at a glance.                                                                            |
-| **Milestones**            | Dated in appearances, not days: "eighth fifty, two matches ago".                                          |
 | **Claim your player**     | An account says which player on the field it is. One per account, releasable.                             |
+| **Merge duplicates**      | Two scorers wrote down the same person twice. One record survives and takes both halves of the career.    |
 
 ### Sharing — the growth loop
 
@@ -75,7 +76,7 @@ API is live at **`openinnings.com`**.
 | ------------------------- | ------------------------------------------------------------------------------------- |
 | **Public scorecard**      | `/m/<id>`, no app and no account. Refreshes itself while the match is live.           |
 | **Watching count**        | Presence, not followers — how many people are reading the scorecard right now.        |
-| **Match card**            | 1200×630 for a link preview, 1080² for a status or a post.                            |
+| **Match card**            | 1200×630, rendered for a link preview.                                                |
 | **Per-player match card** | One match, twenty-two shareable cards.                                                |
 | **Career card**           | A player's record as an image.                                                        |
 | **Club page**             | `/c/<id>` — squad, last ten results, career leaders.                                  |
@@ -83,8 +84,8 @@ API is live at **`openinnings.com`**.
 
 ### Platform
 
-- **REST API** — 25 routes, 35 handlers, bearer-token auth. 264 smoke checks.
-- **Android app** — Expo / React Native, 28 screens, works on device.
+- **REST API** — 31 route files, 43 handlers, bearer-token auth. 310 smoke checks against a real database.
+- **Android app** — Expo / React Native, 27 screens, works on device.
 - **Marketing site** — Next.js, statically rendered.
 - **Android App Links** — a shared scorecard opens the app, not a browser.
 - **Guest mode** — open any shared link without an account. Reading is free; keeping a record needs one.
@@ -99,13 +100,15 @@ API is live at **`openinnings.com`**.
 applyBall(matchState, ballEvent) → newMatchState
 ```
 
-No I/O, no framework, no clock, no randomness. **Every other number in the
-product** — the live score, the scorecard, career averages, the club page, the
-share cards — is derived by replaying ball events through it.
+No I/O, no framework, no clock. **Every other number in the product** — the
+live score, the scorecard, career averages, the club page, the share cards — is
+derived by replaying ball events through it.
 
 That is why a correction anywhere fixes everything downstream, why a UI bug is
 a presentation problem rather than data corruption, and why the same code runs
-on the server and on the phone.
+on the server and on the phone. Offline scoring is the clearest case: the
+console folds pending deliveries through this same function against the API's
+last answer, so what you see with no signal is not an optimistic guess.
 
 Its rule sets are **exported rather than restated**. Which dismissals credit
 the bowler is Law 25, and the SQL that computes career figures imports
@@ -131,7 +134,8 @@ A shared scorecard never breaks because the laws improved.
 ## Which laws are enforced
 
 Cricket is a game of edge cases, and most scoring apps quietly get them wrong.
-These are checked by the engine and covered by tests.
+These are checked by the engine and covered by tests. The full reference, with
+how each one is modelled, is in [docs/scoring-rules.md](docs/scoring-rules.md).
 
 | Law     | Rule                                                                              |     |
 | ------- | --------------------------------------------------------------------------------- | --- |
@@ -141,18 +145,20 @@ These are checked by the engine and covered by tests.
 | 22.6    | Off a wide: only stumped, run out, hit wicket, or obstructing the field           | ✅  |
 | 23 / 24 | Byes and leg-byes are balls faced, and are not charged to the bowler              | ✅  |
 | 25      | Five dismissals credit a bowler — bowled, caught, lbw, stumped, hit wicket        | ✅  |
+| 41 / 42 | Penalty runs are five. Not at least five, and not at most                         | ✅  |
 | 16.2    | No bowler bowls two consecutive overs                                             | ✅  |
 | 17.4    | The bowler may not change mid-over, except when they cannot continue              | ✅  |
 | 18.11   | A new batter after a catch takes strike (2017 Code)                               | ✅  |
 | 27      | Crossing and the change of ends compose                                           | ✅  |
 | —       | A dismissal names a player who is actually at the crease                          | ✅  |
 | —       | A dismissed batter never returns; a retired hurt one may, at the fall of a wicket | ✅  |
+| —       | A retirement is not a delivery, so it does not use one up                         | ✅  |
 | —       | Nobody bats and bowls, or fields their own dismissal, on the same delivery        | ✅  |
 | —       | Maidens, partnerships, fall of wickets, super overs                               | ✅  |
 
-**Not yet modelled:** penalty runs (Law 41), short runs (18.5), dead ball (20),
-DLS, powerplays, substitutes and impact players, balls-per-over other than six,
-and a repeated super over. See [Roadmap](#roadmap).
+**Not yet modelled:** short runs (18.5), dead ball (20), DLS, powerplays,
+substitutes and impact players, balls-per-over other than six, and a repeated
+super over. See [Roadmap](#roadmap).
 
 ---
 
@@ -167,7 +173,9 @@ decides every monetisation choice:
 - Ads run on **scorecards and share screens**, where people are reading rather
   than tapping.
 - A **supporter subscription** removes them. It unlocks no features, because no
-  feature is ever gated.
+  feature is ever gated. There is no lifetime plan — see
+  [docs/donation-model.md](docs/donation-model.md) for why that is a promise
+  this project will not make.
 - **Self-host and pay nothing** — there is no ad server in your own build.
 
 ---
@@ -192,39 +200,41 @@ pnpm start        # needs a dev build — Expo Go cannot run this project
 ```
 
 > **`pnpm db:seed` creates `dev@local` / `devpassword123`.** That password is
-> published in this repository. Never run it against anything but a local
-> database. Production gets `pnpm db:migrate` only.
+> published in this repository. The script refuses to run against a non-local
+> database or with `NODE_ENV=production`. Production gets `pnpm db:migrate`
+> only.
 
 ### Everyday commands
 
 | Command                        | What it does                                              |
 | ------------------------------ | --------------------------------------------------------- |
 | `pnpm dev`                     | Next.js dev server                                        |
-| `pnpm test`                    | 227 unit tests                                            |
+| `pnpm test`                    | 460 unit tests                                            |
 | `pnpm typecheck` · `pnpm lint` | Four packages each                                        |
 | `pnpm db:migrate`              | Apply pending SQL migrations                              |
 | `pnpm db:verify`               | Replay every innings and report anything the rules refuse |
 | `pnpm db:backup`               | `pg_dump` to `backups/`                                   |
-| `pnpm smoke:api`               | 194 checks against a running server                       |
+| `pnpm smoke:api`               | 290 checks against a running server                       |
 
 ---
 
 ## The API
 
-25 route files, 35 handlers. Authentication is a bearer token or a session
+31 route files, 43 handlers. Authentication is a bearer token or a session
 cookie — the same opaque token either way, so revoking a session signs you out
 everywhere.
 
-| Group       | Routes                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth**    | `signup` · `login` · `logout` · `session`                                                                                                         |
-| **Matches** | list/create · get/update/delete · `abandon` · `ball` (record/undo) · `innings` (next/end) · `scorer` · `summary` · `card` · `export` · `watching` |
-| **Players** | list/create · `[id]/stats` · `briefs` · `me/player`                                                                                               |
-| **Teams**   | list/create · get/update · `members` (add/update/remove) · `[id]/club`                                                                            |
-| **Other**   | `health` · `notify` · `.well-known/assetlinks.json`                                                                                               |
+| Group       | Routes                                                                                                                                                               |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**    | `signup` · `login` · `logout` · `session` · `verify` · `reset`                                                                                                       |
+| **Matches** | list/create · get/update/delete · `abandon` · `ball` (record/undo/correct) · `innings` (next/end) · `scorer` · `summary` · `card` · `export` · `watching` · `public` |
+| **Players** | list/create · `[id]/stats` · `[id]/merge` · `briefs` · `me/player`                                                                                                   |
+| **Teams**   | list/create · get/update · `members` (add/update/remove) · `[id]/club`                                                                                               |
+| **Account** | `me` (delete)                                                                                                                                                        |
+| **Other**   | `health` · `notify` · `.well-known/assetlinks.json`                                                                                                                  |
 
-**Public, no credential:** the scorecard, career, club, summary, card and
-export endpoints. A scorecard nobody can open is not a scorecard.
+**Public, no credential:** the scorecard, career, club, summary, card, export
+and public-match-list endpoints. A scorecard nobody can open is not a scorecard.
 
 Request and response shapes live in `packages/shared`, so a field renamed on
 the server breaks compilation in the app rather than at runtime on somebody's
@@ -238,17 +248,17 @@ phone.
 open-innings/
 ├── apps/
 │   ├── web/                  # Next.js — REST API, public pages, marketing site
-│   │   ├── app/api/          # 25 route files, 35 handlers
+│   │   ├── app/api/          # 31 route files, 43 handlers
 │   │   ├── app/m,p,c/        # Public scorecard, career, club + share cards
 │   │   ├── lib/db/           # Drizzle schema, queries, career SQL
 │   │   ├── lib/services/     # Transport-free business logic
-│   │   ├── scripts/          # migrate, seed, backup, verify, 3 smoke suites
-│   │   └── supabase/         # 11 SQL migrations (path kept for Drizzle tooling)
-│   └── mobile/               # Expo / React Native — the scorer, 28 screens
+│   │   ├── scripts/          # migrate, seed, backup, verify, 7 smoke suites
+│   │   └── supabase/         # 22 SQL migrations (path kept for Drizzle tooling)
+│   └── mobile/               # Expo / React Native — the scorer, 27 screens
 ├── packages/
-│   ├── scoring/              # The engine. Pure TS, no I/O. 146 tests.
-│   └── shared/               # Zod schemas + response types. 27 tests.
-└── docs/                     # Architecture, cricket laws, hosting, wiring
+│   ├── scoring/              # The engine. Pure TS, no I/O. 190 tests.
+│   └── shared/               # Zod schemas + response types. 45 tests.
+└── docs/                     # Architecture, cricket laws, hosting, funding
 ```
 
 Both packages ship raw TypeScript with no build step, so Next.js and Metro
@@ -260,25 +270,33 @@ consume the same source.
 
 **Web** — Next.js 16 (App Router), React 19, Tailwind v3, Drizzle ORM,
 Postgres, `postgres.js`
-**Mobile** — Expo SDK 57, React Native 0.86, Expo Router, NativeWind v4
+**Mobile** — Expo SDK 57, React Native 0.86, Expo Router, NativeWind v4,
+expo-sqlite
 **Shared** — TypeScript, Zod, Vitest, fast-check
-**Auth** — email + password, argon2id, server-side sessions
+**Auth** — email + password, argon2id, server-side sessions, six-digit email
+confirmation
 
 ---
 
 ## Testing
 
 ```bash
-pnpm test          # 227 unit tests
+pnpm test          # 460 unit tests
 pnpm typecheck     # four packages
 pnpm lint
 pnpm db:verify     # replay the whole database against the current rules
-pnpm smoke:api     # 194 checks against a running server, bearer auth only
+pnpm smoke:api     # 290 checks against a running server, bearer auth only
 ```
 
-**227 unit tests** — 146 in the engine, 27 on the shared schemas, 54 on the
-web services. **264 smoke checks** across three suites that drive the real HTTP
-surface against a real database.
+**460 unit tests** — 190 in the engine, 45 on the shared schemas, 134 in the
+mobile app's pure modules, 91 on the web services.
+
+**310 smoke checks** across the three suites that are safe to run repeatedly —
+`smoke:api` (290), `smoke:correct` (13) and `smoke:browse` (7). They drive the
+real HTTP surface against a real database and a real production build, which is
+where bugs that every unit test passes get caught. Four more suites exist
+(`smoke:score`, `smoke:p1`, `smoke:xi`, `smoke:auth`); the first two are
+destructive and are not counted here.
 
 The engine is covered two ways, deliberately:
 
@@ -289,8 +307,13 @@ The engine is covered two ways, deliberately:
   the engine's own rule sets, because a test that asks the code under test what
   the rule is will pass however wrong the rule is.
 
-`smoke:api` is self-cleaning and safe to run repeatedly. **`smoke:score` and
-`smoke:p1` are destructive** — they wipe ball events. Local databases only.
+`smoke:api`, `smoke:correct` and `smoke:browse` create their own accounts and
+clean up after themselves. **`smoke:score` and `smoke:p1` are destructive** —
+they wipe ball events. Local databases only.
+
+> `smoke:api` consumes most of its own signup rate-limit allowance in one run,
+> so it cannot be run twice within the hour against the same server. That is
+> the limiter working; the failure surfaces as an unrelated assertion.
 
 ---
 
@@ -301,19 +324,20 @@ nothing is.
 
 **Next**
 
-- Correcting any ball, not only the last one
-- Portable player identity across clubs
-- Penalty runs, short runs, dead ball
+- Editing and deleting a player; deleting a team
+- Short runs, dead ball
 - Leaderboards and honours boards
-- Push notifications
+- Push notifications, and a real follow rather than a watching count
+- A square 1080² share card for a status or a post
 
 **Later**
 
-- Offline-first scoring — queue deliveries, sync on reconnect
 - Tournaments and multi-scorer clubs
 - DLS, powerplays, substitutes and impact players
 - Balls-per-over other than six (The Hundred, some box formats)
-- Wagon wheel, pitch map, run-progression charts
+- Pitch maps and run-progression charts
+- Mirroring the wagon wheel for left-handers, which needs batting style on the
+  delivery
 
 **Not planned**
 
@@ -331,6 +355,7 @@ the ball it got wrong.
 
 - [Report a bug](https://github.com/CodeNeuron58/open-innings/issues)
 - [Contributing guide](CONTRIBUTING.md) · [Code of conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md) — please report vulnerabilities privately
 
 If your league scores a wide differently, say so — that becomes a toggle rather
 than a fork.
@@ -351,8 +376,8 @@ pnpm build && pnpm db:migrate && pnpm start
 ```
 
 `Procfile` and the root `build`/`start` scripts are set up for a
-platform-as-a-service deploy; `docs/hosting.md` covers what was tried and what
-it costs.
+platform-as-a-service deploy; [docs/hosting.md](docs/hosting.md) covers what is
+running today, what it costs, and every option that was ranked and rejected.
 
 ---
 

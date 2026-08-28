@@ -1,209 +1,144 @@
 # Architecture
 
-**Status:** v0.1 (scaffold). This document evolves as we build.
+For what the project is and what it does, see [`/README.md`](../README.md).
+This file is for people **changing** the code, and it is deliberately short: it
+covers the three decisions that are expensive to reverse and easy to undo by
+accident.
 
-For the high-level product plan, see [`/README.md`](../README.md).
+Everything else — the stack, the roadmap, the file map, the law coverage — is
+in the README, and was duplicated here until the two copies disagreed.
 
-## Stack
+---
 
-| Concern  | Choice                                             | Reason                                                                                     |
-| -------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Frontend | Next.js (App Router) + TypeScript                  | SEO matters for public scorecards; RSC + Server Actions reduce client JS                   |
-| Styling  | Tailwind CSS                                       | Fast to ship, no vendor lock-in                                                            |
-| Backend  | Next.js Route Handlers + Server Actions            | Single deploy unit, no separate API service                                                |
-| Database | Postgres, native, self-hosted                      | No third-party dependency, no usage-based billing surprises                                |
-| Auth     | Self-hosted (argon2 + session cookies)             | No Supabase, no Clerk — dropped Supabase early on to remove the vendor dependency entirely |
-| ORM      | Drizzle                                            | Type-safe, SQL-first, lightweight runtime                                                  |
-| Monorepo | pnpm workspace + Turbo                             | Fast installs, single `pnpm dev` for everything                                            |
-| Deploy   | Self-hosted on Oracle Cloud Free Tier + Cloudflare | Free tier we control — see [deployment.md](deployment.md)                                  |
-| License  | AGPL-3.0                                           | Like Lichess. Keeps the ecosystem free and open.                                           |
+## 1. `ball_events` is the source of truth. Everything else is derived.
 
-## The single most important decision
+The scorecard, career figures, the club page, the share cards, the wagon wheel:
+all of them are computed by replaying `ball_events` rows through
+`applyBall`. **No derived number is stored as though it were a fact.**
 
-**`ball_events` is the source of truth. Everything else is derived.**
+This buys three things:
 
-The scorecard, the player stats, the leaderboards — all of these are computed
-from `ball_events` rows. We never store a derived number that could go out
-of sync with reality.
+- **Undo is not a reverse operation.** Drop the last row and replay. There is
+  no un-apply function to get wrong, which is why undo cannot leave the
+  scorecard in a corrupt state.
+- **A correction cascades correctly.** Changing the third ball of an over
+  rotates the strike for every delivery after it. Replay gets that right for
+  free; a patch-in-place would have to reason about it.
+- **Every figure is auditable.** `pnpm db:verify` replays the whole database
+  against the current rules and reports anything they now refuse.
 
-This means:
+It costs one thing: replay runs on every read. `innings.runs/wickets/balls_bowled`
+are cached for fast list rendering, and they are a **cache** — if they ever
+disagree with the log, the log wins.
 
-- ✅ Undo = delete the last row, recompute
-- ✅ Audit = every ball is a row, full history preserved
-- ✅ Stats = query ball_events, aggregate in SQL or in code
-- ⚠️ Performance = can be a concern at scale, so we cache computed
-  scorecard state in `innings.runs/wickets/balls_bowled` for fast reads
-- ⚠️ Complexity = every feature needs to play nicely with this pattern
+**Do not optimise this away.** The temptation arrives as "we could just store
+the batter's total". Resist it. The moment a derived number is written down,
+there are two answers to the same question and no way to tell which is stale.
 
-**Do not optimise this away.** Resist the urge to denormalise further.
+### Validate on write, tolerate on read
 
-## Domain model
+Because replay runs on every read, a rule tightened today would otherwise be
+applied retroactively to deliveries recorded before it existed — and a match
+containing one would stop rendering, which for a public scorecard means a
+shared link breaking because the laws improved.
+
+So `applyBall` takes a mode. `strict` throws, and is what recording a delivery
+uses. `replay` applies the delivery anyway and records the objection on
+`state.violations`. A stored match always renders; what is wrong with it is
+data to be reported, not a reason to refuse to show it.
+
+---
+
+## 2. The domain model
 
 ```
-User ──┬── owns ──> Player (1:1, optional — a user can register themselves as a player)
-       ├── owns ──> Team (1:N, user manages their teams)
-       └── creates ──> Match (1:N, user is the scorer)
+User ──┬── claims ──> Player (1:1, optional — most players have no account)
+       ├── owns ────> Team (1:N)
+       └── creates ─> Match (1:N, the scorer)
 
-Team ──────> Player (M:N via TeamMember — a player can play for multiple teams)
+Team ────> Player (M:N via TeamMember — a player can play for several clubs)
 
-Match ──┬── has ──> Innings (1:2 for limited-overs)
-        ├── has ──> Scorecard (computed, cached on innings)
-        ├── references ──> Tournament (nullable — friendlies don't belong to one)
-        └── has ──> BallEvent (1:N, source of truth)
+Match ──┬── has ──> Innings (2 for limited-overs; 3 and 4 are the super over)
+        ├── has ──> MatchSquad (the XI per side, per match)
+        └── has ──> BallEvent (1:N, the source of truth)
 
-BallEvent ──> references ──> Player (batsman, bowler, non-striker, fielder)
-            ──> references ──> Innings
-            ──> has type: dot | 1 | 2 | 3 | 4 | 6 | wide | no_ball | bye | leg_bye | wicket
-            ──> has extras: runsOffBat, extraRuns, totalRuns, isFreeHit, isLegalDelivery
+Innings ──> caches runs / wickets / ballsBowled, and holds maxWickets,
+            which is sized from the squad rather than fixed at ten
 
-Tournament ──> Match (1:N)
-            ──> has type: round-robin | knockout | group+knockout
-            ──> has Standing[] (computed)
-
-Player ──> stats (computed): totalRuns, totalWickets, battingAvg, strikeRate,
-                            bowlingAvg, economyRate, highestScore, bestBowling
+BallEvent ──> references Player as batsman, non-striker, bowler, fielder
+            ──> carries runsOffBat, overthrowRuns, extraRuns, totalRuns
+            ──> carries isLegalDelivery, isFreeHit, battersCrossed
+            ──> optionally carries shotAngle / shotDistance
 ```
 
-See [`/apps/web/lib/db/schema.ts`](../apps/web/lib/db/schema.ts) for the actual
-Drizzle schema.
+The Drizzle schema is the real answer:
+[`/apps/web/lib/db/schema.ts`](../apps/web/lib/db/schema.ts).
 
-## Cricket rule coverage
+Two parts of this shape are load-bearing and easy to miss:
 
-| Rule                        | Status in v0.1  |
-| --------------------------- | --------------- |
-| Wides                       | ✅              |
-| No-balls (with free hit)    | ✅              |
-| Byes / leg-byes             | ✅              |
-| Wickets (all common types)  | ✅              |
-| Free hit                    | ✅              |
-| Retired hurt / retired out  | ✅              |
-| Super Over                  | ✅              |
-| Powerplay (display only)    | ⚠️              |
-| DLS                         | ❌ v0.2         |
-| LBW / caught-behind reviews | ❌ v0.3         |
-| Multi-day / Test            | ❌ v0.3         |
-| Drinks / rain delays        | ⚠️ simple timer |
+**An account and a player are different things.** A parent scoring their kid's
+match is an account with no player. Every opponent is a player with no account.
+`players.user_id` joins them when somebody claims themselves, one player per
+account, releasable.
 
-**v0.1 scope = limited-overs cricket (T20, T10, ODI).** Tests deferred
-because the schema for follow-on + declarations is its own project.
+**The XI belongs to the match, not the club.** `match_squads` is what sizes
+`maxWickets` and the bowler quota. Before it existed, a seven-a-side game out
+of a twelve-player roster got ten wickets and could not end the way it was
+played. Absence still means "the whole roster", so every match scored before
+migration 0018 replays unchanged.
 
-## Feature cuts
+---
 
-### v0.1 — "score a match and share it"
+## 3. Deletion anonymises; it does not delete
 
-- Email + password auth (local, self-hosted)
-- Player profiles
-- Teams with squads
-- Ball-by-ball scorer UI (mobile-first)
-- Public scorecard page (no auth, shareable)
-- Polling-based live updates
+`DELETE /api/me` is in-app under **More → Delete account** with the password
+re-entered, and explained publicly at `/delete-account` — the URL Google Play's
+Data Safety form asks for.
 
-### v0.2 — "tournaments + leaderboards"
+What happens:
 
-- Tournament creation + auto-fixtures
-- Points table
-- Leaderboards (per tournament and global)
-- Match insights (wagon wheel, partnership chart)
+- `users.email` → `deleted-<id>@example.com`, `display_name` → `Deleted user`,
+  `anonymised_at` set and honoured on every read
+- the phone number is released
+- the credentials are overwritten with random bytes that are thrown away
+- every session and every verification or reset token is destroyed
+- the address is removed from the release-notification list
+- any claim on a player is released — **the player stays**, because they are
+  somebody other people have scored
 
-### v0.3 — "real-time + multiplayer"
+Matches, players and teams all survive. History is preserved; the identity is
+removed from anything user-facing. This is the pattern Lichess uses.
 
-- WebSockets
-- Multi-scorer conflict resolution
-- Embedded YouTube/Facebook Live URLs
-- Clubs (multi-user orgs)
-- Super Over + DLS
+### Why the owner columns are `NOT NULL`
 
-### v0.4+ (parking lot)
+`teams.owner_id`, `matches.created_by` and `ball_events.created_by` are all
+`NOT NULL` with `ON DELETE restrict`. Making them nullable was considered and
+rejected, and the reasoning is worth keeping because it looks wrong at first
+glance:
 
-- Native live streaming (CDN-backed)
-- Video highlights
-- AI insights
-- Native mobile apps
-- Test match support
+- It buys nothing for privacy. The column points at a row that no longer
+  describes anybody.
+- It would orphan a club with no way to reclaim it.
+- It would answer the same question differently in three tables.
 
-## File map (v0.1)
+Because users are anonymised rather than deleted, `SET NULL` could never fire
+anyway. The constraint is not an oversight; it is the mechanism.
 
-The most important file is `packages/scoring/src/engine.ts`. It is a pure
-function `(state, ballEvent) → newState` with comprehensive unit tests
-against every MCC rule — 48 tests and counting.
+---
 
-| Path                             | Purpose                                                                                                                                                           |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web/app/`                  | Next.js App Router pages                                                                                                                                          |
-| `apps/web/components/scorer/`    | Scorer UI (the hot path)                                                                                                                                          |
-| `apps/web/components/scorecard/` | Read-only scorecard display                                                                                                                                       |
-| `apps/web/lib/db/schema.ts`      | Drizzle schema (source of truth)                                                                                                                                  |
-| `apps/web/lib/db/client.ts`      | Drizzle client setup                                                                                                                                              |
-| `packages/scoring/src/`          | Scoring engine                                                                                                                                                    |
-| `apps/web/lib/auth/`             | Local email/password auth (argon2, session cookies)                                                                                                               |
-| `apps/web/lib/rate-limit.ts`     | In-process rate limiter                                                                                                                                           |
-| `apps/web/supabase/migrations/`  | Hand-written SQL migrations, applied by our own runner (`scripts/migrate.ts`) — kept under this folder name for Drizzle tooling, not tied to Supabase-the-service |
+## Performance, honestly
 
-## Data deletion / GDPR
+`ball_events` is the only table that grows fast — one row per ball bowled.
+Everything else stays small regardless of user count. Roughly 250–300 bytes per
+row including index overhead, about 280 rows per T20 match.
 
-If a user requests account deletion, we **anonymise** rather than hard-delete:
+A genuinely active season — 200 weekly scorers over six months — is around
+1.45M rows, roughly 400–450MB in year one. The sizing that follows from that,
+and what it means for each hosting option, is in
+[hosting.md](hosting.md#sizing--is-this-actually-free).
 
-- `users.email` → `'deleted-' || id || '@example.com'`
-- `users.display_name` → `'Deleted user'`
-- `users.anonymised_at` → set
-- All matches they scored remain valid (history is preserved)
-- All players they created remain valid (no PII)
-- All teams they owned are kept, still referencing the now-anonymous row (see the note below — this bullet is wrong)
-
-This is the pattern Lichess uses. We never break references to historical
-match data, but the user's identity is removed from anything user-facing.
-
-> ### ✅ Built 2026-08-19 — and the teams bullet above is wrong
->
-> Deletion is `DELETE /api/me`, in-app under More → Delete account with the
-> password re-entered, and explained publicly at `/delete-account` — the URL
-> Google Play's Data Safety form asks for.
->
-> **Correct the third bullet when you next touch this file.** Teams do _not_
-> get `owner_id` set to null, and never could: the column is `NOT NULL` with
-> `ON DELETE restrict`, as are `matches.created_by` and
-> `ball_events.created_by`, each carrying a comment saying why — users are
-> anonymised rather than deleted, so `SET NULL` could never fire.
->
-> Making it nullable was considered and rejected. It buys nothing for privacy,
-> because the column points at a row that no longer describes anybody; it
-> would orphan a club with no way to reclaim it; and it would answer the same
-> question differently in three tables. The schema was right and the document
-> was wrong.
->
-> What actually happens, beyond the three bullets above: the phone number is
-> released, the credentials are overwritten with random bytes that are thrown
-> away, every session and every verification token is destroyed, the address
-> is removed from the release-notification list, and any claim on a player is
-> released — the player stays, because they are somebody other people have
-> scored.
-
-## Performance considerations
-
-`ball_events` is the only table that grows fast — one row per ball bowled,
-everything else (users, teams, players, matches) is small. Roughly 250-300
-bytes/row including index overhead, ~280 rows per T20 match. See
-[deployment.md](deployment.md) for the full sizing math against our
-self-hosted Postgres's free storage — the honest constraint at this scale
-is storage headroom, not compute.
-
-For 0–1k users (v0.1 target):
-
-- One Oracle Cloud Free Tier VM (app + Postgres together) is plenty
-- Polling on public scorecard is fine (10s interval, 1 row per ball)
-- Drizzle queries are sub-10ms on small datasets
-- No caching layer needed
-
-For 1k–10k users (v0.2–v0.3):
-
-- Still likely fits the free VM; revisit if `ball_events` approaches the
-  200GB free storage ceiling (it won't, at this scale — see the math in
-  deployment.md) or if CPU becomes the bottleneck under concurrent scoring
-- Add Redis for hot match state if polling load becomes noticeable
-- Cache leaderboards in a materialized view, refresh every 5 min
-
-For 10k+ users (later):
-
-- A paid VM tier, or splitting app and DB onto separate instances
-- Read replicas, CDN for static content
-- Consider partitioning `ball_events` by `match_id`
+At this scale the constraint is **storage headroom, not compute**. Traffic is
+bursty — weekend cricket, not constant SaaS load. Polling on the public
+scorecard is one row per ball at a ten-second interval, and Drizzle queries are
+sub-10ms on datasets this size. Nothing here needs a cache layer yet, and
+adding one before `ball_events` is large would be optimising the wrong table.
