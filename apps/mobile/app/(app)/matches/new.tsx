@@ -131,25 +131,6 @@ function Chips<T extends string>({
   );
 }
 
-/**
- * The way to add a side without leaving the match.
- *
- * Drawn dashed rather than filled, so it reads as "there could be another one
- * here" instead of competing with the teams that exist.
- */
-function NewTeamChip({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Add a new team"
-      onPress={onPress}
-      className="border-input h-11 shrink-0 justify-center border border-dashed px-3 active:opacity-70"
-    >
-      <Text className="text-steel-700 font-heading text-[13.5px]">+ New team</Text>
-    </Pressable>
-  );
-}
-
 function StepHeader({ step, title, onBack }: { step: number; title: string; onBack: () => void }) {
   return (
     <View className="border-border flex-row items-center gap-2 border-b px-5 py-3">
@@ -377,9 +358,12 @@ export default function NewMatch() {
   const sheets = (
     <>
       {selectingTeamFor ? (
-        <SheetShell title={`Select ${selectingTeamFor} team`} onDismiss={() => setSelectingTeamFor(null)}>
+        <SheetShell
+          title={`Select ${selectingTeamFor} team`}
+          onDismiss={() => setSelectingTeamFor(null)}
+        >
           <ScrollView className="max-h-[60vh]">
-            <View className="gap-2 pb-6 px-2">
+            <View className="gap-2 px-2 pb-6">
               {teams
                 .filter((t) => t.id !== (selectingTeamFor === 'home' ? awayId : homeId))
                 .map((t) => (
@@ -415,7 +399,9 @@ export default function NewMatch() {
                 }}
                 className="py-4 active:opacity-70"
               >
-                <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1.3px]">+ New team</Text>
+                <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1.3px]">
+                  + New team
+                </Text>
               </Pressable>
             </View>
           </ScrollView>

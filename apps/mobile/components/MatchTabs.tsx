@@ -56,7 +56,7 @@ export function MatchTabs({
   ];
 
   return (
-    <View className="border-border flex-row border-t h-[52px]">
+    <View className="border-border h-[52px] flex-row border-t">
       {items.map((item) => {
         const isActive = item.key === active;
         const isDead = !item.go;
@@ -67,13 +67,11 @@ export function MatchTabs({
             accessibilityState={{ selected: isActive, disabled: isDead }}
             onPress={item.go}
             disabled={isDead || isActive}
-            className={`flex-1 items-center justify-center relative ${
+            className={`relative flex-1 items-center justify-center ${
               isDead ? 'opacity-35' : 'active:opacity-60'
             }`}
           >
-            {isActive && (
-              <View className="absolute top-0 left-0 right-0 h-[2px] bg-primary" />
-            )}
+            {isActive && <View className="bg-primary absolute left-0 right-0 top-0 h-[2px]" />}
             <Text
               className={`font-heading text-[12px] uppercase tracking-[1px] ${
                 isActive ? 'text-foreground' : 'text-neutral-600'
