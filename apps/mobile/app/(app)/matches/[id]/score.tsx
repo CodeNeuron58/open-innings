@@ -59,19 +59,29 @@ export default function Scorer() {
   const { token } = useSession();
   const { keepAwakeWhileScoring } = useSettings();
 
-  // Keep screen awake while scoring. Uses activateKeepAwakeAsync (not useKeepAwake)
-  // so the setting can be toggled. Released on unmount via the 'scorer' tag.
+  /*
+   * Keep screen awake while scoring. `activateKeepAwakeAsync` rather than
+   * `useKeepAwake`, so the setting can turn it off; released on unmount by the
+   * `scorer` tag.
+   *
+   * Both calls return promises, and both are caught. The cleanup used to be a
+   * `try`/`catch`, which catches nothing here — a rejected promise is not a
+   * thrown exception, so the failure went out as an unhandled rejection and
+   * arrived as a red console-error screen:
+   *
+   *   Call to function 'ExpoKeepAwake.deactivate' has been rejected.
+   *   → Caused by: The current activity is no longer available
+   *
+   * Which is the normal case, not a fault. Android tears the activity down
+   * before React unmounts the tree, so leaving the scorer by closing the app
+   * asks a window that no longer exists to release a lock it has already lost.
+   * There is nothing to do about it and nothing to tell the scorer.
+   */
   useEffect(() => {
     if (!keepAwakeWhileScoring) return;
-    void activateKeepAwakeAsync('scorer');
+    void activateKeepAwakeAsync('scorer').catch(() => {});
     return () => {
-      // Throws if the lock was already released — which is not worth
-      // surfacing to someone in the middle of scoring an over.
-      try {
-        deactivateKeepAwake('scorer');
-      } catch {
-        /* already released */
-      }
+      void deactivateKeepAwake('scorer').catch(() => {});
     };
   }, [keepAwakeWhileScoring]);
 
