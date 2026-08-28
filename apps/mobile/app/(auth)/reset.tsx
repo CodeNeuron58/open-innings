@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { requestResetSchema } from '@open-innings/shared';
 import { api, ApiError, NetworkError } from '../../lib/api';
@@ -53,7 +53,7 @@ export default function ResetPassword() {
             onPress={() => router.back()}
             className="h-10 w-10 items-start justify-center"
           >
-            <Text className="text-foreground/70 text-2xl leading-none -mt-1">‹</Text>
+            <Text className="text-foreground/70 -mt-1 text-2xl leading-none">‹</Text>
           </Pressable>
 
           <View className="gap-2.5">
@@ -114,8 +114,10 @@ export default function ResetPassword() {
                 <View className="bg-border h-px flex-1" />
               </View>
 
-              <View className="flex-row justify-center items-center gap-2">
-                <Text className="text-neutral-600 font-sans text-[14.5px]">Remember your password?</Text>
+              <View className="flex-row items-center justify-center gap-2">
+                <Text className="font-sans text-[14.5px] text-neutral-600">
+                  Remember your password?
+                </Text>
                 <Link href="/login" asChild>
                   <Pressable className="py-2 active:opacity-60">
                     <Text className="text-steel-700 font-heading text-[15px] uppercase tracking-[1px]">
