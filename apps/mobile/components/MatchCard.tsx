@@ -141,6 +141,45 @@ export function scoreOf(innings: MatchRow['innings'][number]): string {
   return `${innings.runs}${wickets} (${formatOvers(innings.ballsBowled)})`;
 }
 
+/** One side of a fixture, with its innings if it has had one yet. */
+export type Side = {
+  key: string;
+  name: string;
+  innings: MatchRow['innings'][number] | null;
+};
+
+/**
+ * Both sides of the fixture, in the order they bat.
+ *
+ * The cards used to map `match.innings`, which is only the sides that have
+ * *been in*. Through the whole of the first innings that is one team, so a
+ * live match drew a single line — and a list of two such matches read as four
+ * unrelated teams rather than two fixtures. A card that names one side is not
+ * a scoreline, it is half of one.
+ *
+ * The innings come first, in the order they were played, so a super over adds
+ * its lines where a scorecard would print them. Whoever has not batted is
+ * appended, because "yet to bat" belongs after the side that is out there.
+ */
+export function sidesOf(m: MatchRow): Side[] {
+  const innings = [...m.innings].sort((a, b) => a.inningsNumber - b.inningsNumber);
+  const batted = new Set(innings.map((i) => i.battingTeamId));
+
+  const waiting = [
+    { id: m.teamAId, name: m.teamAName ?? 'Team A' },
+    { id: m.teamBId, name: m.teamBName ?? 'Team B' },
+  ].filter((t) => !batted.has(t.id));
+
+  return [
+    ...innings.map((i) => ({
+      key: `i${i.inningsNumber}`,
+      name: battingNameOf(m, i),
+      innings: i,
+    })),
+    ...waiting.map((t) => ({ key: `w${t.id}`, name: t.name, innings: null })),
+  ];
+}
+
 /**
  * Which side won, where one did.
  *
@@ -162,14 +201,39 @@ export function winnerIdOf(m: MatchRow): string | null {
  * result is legible from the weight of the type before the sentence under it
  * is reached.
  */
-function ScoreLine({ name, score, dim }: { name: string; score: string; dim: boolean }) {
-  const tone = dim ? 'text-foreground/50' : 'text-foreground font-heading';
+function ScoreLine({
+  name,
+  score,
+  dim,
+  size = 'text-[14px]',
+}: {
+  name: string;
+  /** Null until the side has batted. */
+  score: string | null;
+  dim: boolean;
+  size?: string;
+}) {
+  const tone = dim ? 'text-foreground/55' : 'text-foreground';
+  /*
+   * Names in the body face, figures in the condensed one.
+   *
+   * The drawing sets a side's name in Barlow — bold for whoever is in, regular
+   * for whoever is not — and its score in `.num`, which is Barlow Condensed
+   * with tabular figures. Both were `font-heading` here, so the names were
+   * condensed too and a column of scores did not line up, because only the
+   * `.num` face has figures of a single width.
+   */
+  const face = dim ? 'font-sans' : 'font-bold';
   return (
     <View className="flex-row items-baseline gap-3">
-      <Text className={`${tone} min-w-0 flex-1 text-[16px]`} numberOfLines={1}>
+      <Text className={`${tone} ${face} ${size} min-w-0 flex-1`} numberOfLines={1}>
         {name}
       </Text>
-      <Text className={`${tone} shrink-0 text-[16px]`}>{score}</Text>
+      {score === null ? (
+        <Text className={`text-foreground/55 font-sans ${size} shrink-0`}>Yet to bat</Text>
+      ) : (
+        <Text className={`${tone} font-heading ${size} shrink-0`}>{score}</Text>
+      )}
     </View>
   );
 }
@@ -222,7 +286,7 @@ export function LiveMatch({
       accessibilityHint={onOptions ? 'Hold for options, or use the options button' : undefined}
       onPress={onPress}
       onLongPress={onOptions}
-      className="border-border relative border p-4 active:opacity-70"
+      className="border-border relative border p-3 active:opacity-70"
     >
       {/* The registration marks every framed object in this system carries.
           This card was drawn by hand and never had them. */}
@@ -255,33 +319,28 @@ export function LiveMatch({
       </View>
 
       {/*
-        Both innings, in the order they were played, with the side at the
-        crease carrying the weight. A chase is two numbers compared — printing
-        only the current one made the reader hold the other in their head.
+        Both sides, always — see `sidesOf`. The side at the crease carries the
+        weight. A chase is two numbers compared, so printing only the current
+        one made the reader hold the other in their head.
       */}
-      {innings.length > 0 ? (
-        <View className="mt-3 gap-0.5">
-          {innings.map((i) => (
-            <ScoreLine
-              key={i.inningsNumber}
-              name={battingNameOf(match, i)}
-              score={scoreOf(i)}
-              dim={current !== null && i.inningsNumber !== current.inningsNumber}
-            />
-          ))}
-        </View>
-      ) : (
-        <Text className="text-foreground font-heading mt-3 text-[16px]" numberOfLines={1}>
-          {titleOf(match)}
-        </Text>
-      )}
+      <View className="mt-2 gap-0.5">
+        {sidesOf(match).map((s) => (
+          <ScoreLine
+            key={s.key}
+            name={s.name}
+            score={s.innings ? scoreOf(s.innings) : null}
+            dim={
+              s.innings === null ||
+              (current !== null && s.innings.inningsNumber !== current.inningsNumber)
+            }
+          />
+        ))}
+      </View>
 
       {chase ? (
         <Text className="text-foreground/70 font-heading mt-2 text-[11px] uppercase tracking-[1.2px]">
           {chase}
         </Text>
-      ) : innings.length === 0 ? (
-        <Text className="text-foreground/60 mt-2 text-[13.5px]">Not a ball bowled yet</Text>
       ) : null}
     </Pressable>
   );
@@ -327,20 +386,15 @@ export function FinishedMatch({
       */}
       <View className="flex-row items-start gap-2">
         <View className="min-w-0 flex-1 gap-0.5">
-          {innings.length > 0 ? (
-            innings.map((i) => (
-              <ScoreLine
-                key={i.inningsNumber}
-                name={battingNameOf(match, i)}
-                score={scoreOf(i)}
-                dim={winner !== null && i.battingTeamId !== winner}
-              />
-            ))
-          ) : (
-            <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
-              {titleOf(match)}
-            </Text>
-          )}
+          {sidesOf(match).map((s) => (
+            <ScoreLine
+              key={s.key}
+              name={s.name}
+              score={s.innings ? scoreOf(s.innings) : null}
+              size="text-[13.5px]"
+              dim={s.innings === null || (winner !== null && s.innings.battingTeamId !== winner)}
+            />
+          ))}
         </View>
         {onOptions ? (
           <MoreButton label={`Options for ${titleOf(match)}`} onPress={onOptions} />
