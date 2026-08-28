@@ -84,6 +84,7 @@ import {
   shouldSwapStrike,
   extrasFrom,
 } from './helpers';
+import { newUuid } from './uuid';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // applyBall — the main entry point.
@@ -211,7 +212,7 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
   const isFreeHit = input.isFreeHit ?? state.currentInnings.isFreeHitNext;
 
   return {
-    id: input.id ?? cryptoRandomId(),
+    id: input.id ?? newUuid(),
     inningsId: input.inningsId,
     overNumber,
     ballNumber,
@@ -245,10 +246,12 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
   };
 }
 
-function cryptoRandomId(): string {
-  // Browser / Node 18+: globalThis.crypto. We avoid the `crypto` package.
-  return globalThis.crypto.randomUUID();
-}
+/*
+ * `newUuid`, not `globalThis.crypto.randomUUID()`.
+ *
+ * This was the bare call, which works on the server and in a browser and
+ * throws on a phone, where there is no WebCrypto global. See `uuid.ts`.
+ */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validation

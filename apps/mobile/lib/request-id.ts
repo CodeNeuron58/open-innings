@@ -14,33 +14,20 @@
  * one, because there is no reason not to.
  */
 
-function bytes(): Uint8Array {
-  const out = new Uint8Array(16);
-  const c = globalThis.crypto as Crypto | undefined;
+import { newUuid } from '@open-innings/scoring';
 
-  if (c?.getRandomValues) {
-    c.getRandomValues(out);
-    return out;
-  }
-
-  // React Native does not guarantee a WebCrypto global, and the app pulls in
-  // no polyfill for one. `Math.random` is a weak generator, but 122 bits of
-  // it still makes a collision within a single innings not worth reasoning
-  // about, and a guessed id is worth nothing without the session that owns
-  // the match.
-  for (let i = 0; i < 16; i += 1) out[i] = Math.floor(Math.random() * 256);
-  return out;
-}
-
+/*
+ * The generator itself lives in `@open-innings/scoring`, which this app
+ * already depends on and which needs the same thing to mint a ball id.
+ *
+ * It was written out here as well, and the engine's copy was the bare
+ * `globalThis.crypto.randomUUID()` — so the half with the React Native
+ * fallback was the half that did not run on the phone. Scoring a ball threw
+ * `Cannot read property 'randomUUID' of undefined`. One implementation now,
+ * in the package both sides import.
+ */
 export function newRequestId(): string {
-  const c = globalThis.crypto as Crypto | undefined;
-  if (typeof c?.randomUUID === 'function') return c.randomUUID();
-
-  const b = bytes();
-  b[6] = (b[6]! & 0x0f) | 0x40; // version 4
-  b[8] = (b[8]! & 0x3f) | 0x80; // variant 1
-  const hex = Array.from(b, (n) => n.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return newUuid();
 }
 
 /** A delivery that has been sent and whose outcome is not yet known. */

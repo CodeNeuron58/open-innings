@@ -6,6 +6,12 @@
  */
 
 export { applyBall, type ApplyBallOptions } from './engine';
+/*
+ * Exported so the app has one UUID generator rather than two. The engine needs
+ * one to mint a ball id, and the mobile client needs one for a delivery's
+ * request id — and both have to work where there is no WebCrypto global.
+ */
+export { newUuid } from './uuid';
 export { initialState, replayEvents, replayInnings, replayWithLastRemoved } from './compute';
 export {
   buildScorecard,
