@@ -513,6 +513,29 @@ type BallShape = {
  * drift, and the half that drifted would be the one writing to the ball log.
  */
 const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
+  /*
+   * Placement, first — before any of the branches below, one of which returns.
+   *
+   * This rule used to sit at the foot of this function, after the early return
+   * taken by every delivery whose event type names its own runs. Those are
+   * precisely the deliveries that can carry a placement, so the rule was
+   * unreachable for all of them and reachable only for extras, which never
+   * have one. It was never noticed because nothing sent placement until the
+   * console learned to.
+   *
+   * An angle with no distance is half a point and cannot be plotted; a
+   * distance with no angle is a length in no direction. The database says the
+   * same thing in `ball_events_shot_placement_pair`, and a CHECK that fires is
+   * a 500 where this is a 400 that names the field.
+   */
+  if ((v.shotAngle === undefined) !== (v.shotDistance === undefined)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['shotDistance'],
+      message: 'Give both the angle and the distance, or neither',
+    });
+  }
+
   const expected = RUNS_FOR_TYPE[v.eventType];
   const overthrows = v.overthrowRuns ?? 0;
 
@@ -575,17 +598,6 @@ const refineBallConsistency = (v: BallShape, ctx: z.RefinementCtx): void => {
         message: `A '${v.eventType}' is never off the bat`,
       });
     }
-  }
-
-  // An angle with no distance is half a point and cannot be plotted; a
-  // distance with no angle is a length in no direction. The database says the
-  // same thing in `ball_events_shot_placement_pair`.
-  if ((v.shotAngle === undefined) !== (v.shotDistance === undefined)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['shotDistance'],
-      message: 'Give both the angle and the distance, or neither',
-    });
   }
 
   // 'wicket' is left alone: a run-out can happen after any number of runs.

@@ -266,6 +266,53 @@ describe('consistentBallEventSchema', () => {
   };
   const parse = (o: Record<string, unknown>) => consistentBallEventSchema.safeParse(o);
 
+  /*
+   * Shot placement is both or neither, and the rule has to reach the
+   * deliveries that can actually have one.
+   *
+   * It used to sit after the early return taken by every event type that
+   * names its own runs — so it was live for extras, which never carry a
+   * placement, and dead for every scoring shot, which is the only kind that
+   * does. Nothing sent placement until the console learned to, so it went
+   * unnoticed; the cases below are grouped by event type on purpose, because
+   * the bug was invisible to any test that used only one.
+   */
+  describe('shot placement', () => {
+    const shot = (o: Record<string, unknown>) =>
+      parse({ ...delivery, eventType: '4', runsOffBat: 4, ...o });
+
+    it('accepts both, and accepts neither', () => {
+      expect(shot({ shotAngle: 42, shotDistance: 73 }).success).toBe(true);
+      expect(shot({}).success).toBe(true);
+    });
+
+    it('refuses half a placement on a scoring shot', () => {
+      expect(shot({ shotAngle: 42 }).success).toBe(false);
+      expect(shot({ shotDistance: 73 }).success).toBe(false);
+    });
+
+    it('refuses half a placement on a dot', () => {
+      expect(parse({ ...delivery, shotAngle: 42 }).success).toBe(false);
+      expect(parse({ ...delivery, shotDistance: 73 }).success).toBe(false);
+    });
+
+    it('refuses half a placement on an extra', () => {
+      const wide = { ...delivery, eventType: 'wide', extraRuns: 1 };
+      expect(parse({ ...wide, shotAngle: 42 }).success).toBe(false);
+      expect(parse({ ...wide, shotAngle: 42, shotDistance: 73 }).success).toBe(true);
+    });
+
+    // The database stores a smallint 0-359 and a percentage; anything outside
+    // that is a payload describing a shot that cannot be drawn.
+    it('holds the angle and distance to their ranges', () => {
+      expect(shot({ shotAngle: 360, shotDistance: 50 }).success).toBe(false);
+      expect(shot({ shotAngle: -1, shotDistance: 50 }).success).toBe(false);
+      expect(shot({ shotAngle: 359, shotDistance: 100 }).success).toBe(true);
+      expect(shot({ shotAngle: 0, shotDistance: 0 }).success).toBe(true);
+      expect(shot({ shotAngle: 10, shotDistance: 101 }).success).toBe(false);
+    });
+  });
+
   it('pins a penalty to the five runs Law 41/42 awards', () => {
     const penalty = (extraRuns: number) =>
       parse({ ...delivery, eventType: 'penalty', runsOffBat: 0, extraRuns });
