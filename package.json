@@ -40,7 +40,8 @@
     "smoke:browse": "pnpm --filter web smoke:browse",
     "smoke:correct": "pnpm --filter web smoke:correct",
     "smoke:xi": "pnpm --filter web smoke:xi",
-    "smoke:auth": "pnpm --filter web smoke:auth"
+    "smoke:auth": "pnpm --filter web smoke:auth",
+    "demo:match": "pnpm --filter web demo:match"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",

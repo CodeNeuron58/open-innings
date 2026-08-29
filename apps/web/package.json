@@ -23,7 +23,8 @@
     "smoke:browse": "tsx scripts/browse-smoke.ts",
     "smoke:correct": "tsx scripts/correct-smoke.ts",
     "smoke:xi": "tsx scripts/xi-smoke.ts",
-    "smoke:auth": "tsx scripts/auth-smoke.ts"
+    "smoke:auth": "tsx scripts/auth-smoke.ts",
+    "demo:match": "tsx scripts/demo-match.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
