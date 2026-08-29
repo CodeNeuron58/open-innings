@@ -1,11 +1,12 @@
 /**
- * GET   /api/teams/[id] — team details plus its squad.
- * PATCH /api/teams/[id] — rename or update the team.
+ * GET    /api/teams/[id] — team details plus its squad.
+ * PATCH  /api/teams/[id] — rename or update the team.
+ * DELETE /api/teams/[id] — remove a club that has never played.
  */
 import { NextResponse } from 'next/server';
 import { updateTeamSchema, HTTP } from '@open-innings/shared';
 import { getTeam, getTeamMembers } from '@/lib/db/queries';
-import { updateOwnedTeam } from '@/lib/services/squads';
+import { updateOwnedTeam, deleteOwnedTeam } from '@/lib/services/squads';
 import { getUserId } from '@/lib/auth/local';
 import { readJson, handle, assertId } from '@/lib/api/respond';
 import { notFound, unauthorized } from '@/lib/services/errors';
@@ -36,4 +37,15 @@ export const PATCH = handle(async (request: Request, ctx: RouteParams) => {
 
   const team = await getTeam(id);
   return NextResponse.json({ team }, { status: HTTP.ok });
+});
+
+export const DELETE = handle(async (_request: Request, ctx: RouteParams) => {
+  const { id } = await ctx.params;
+  assertId(id);
+
+  // Refuses with a 409 when the club is named in a fixture — deleting it would
+  // leave those matches without a side. See `deleteOwnedTeam`.
+  await deleteOwnedTeam(id);
+
+  return NextResponse.json({ deleted: true }, { status: HTTP.ok });
 });

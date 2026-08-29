@@ -36,6 +36,36 @@ export default function ClubPage() {
   const myTeams = useApiQuery<TeamListResponse>((t, signal) => api.teams(t, signal), []);
   const isOwner = myTeams.data?.teams.some((t) => t.id === id) ?? false;
   const mutation = useApiMutation();
+  /*
+   * Its own mutation, not the one squad roles use. The refusal this can return
+   * is a paragraph explaining that the club has played and cannot go — it
+   * belongs beside the button that asked, not in a banner shared with a
+   * captaincy toggle at the other end of the screen.
+   */
+  const deleting = useApiMutation();
+
+  function confirmDeleteTeam() {
+    const name = query.data?.team.name ?? 'this club';
+    Alert.alert(
+      `Delete ${name}?`,
+      'The club goes, and its squad list with it. The players themselves stay, along with everything they have ever scored. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const done = await deleting.run((t) => api.deleteTeam(t, id));
+              // Only leave once it is actually gone. A refusal keeps you here,
+              // where the reason is.
+              if (done) router.replace('/teams');
+            })();
+          },
+        },
+      ],
+    );
+  }
 
   /** Updates squad-specific roles (captain/keeper). */
   function editRole(player: {
@@ -274,6 +304,34 @@ export default function ClubPage() {
             </Pressable>
           </View>
         </View>
+
+        {/*
+          At the very bottom, and only for the owner.
+
+          A club with fixtures cannot be deleted — the server refuses, because
+          a match names two sides and removing one takes the fixture's meaning
+          with it. So this is mostly for a club created by mistake, which is
+          exactly the case that had no way out before.
+        */}
+        {isOwner ? (
+          <View className="border-border mt-8 border-t px-5 pt-5">
+            <Button
+              label="Delete club"
+              variant="destructive"
+              disabled={deleting.busy}
+              onPress={confirmDeleteTeam}
+            />
+            <Text className="text-foreground/55 mt-2 font-sans text-[12.5px] leading-[18px]">
+              Only possible for a club that has never played. Its squad memberships go with it; the
+              players themselves stay.
+            </Text>
+            {deleting.error ? (
+              <View className="mt-3">
+                <ErrorBanner message={deleting.error} />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
