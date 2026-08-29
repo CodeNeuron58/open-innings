@@ -895,14 +895,14 @@ export default function Scorer() {
                     setShowExtraRunsSheet(true);
                   }}
                   disabled={mutation.busy}
-                  className={`h-12 flex-1 items-center justify-center border ${
+                  className={`h-[52px] flex-1 items-center justify-center border ${
                     pendingExtra === kind
                       ? 'bg-primary border-primary'
                       : 'border-border bg-transparent'
                   } ${mutation.busy ? 'opacity-40' : 'active:opacity-70'}`}
                 >
                   <Text
-                    className={`font-heading text-[13.5px] ${
+                    className={`font-heading text-[14.5px] ${
                       pendingExtra === kind ? 'text-primary-foreground' : 'text-foreground'
                     }`}
                   >
@@ -962,11 +962,11 @@ export default function Scorer() {
                   void undo();
                 }}
                 disabled={mutation.busy || state.balls.length === 0}
-                className={`border-input h-12 flex-row items-center justify-center border bg-neutral-200 px-4 ${
+                className={`border-input h-[52px] flex-row items-center justify-center border bg-neutral-200 px-5 ${
                   mutation.busy || state.balls.length === 0 ? 'opacity-40' : 'active:opacity-70'
                 }`}
               >
-                <Text className="text-foreground font-heading text-[15px]">
+                <Text className="text-foreground font-heading text-[16px]">
                   ↩ Undo{lastBall ? ` ${undoTarget}` : ''}
                 </Text>
               </Pressable>
@@ -976,9 +976,9 @@ export default function Scorer() {
                   accessibilityRole="button"
                   accessibilityLabel={`${EXTRA_LABELS[pendingExtra]} armed. Tap the runs, or tap here to enter a total.`}
                   onPress={() => setShowExtraRunsSheet(true)}
-                  className="border-primary bg-primary/10 ml-auto h-12 min-w-0 flex-1 justify-center border px-3 active:opacity-70"
+                  className="border-primary bg-primary/10 ml-auto h-[52px] min-w-0 flex-1 justify-center border px-4 active:opacity-70"
                 >
-                  <Text className="text-steel-800 font-heading text-[13.5px]" numberOfLines={2}>
+                  <Text className="text-steel-800 font-heading text-[14.5px]" numberOfLines={2}>
                     {ARMED_HINT[pendingExtra]}
                   </Text>
                 </Pressable>
@@ -1066,28 +1066,26 @@ export default function Scorer() {
           <View
             accessibilityLiveRegion="polite"
             accessibilityLabel={spokenScore}
-            className="bg-scoreboard px-4 pb-3.5 pt-3.5"
+            className="bg-scoreboard px-5 pb-4 pt-4"
           >
-            <View className="flex-row items-end gap-3">
-              {/* shrink-0 throughout: RN gives Text in a flex-row an implicit
-                flexShrink and clips mid-word rather than wrapping. */}
-              <Text className="text-scoreboard-text font-heading shrink-0 text-[58px] leading-[50px]">
+            <View className="flex-row items-end gap-3.5">
+              <Text className="text-scoreboard-text font-heading shrink-0 text-[72px] leading-[64px] tracking-[-1.5px]">
                 {inn.runs}-{inn.wickets}
               </Text>
               <View className="shrink-0 pb-1.5">
-                <Text className="text-scoreboard-text font-heading text-[19px] leading-[19px] opacity-90">
+                <Text className="text-scoreboard-text font-heading text-[22px] leading-[22px] opacity-90">
                   {formatOvers(inn.ballsBowled)}
                 </Text>
-                <Text className="text-scoreboard-text font-heading mt-0.5 text-[11px] uppercase tracking-[1.3px] opacity-60">
+                <Text className="text-scoreboard-text font-heading mt-0.5 text-[11px] uppercase tracking-[1.4px] opacity-60">
                   Overs
                 </Text>
               </View>
               {inn.target !== undefined ? (
-                <View className="ml-auto shrink-0 items-end pb-1">
-                  <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.3px] opacity-60">
+                <View className="ml-auto shrink-0 items-end pb-1.5">
+                  <Text className="text-scoreboard-text font-heading text-[11px] uppercase tracking-[1.4px] opacity-60">
                     Target
                   </Text>
-                  <Text className="text-scoreboard-text font-heading text-[19px] leading-[22px]">
+                  <Text className="text-scoreboard-text font-heading text-[22px] leading-[24px]">
                     {inn.target}
                   </Text>
                 </View>
@@ -1201,7 +1199,7 @@ export default function Scorer() {
             <Text className="font-heading shrink-0 text-[11px] uppercase tracking-[1.3px] text-neutral-700">
               Bowling
             </Text>
-            <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
+            <Text className="text-foreground min-w-0 flex-1 text-[17px]" numberOfLines={1}>
               {nameOf(effBowler)}
               {midOverBowlerId ? (
                 <Text className="text-steel-700 font-heading text-[11px]"> · replacing</Text>
@@ -1214,7 +1212,7 @@ export default function Scorer() {
                 </Text>
               </View>
             ) : null}
-            <Text className="text-foreground font-heading shrink-0 text-[13.5px]">
+            <Text className="text-foreground font-heading shrink-0 text-[14.5px]">
               {formatOvers(bowlerStats?.balls ?? 0)}–{bowlerStats?.maidens ?? 0}–
               {bowlerStats?.runs ?? 0}–{bowlerStats?.wickets ?? 0}
             </Text>
@@ -1815,7 +1813,7 @@ function BatterRow({
     <View className="flex-row items-center py-2">
       {/* The name may legitimately be long — let it ellipsise. The figures
           must never shrink, so every cell is shrink-0. */}
-      <Text className="text-foreground min-w-0 flex-1 text-[16px]" numberOfLines={1}>
+      <Text className="text-foreground min-w-0 flex-1 text-[17px]" numberOfLines={1}>
         {name}
         {onStrike ? ' *' : ''}
       </Text>
@@ -1823,7 +1821,7 @@ function BatterRow({
         <Text
           key={i}
           className={`font-heading shrink-0 text-right ${COL[i]} ${
-            c.strong ? 'text-foreground text-[18px]' : 'text-foreground/75'
+            c.strong ? 'text-foreground text-[21px]' : 'text-foreground/75'
           } ${c.small ? 'text-[13.5px]' : c.strong ? '' : 'text-[14.5px]'}`}
         >
           {c.v}
@@ -1886,15 +1884,15 @@ function Key({
       }
       disabled={disabled}
       // w-1/4 with a right/bottom hairline gives the drawn grid without gaps.
-      className={`${tone} border-border h-[58px] w-1/4 items-center justify-center border-b border-r ${
+      className={`${tone} border-border h-[72px] w-1/4 items-center justify-center border-b border-r ${
         disabled ? 'opacity-40' : 'active:opacity-70'
       }`}
     >
-      <Text className={`${text} font-heading text-[22px] leading-[24px]`}>
+      <Text className={`${text} font-heading text-[28px] leading-[30px]`}>
         {label === '0' ? '0' : label}
       </Text>
       {sublabel ? (
-        <Text className={`${text} font-heading text-[11px] opacity-75`}>{sublabel}</Text>
+        <Text className={`${text} font-heading text-[12px] opacity-75`}>{sublabel}</Text>
       ) : null}
     </Pressable>
   );
