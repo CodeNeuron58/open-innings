@@ -13,6 +13,7 @@ import { useApiQuery, useApiMutation } from '../../../lib/use-api';
 import { Button, ErrorBanner, Field, Kicker } from '../../../components/ui';
 import { SkeletonScreen } from '../../../components/Skeleton';
 import { MergePlayers } from '../../../components/MergePlayers';
+import { PlayerSettings } from '../../../components/PlayerSettings';
 
 export default function Players() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function Players() {
   const [fullName, setFullName] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
   const [merging, setMerging] = useState(false);
+  /** The player whose settings sheet is open. */
+  const [editing, setEditing] = useState<PlayerSummary | null>(null);
   /** What the last merge moved. Cleared on the next thing that happens here. */
   const [mergeNote, setMergeNote] = useState<string | null>(null);
 
@@ -142,13 +145,31 @@ export default function Players() {
           <EmptyState onAdd={() => setAdding(true)} visible={!adding && !error} />
         }
         renderItem={({ item }) => (
-          <PlayerRow player={item} isMe={item.id === playerId} onClaim={() => void claim(item)} />
+          <PlayerRow
+            player={item}
+            isMe={item.id === playerId}
+            onClaim={() => void claim(item)}
+            onEdit={() => setEditing(item)}
+          />
         )}
       />
 
       <View className="border-border border-t px-5 py-3">
         <Button label="Back to matches" variant="ghost" onPress={() => router.back()} />
       </View>
+
+      {editing ? (
+        <PlayerSettings
+          player={editing}
+          onClose={() => setEditing(null)}
+          onDone={async () => {
+            setEditing(null);
+            await refresh();
+            // A deleted or renamed player may be the one this account claimed.
+            await refreshSession();
+          }}
+        />
+      ) : null}
 
       {merging ? (
         <MergePlayers
@@ -175,10 +196,12 @@ function PlayerRow({
   player,
   isMe,
   onClaim,
+  onEdit,
 }: {
   player: PlayerSummary;
   isMe: boolean;
   onClaim: () => void;
+  onEdit: () => void;
 }) {
   const router = useRouter();
 
@@ -214,7 +237,21 @@ function PlayerRow({
         </Text>
       </Pressable>
 
-      <Text className="text-steel-700 shrink-0 text-base">›</Text>
+      {/*
+        Options rather than a chevron. The row already navigates, so the arrow
+        said what tapping anywhere did — and a player had no way to be renamed
+        at all, which on a public career page is the one thing you cannot leave
+        wrong.
+      */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${player.fullName}`}
+        onPress={onEdit}
+        hitSlop={6}
+        className="border-border h-11 w-11 shrink-0 items-center justify-center border active:opacity-70"
+      >
+        <Text className="text-foreground font-heading text-[17px] leading-[17px]">⋯</Text>
+      </Pressable>
     </Pressable>
   );
 }

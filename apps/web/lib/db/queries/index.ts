@@ -284,6 +284,80 @@ export async function createPlayer(input: {
   return rows[0] ?? null;
 }
 
+/**
+ * Rename a player, or correct what they do.
+ *
+ * Scoped to `createdBy`, which is the same test squad edits use: a player you
+ * cannot see is a player you cannot edit. Anyone may put anybody in their own
+ * squad, but writing to the player row itself stays with whoever made it.
+ */
+export async function updatePlayer(
+  id: string,
+  userId: string,
+  patch: {
+    fullName: string;
+    shortName?: string;
+    battingStyle?: Player['battingStyle'];
+    bowlingStyle?: Player['bowlingStyle'];
+    role?: Player['role'];
+  },
+): Promise<void> {
+  await db
+    .update(players)
+    .set({
+      fullName: patch.fullName,
+      // Explicit nulls, not omissions. This is a replacement of the editable
+      // fields, so clearing a role has to be expressible — otherwise a player
+      // mis-tapped as a wicket-keeper stays one forever.
+      shortName: patch.shortName ?? null,
+      battingStyle: patch.battingStyle ?? null,
+      bowlingStyle: patch.bowlingStyle ?? null,
+      role: patch.role ?? null,
+    })
+    .where(and(eq(players.id, id), eq(players.createdBy, userId)));
+}
+
+/**
+ * How much cricket a player has actually played.
+ *
+ * Deleting somebody who appears in a ball log would erase them from matches
+ * other people scored, so the database refuses it — `ball_events` and
+ * `match_squads` both hold `ON DELETE restrict`. That refusal arrives as a
+ * foreign-key violation and a 500, which tells the scorer nothing.
+ *
+ * So the count is taken first and the answer is a sentence: this player has
+ * played, and the way to resolve a duplicate who has played is to merge them,
+ * not to delete them.
+ */
+export async function playerAppearances(
+  id: string,
+): Promise<{ deliveries: number; squads: number }> {
+  const [balls] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(ballEvents)
+    .where(
+      or(
+        eq(ballEvents.batsmanId, id),
+        eq(ballEvents.nonStrikerId, id),
+        eq(ballEvents.bowlerId, id),
+        eq(ballEvents.wicketPlayerId, id),
+        eq(ballEvents.fielderId, id),
+      ),
+    );
+
+  const [squads] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(matchSquads)
+    .where(eq(matchSquads.playerId, id));
+
+  return { deliveries: balls?.n ?? 0, squads: squads?.n ?? 0 };
+}
+
+/** Remove a player. Squad memberships cascade; nothing else may reference them. */
+export async function deletePlayer(id: string, userId: string): Promise<void> {
+  await db.delete(players).where(and(eq(players.id, id), eq(players.createdBy, userId)));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Teams
 // ─────────────────────────────────────────────────────────────────────────────
@@ -496,6 +570,27 @@ export async function updateTeam(
     .update(teams)
     .set({ ...patch, updatedAt: new Date() })
     .where(and(eq(teams.id, id), eq(teams.ownerId, userId)));
+}
+
+/**
+ * How many matches a club has been named in.
+ *
+ * Same argument as `playerAppearances`: `matches`, `innings` and `match_squads`
+ * all hold `ON DELETE restrict` on a team, because deleting a side would erase
+ * it from fixtures other people scored. Counting first turns a foreign-key
+ * violation into a sentence somebody can act on.
+ */
+export async function teamMatchCount(id: string): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(matches)
+    .where(or(eq(matches.teamAId, id), eq(matches.teamBId, id)));
+  return row?.n ?? 0;
+}
+
+/** Remove a club. Squad memberships cascade; a club with fixtures cannot. */
+export async function deleteTeam(id: string, userId: string): Promise<void> {
+  await db.delete(teams).where(and(eq(teams.id, id), eq(teams.ownerId, userId)));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

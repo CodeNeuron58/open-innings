@@ -19,6 +19,7 @@ import {
   type BallCorrectionResponse,
   type BallCorrectionChange,
   type CreatePlayerInput,
+  type UpdatePlayerInput,
   type TeamListResponse,
   type TeamResponse,
   type TeamDetailResponse,
@@ -260,6 +261,21 @@ export const api = {
   createPlayer: (token: string, body: CreatePlayerInput) =>
     apiFetch<PlayerResponse>('/api/players', { method: 'POST', body, token }),
 
+  /** Correct a name or a role. A replacement of the editable fields. */
+  updatePlayer: (token: string, id: string, body: UpdatePlayerInput) =>
+    apiFetch<PlayerResponse>(`/api/players/${id}`, { method: 'PATCH', body, token }),
+
+  /**
+   * Remove a player who has never played.
+   *
+   * Refused with a 409 for anybody who appears in a ball log — their runs are
+   * in matches other people scored. The message names merge as the way to
+   * resolve a duplicate that has played, so surface it rather than replacing
+   * it with something generic.
+   */
+  deletePlayer: (token: string, id: string) =>
+    apiFetch<{ deleted: boolean }>(`/api/players/${id}`, { method: 'DELETE', token }),
+
   teams: (token: string, signal?: AbortSignal) =>
     apiFetch<TeamListResponse>('/api/teams', { token, signal }),
 
@@ -290,6 +306,10 @@ export const api = {
    * one — and every field is optional, so setting a jersey number does not
    * quietly strip a captaincy.
    */
+  /** Remove a club that is not named in any fixture. 409 if it is. */
+  deleteTeam: (token: string, teamId: string) =>
+    apiFetch<{ deleted: boolean }>(`/api/teams/${teamId}`, { method: 'DELETE', token }),
+
   updateTeamMember: (token: string, teamId: string, body: UpdateTeamMemberInput) =>
     apiFetch<TeamMembersResponse>(`/api/teams/${teamId}/members`, {
       method: 'PATCH',

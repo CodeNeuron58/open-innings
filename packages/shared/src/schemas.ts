@@ -120,6 +120,17 @@ export const createPlayerSchema = z.object({
 });
 export type CreatePlayerInput = z.infer<typeof createPlayerSchema>;
 
+/**
+ * Editing a player is a replacement of the editable fields, not a patch.
+ *
+ * Same shape as creating one, so an absent `role` means "no role" rather than
+ * "leave it alone" — the alternative is a form that can set a value and never
+ * clear it, which is how a player is stuck as a wicket-keeper forever because
+ * somebody tapped the wrong chip once.
+ */
+export const updatePlayerSchema = createPlayerSchema;
+export type UpdatePlayerInput = z.infer<typeof updatePlayerSchema>;
+
 // ---------------------------------------------------------------------------
 // Teams
 // ---------------------------------------------------------------------------

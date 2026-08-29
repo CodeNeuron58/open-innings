@@ -5,6 +5,7 @@ import 'server-only';
 import type {
   CreatePlayerInput,
   CreateTeamInput,
+  UpdatePlayerInput,
   UpdateTeamInput,
   UpdateTeamMemberInput,
 } from '@open-innings/shared';
@@ -14,13 +15,18 @@ import {
   getPlayer,
   getTeam,
   updateTeam,
+  updatePlayer,
+  deletePlayer,
+  deleteTeam,
+  playerAppearances,
+  teamMatchCount,
   addPlayerToTeam,
   removeTeamMember,
   updateTeamMemberRole,
   getTeamMembers,
 } from '@/lib/db/queries';
 import { getUserId } from '@/lib/auth/local';
-import { notFound, unauthorized } from './errors';
+import { conflict, notFound, unauthorized } from './errors';
 
 export async function createPlayerFor(input: CreatePlayerInput) {
   const player = await createPlayer(input);
@@ -46,6 +52,81 @@ export async function createTeamFor(input: CreateTeamInput, playerIds: string[] 
 }
 
 /** Load a team the current user owns, or throw. */
+/**
+ * A player the current user created, or throw.
+ *
+ * Not the same test as `requirePlayerExists` below, and the difference is the
+ * point: anyone may put anybody in their own squad, because a cricketer who
+ * plays for two clubs is one person. Writing to the player row is a different
+ * act, and it stays with whoever made it.
+ *
+ * Reported as not-found rather than forbidden, like every other ownership
+ * failure here — see errors.ts.
+ */
+async function requireOwnedPlayer(playerId: string) {
+  const userId = await getUserId();
+  if (!userId) throw unauthorized();
+
+  const player = await getPlayer(playerId);
+  if (!player || player.createdBy !== userId) throw notFound('Player not found');
+
+  return { player, userId };
+}
+
+export async function updateOwnedPlayer(playerId: string, input: UpdatePlayerInput) {
+  const { userId } = await requireOwnedPlayer(playerId);
+  await updatePlayer(playerId, userId, input);
+}
+
+/**
+ * Delete a player who has never played.
+ *
+ * The database refuses to remove anybody who appears in a ball log, and it is
+ * right to: their runs are in matches other people scored, and a scorecard
+ * with a hole in it is worse than a duplicate name in a list.
+ *
+ * So the count comes first, and the refusal names the alternative. **Merge is
+ * the answer for a duplicate who has played** — it moves the deliveries across
+ * and dissolves the extra row, which is what somebody deleting a duplicate
+ * actually wants and cannot get from a delete.
+ */
+export async function deleteOwnedPlayer(playerId: string) {
+  const { player, userId } = await requireOwnedPlayer(playerId);
+
+  const { deliveries, squads } = await playerAppearances(playerId);
+  if (deliveries > 0 || squads > 0) {
+    const where =
+      deliveries > 0
+        ? `${deliveries} ${deliveries === 1 ? 'delivery' : 'deliveries'}`
+        : `${squads} ${squads === 1 ? 'squad' : 'squads'}`;
+    throw conflict(
+      `${player.fullName} appears in ${where} and cannot be deleted. If this is a duplicate, merge them into the right player instead — their record moves across.`,
+    );
+  }
+
+  await deletePlayer(playerId, userId);
+}
+
+/**
+ * Delete a club that has never played a fixture.
+ *
+ * Same rule as a player, for the same reason: a match names two sides, and a
+ * side that stops existing takes the fixture's meaning with it. Squad
+ * memberships cascade, so an unplayed club with a full roster deletes cleanly.
+ */
+export async function deleteOwnedTeam(teamId: string) {
+  const { team, userId } = await requireOwnedTeam(teamId);
+
+  const played = await teamMatchCount(teamId);
+  if (played > 0) {
+    throw conflict(
+      `${team.name} is named in ${played} ${played === 1 ? 'match' : 'matches'} and cannot be deleted. Deleting it would leave those fixtures without a side.`,
+    );
+  }
+
+  await deleteTeam(teamId, userId);
+}
+
 async function requireOwnedTeam(teamId: string) {
   const userId = await getUserId();
   if (!userId) throw unauthorized();
