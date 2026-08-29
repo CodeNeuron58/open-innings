@@ -68,24 +68,26 @@ export default function AddPlayer() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-2 px-3 pb-2 pt-3">
+      <View className="flex-row items-center px-5 pb-3 pt-4">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={() => router.back()}
-          className="h-9 w-8 items-center justify-center active:opacity-60"
+          className="-ml-1 mr-3 p-1 active:opacity-70"
         >
-          <Text className="text-foreground/70 text-xl">‹</Text>
+          <Text className="text-foreground text-[28px] leading-[28px]">‹</Text>
         </Pressable>
-        <Text className="text-foreground font-heading min-w-0 flex-1 text-[21px]" numberOfLines={1}>
-          Add a player
-        </Text>
-        <Text className="font-heading shrink-0 text-[9px] uppercase tracking-[1.3px] text-neutral-500">
-          {squadIds.size} in squad
-        </Text>
+        <View className="min-w-0 flex-1">
+          <Text className="text-foreground font-heading text-[26px] uppercase" numberOfLines={1}>
+            Add Player
+          </Text>
+          <Text className="font-heading mt-0.5 text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
+            {squadIds.size} {squadIds.size === 1 ? 'player' : 'players'} in squad
+          </Text>
+        </View>
       </View>
 
-      <ScrollView contentContainerClassName="px-4 pb-6" keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerClassName="px-5 pb-8" keyboardShouldPersistTaps="handled">
         {finder.error ? <ErrorBanner message={finder.error} /> : null}
 
         <View className="pt-1">
@@ -98,8 +100,9 @@ export default function AddPlayer() {
             autoCorrect={false}
           />
         </View>
-        <Text className="text-foreground/60 mt-1.5 text-[12px] leading-[17px]">
-          Players already on Open Innings keep their career when you add them.
+        <Text className="text-foreground/60 mt-2 px-1 text-[12.5px] leading-[18px]">
+          Search first. Adding an existing player keeps their career record intact. If they
+          aren&rsquo;t found, you can create a new profile for them.
         </Text>
 
         {searching ? (
@@ -236,7 +239,7 @@ export default function AddPlayer() {
                 label="Add to squad"
                 loading={finder.busy}
                 disabled={(newName || search).trim().length === 0}
-                onPress={() => void finder.createAndAdd(newName, newRole)}
+                onPress={() => void finder.createAndAdd(newName || search, newRole)}
               />
             </View>
           </View>
@@ -246,35 +249,6 @@ export default function AddPlayer() {
           <Text className="text-foreground/60 pt-3 text-[12px] leading-[17px]">
             More than ten people match that. Add a surname or an initial to narrow it.
           </Text>
-        ) : null}
-
-        {search.trim().length === 0 ? (
-          <View className="border-border mt-6 border p-4">
-            <Text className="text-foreground/70 text-[13.5px] leading-5">
-              Search first. If someone has played a scored match anywhere on Open Innings, adding
-              them here brings their whole record with them rather than starting a second one.
-            </Text>
-          </View>
-        ) : null}
-
-        {team.data && team.data.members.length > 0 ? (
-          <View className="pt-7">
-            <Kicker>Squad · {team.data.members.length}</Kicker>
-            <View className="mt-2.5 flex-row flex-wrap gap-1.5">
-              {team.data.members.map((m) => (
-                <View
-                  key={m.id}
-                  className="border-border h-9 shrink-0 justify-center border px-2.5"
-                >
-                  <Text className="text-foreground font-heading text-[12.5px]" numberOfLines={1}>
-                    {m.fullName}
-                    {m.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
-                    {m.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
