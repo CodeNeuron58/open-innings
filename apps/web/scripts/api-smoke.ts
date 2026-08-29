@@ -1728,6 +1728,73 @@ async function main() {
     const goneAfterMerge = await call('GET', `/api/players/${dupId}/stats`);
     ok(goneAfterMerge.status === 404, 'the duplicate is gone', goneAfterMerge);
 
+    // ── 10a-ii. Editing and removing a player, and removing a club ─────────
+    //
+    // `api/players/[id]` had no route file at all, so a player was write-once:
+    // a name typed wrong at the ground stayed wrong on a public career page
+    // forever. Deleting had the same gap.
+    //
+    // The refusals are the half worth proving. Anyone who has faced a ball is
+    // in matches other people scored, and the database holds `ON DELETE
+    // restrict` — without a check first that arrives as a foreign-key
+    // violation and a 500, which tells a scorer nothing.
+    console.log('editing and removing players and clubs');
+
+    const editable = await call('POST', '/api/players', { fullName: 'Edit Me Smoke' });
+    ok(editable.status === 201, 'a player to edit → 201', editable);
+    const editableId = editable.json.player?.id as string;
+
+    const playerRenamed = await call('PATCH', `/api/players/${editableId}`, {
+      fullName: 'Renamed Smoke',
+      role: 'all_rounder',
+    });
+    ok(renamed.status === 200, 'renaming a player → 200', playerRenamed);
+    ok(
+      playerRenamed.json.player?.fullName === 'Renamed Smoke',
+      'the new name is returned',
+      playerRenamed.json,
+    );
+    ok(playerRenamed.json.player?.role === 'all_rounder', 'the role is set', playerRenamed.json);
+
+    // A replacement, not a patch — an absent role means "no role", or a player
+    // mis-tapped as a keeper could never stop being one.
+    const cleared = await call('PATCH', `/api/players/${editableId}`, {
+      fullName: 'Renamed Smoke',
+    });
+    ok(cleared.json.player?.role === null, 'an omitted role clears it', cleared.json);
+
+    const blank = await call('PATCH', `/api/players/${editableId}`, { fullName: '  ' });
+    ok(blank.status === 400, 'a blank name → 400', blank);
+
+    // `fixStriker` has faced deliveries by this point in the run.
+    const playedOn = await call('DELETE', `/api/players/${fixStriker}`);
+    ok(playedOn.status === 409, 'deleting a player who has played → 409', playedOn);
+    ok(
+      typeof playedOn.json.error === 'string' && /merge/i.test(playedOn.json.error),
+      'and the refusal names merge as the alternative',
+      playedOn.json.error,
+    );
+
+    const playerRemoved = await call('DELETE', `/api/players/${editableId}`);
+    ok(removed.status === 200, 'deleting a player who never played → 200', playerRemoved);
+    const goneAfterDelete = await call('GET', `/api/players/${editableId}/stats`);
+    ok(goneAfterDelete.status === 404, 'and they are gone', goneAfterDelete);
+
+    // `teamAId` is named in every match this run created.
+    const clubPlayed = await call('DELETE', `/api/teams/${teamAId}`);
+    ok(clubPlayed.status === 409, 'deleting a club with fixtures → 409', clubPlayed);
+
+    const spareClub = await call('POST', '/api/teams', { name: `Spare Club ${Date.now()}` });
+    ok(spareClub.status === 201, 'a club to delete → 201', spareClub);
+    const spareId = spareClub.json.team?.id as string;
+    const clubGone = await call('DELETE', `/api/teams/${spareId}`);
+    ok(clubGone.status === 200, 'deleting a club that never played → 200', clubGone);
+    ok(
+      (await call('GET', `/api/teams/${spareId}`)).status === 404,
+      'and the club is gone',
+      spareId,
+    );
+
     // ── 10b. Notify list ────────────────────────────────────────────────────
     console.log('notify');
     const notifyEmail = `notify-smoke-${Date.now()}@local`;
