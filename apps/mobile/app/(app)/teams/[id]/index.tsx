@@ -15,12 +15,14 @@ import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../componen
 type Result = ClubPageResponse['results'][number];
 
 /** Derives outcome (W/L/T/·) from the server's summary line. */
-function outcomeFor(r: Result, clubName: string): { mark: string; tone: string } {
-  if (r.status !== 'completed' || !r.summary) return { mark: '·', tone: 'text-foreground/40' };
+function outcomeFor(r: Result, clubName: string): { mark: string; bg: string; text: string } {
+  if (r.status !== 'completed' || !r.summary)
+    return { mark: '-', bg: 'bg-neutral-200', text: 'text-neutral-600' };
   if (r.summary.toLowerCase().startsWith(clubName.toLowerCase()))
-    return { mark: 'W', tone: 'text-steel-700' };
-  if (/\btied?\b/i.test(r.summary)) return { mark: 'T', tone: 'text-foreground/60' };
-  return { mark: 'L', tone: 'text-foreground/60' };
+    return { mark: 'W', bg: 'bg-primary', text: 'text-primary-foreground' };
+  if (/\btied?\b/i.test(r.summary))
+    return { mark: 'T', bg: 'bg-neutral-300', text: 'text-neutral-800' };
+  return { mark: 'L', bg: 'bg-neutral-700', text: 'text-background' };
 }
 
 export default function ClubPage() {
@@ -111,26 +113,31 @@ export default function ClubPage() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View className="flex-row items-center gap-2 px-3 pb-2 pt-3">
+      <View className="flex-row items-center px-5 pb-3 pt-4">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={() => router.back()}
-          className="h-9 w-8 items-center justify-center active:opacity-60"
+          className="-ml-1 mr-3 p-1 active:opacity-70"
         >
-          <Text className="text-foreground/70 text-xl">‹</Text>
+          <Text className="text-foreground text-[28px] leading-[28px]">‹</Text>
         </Pressable>
-        <Text className="text-foreground font-heading min-w-0 flex-1 text-[21px]" numberOfLines={1}>
-          {club.team.name}
-        </Text>
+        <View className="min-w-0 flex-1">
+          <Text className="text-foreground font-heading text-[26px] uppercase" numberOfLines={1}>
+            {club.team.name}
+          </Text>
+          <Text className="font-heading mt-0.5 text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
+            {club.squad.length} {club.squad.length === 1 ? 'player' : 'players'}
+          </Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Share this club"
           onPress={() => void share()}
-          className="shrink-0 px-1 py-1 active:opacity-60"
+          className="border-border ml-2 h-10 items-center justify-center border px-4 active:opacity-60"
         >
-          <Text className="text-steel-700 font-heading text-[9.5px] uppercase tracking-[1.3px]">
-            Share club
+          <Text className="text-foreground font-heading text-[12px] uppercase tracking-[1.2px]">
+            Share
           </Text>
         </Pressable>
       </View>
@@ -141,17 +148,17 @@ export default function ClubPage() {
           <RefreshControl refreshing={query.isRefreshing} onRefresh={query.refresh} />
         }
       >
-        {/* Played / won / lost / tied, on one drawn grid. */}
-        <View className="mx-4 flex-row border-l border-t border-neutral-300">
+        {/* Played / won / lost / tied */}
+        <View className="border-border flex-row items-center justify-between border-b px-8 py-5">
           {[
             { v: completed.length, l: 'Played' },
             { v: won, l: 'Won' },
             { v: lost, l: 'Lost' },
             { v: tied, l: 'Tied' },
           ].map((s) => (
-            <View key={s.l} className="w-1/4 border-b border-r border-neutral-300 px-3 py-3">
-              <Text className="text-foreground font-heading text-[22px] leading-[24px]">{s.v}</Text>
-              <Text className="font-heading mt-0.5 text-[8.5px] uppercase tracking-[1.2px] text-neutral-600">
+            <View key={s.l} className="items-center justify-center">
+              <Text className="text-foreground font-heading text-[28px]">{s.v}</Text>
+              <Text className="font-heading mt-1 text-[10px] uppercase tracking-[1.4px] text-neutral-500">
                 {s.l}
               </Text>
             </View>
@@ -159,9 +166,11 @@ export default function ClubPage() {
         </View>
 
         {leaderRows.length > 0 ? (
-          <View className="px-4 pt-6">
-            {/* "Career", not "this club" — see the note at the top. */}
-            <Kicker>Squad leaders · career</Kicker>
+          <View className="pt-6">
+            <View className="px-5">
+              {/* "Career", not "this club" — see the note at the top. */}
+              <Kicker>Squad leaders · career</Kicker>
+            </View>
             <View className="border-border mt-2 border-t">
               {leaderRows.map((row) => (
                 <LeaderRow
@@ -179,8 +188,10 @@ export default function ClubPage() {
         ) : null}
 
         {club.results.length > 0 ? (
-          <View className="px-4 pt-6">
-            <Kicker>Recent results</Kicker>
+          <View className="pt-6">
+            <View className="px-5">
+              <Kicker>Recent results</Kicker>
+            </View>
             <View className="border-border mt-2 border-t">
               {club.results.slice(0, 8).map((r) => {
                 const o = outcomeFor(r, club.team.name);
@@ -192,20 +203,27 @@ export default function ClubPage() {
                     onPress={() =>
                       router.push({ pathname: '/matches/[id]/card', params: { id: r.matchId } })
                     }
-                    className="border-border flex-row items-center gap-3 border-b py-2.5 active:opacity-70"
+                    className="border-border flex-row items-center gap-3 border-b px-5 py-3.5 active:opacity-60"
                   >
-                    <Text className={`font-heading w-4 shrink-0 text-[13px] ${o.tone}`}>
-                      {o.mark}
-                    </Text>
-                    <Text className="text-foreground min-w-0 flex-1 text-[14px]" numberOfLines={1}>
+                    <View className={`h-5 w-5 shrink-0 items-center justify-center ${o.bg}`}>
+                      <Text
+                        className={`font-heading pt-[2px] text-[11px] leading-[11px] ${o.text}`}
+                      >
+                        {o.mark}
+                      </Text>
+                    </View>
+                    <Text className="text-foreground min-w-0 flex-1 text-[15px]" numberOfLines={1}>
                       v {r.opponent ?? 'Unknown'}
                     </Text>
-                    <Text
-                      className="text-foreground/55 shrink-0 text-right text-[11.5px]"
-                      numberOfLines={1}
-                    >
-                      {r.status === 'completed' ? marginOf(r.summary) : 'in progress'}
-                    </Text>
+                    {r.status === 'completed' ? (
+                      <Text className="text-foreground/55 shrink-0 text-right text-[12.5px]">
+                        {marginOf(r.summary)}
+                      </Text>
+                    ) : (
+                      <Text className="text-primary font-heading shrink-0 text-right text-[10.5px] uppercase tracking-[1.4px]">
+                        In progress
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -213,46 +231,48 @@ export default function ClubPage() {
           </View>
         ) : null}
 
-        {club.squad.length > 0 ? (
-          <View className="px-4 pt-6">
+        <View className="pt-6">
+          <View className="px-5">
             <Kicker>Squad · {club.squad.length}</Kicker>
-            <View className="mt-2.5 flex-row flex-wrap gap-1.5">
-              {club.squad.map((p) => (
-                <Pressable
-                  key={p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${p.fullName}'s career`}
-                  accessibilityHint={isOwner ? 'Hold to set captain or wicketkeeper' : undefined}
-                  onPress={() => router.push({ pathname: '/players/[id]', params: { id: p.id } })}
-                  // Held rather than tapped: reading a career is what everyone
-                  // opening a club page came for, and naming a captain is
-                  // something the owner does once a season.
-                  onLongPress={isOwner ? () => editRole(p) : undefined}
-                  className="border-border h-9 shrink-0 justify-center border px-2.5 active:opacity-70"
-                >
-                  <Text className="text-foreground font-heading text-[12.5px]" numberOfLines={1}>
-                    {p.fullName}
-                    {/* The conventional marks: (c) for the captain, † for the
-                        keeper. A player can be both. */}
-                    {p.isCaptain ? <Text className="text-steel-700"> (c)</Text> : null}
-                    {p.isWicketkeeper ? <Text className="text-steel-700"> †</Text> : null}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
           </View>
-        ) : null}
-
-        <View className="px-4 pt-7">
-          <Button
-            label="Add a player"
-            variant="secondary"
-            onPress={() =>
-              requireAccount('add a player', () =>
-                router.push({ pathname: '/teams/[id]/add', params: { id } }),
-              )
-            }
-          />
+          <View className="border-border mt-2 border-t">
+            {club.squad.map((p, i) => (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${p.fullName}'s career`}
+                accessibilityHint={isOwner ? 'Hold to set captain or wicketkeeper' : undefined}
+                onPress={() => router.push({ pathname: '/players/[id]', params: { id: p.id } })}
+                onLongPress={isOwner ? () => editRole(p) : undefined}
+                className="border-border flex-row items-center gap-3 border-b px-5 py-3.5 active:opacity-60"
+              >
+                <Text className="text-foreground/40 font-heading w-5 shrink-0 text-[13px]">
+                  {i + 1}
+                </Text>
+                <View className="min-w-0 flex-1">
+                  <Text className="text-foreground text-[16px]" numberOfLines={1}>
+                    {p.fullName}
+                    {p.isCaptain ? <Text className="text-primary"> (c)</Text> : null}
+                    {p.isWicketkeeper ? <Text className="text-primary"> †</Text> : null}
+                  </Text>
+                </View>
+                <Text className="text-foreground/30 shrink-0 text-[18px]">›</Text>
+              </Pressable>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                requireAccount('add a player', () =>
+                  router.push({ pathname: '/teams/[id]/add', params: { id } }),
+                )
+              }
+              className="border-input flex-row items-center justify-center border-b border-dashed py-4 active:opacity-60"
+            >
+              <Text className="text-steel-700 font-heading text-[12.5px] uppercase tracking-[1.3px]">
+                + Add a player
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -282,15 +302,15 @@ function LeaderRow({
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${name}, ${value}`}
       onPress={onPress}
-      className="border-border flex-row items-center gap-3 border-b py-2.5 active:opacity-70"
+      className="border-border flex-row items-center gap-3 border-b px-5 py-3.5 active:opacity-60"
     >
-      <Text className="font-heading w-[68px] shrink-0 text-[8.5px] uppercase tracking-[1.2px] text-neutral-600">
+      <Text className="font-heading w-[68px] shrink-0 text-[9.5px] uppercase tracking-[1.2px] text-neutral-600">
         {label}
       </Text>
-      <Text className="text-foreground min-w-0 flex-1 text-[14px]" numberOfLines={1}>
+      <Text className="text-foreground min-w-0 flex-1 text-[15px]" numberOfLines={1}>
         {name}
       </Text>
-      <Text className="text-foreground font-heading shrink-0 text-[15px]">{value}</Text>
+      <Text className="text-foreground font-heading shrink-0 text-[17px]">{value}</Text>
     </Pressable>
   );
 }

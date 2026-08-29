@@ -90,18 +90,30 @@ export default function Teams() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ title: 'Teams' }} />
 
-      <View className="flex-row items-center justify-between px-5 pb-3 pt-4">
-        <View>
-          <Text className="text-foreground font-heading text-[26px] uppercase">Teams</Text>
-          <Text className="font-heading text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
+      <View className="flex-row items-center px-5 pb-3 pt-4">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          className="-ml-1 mr-3 p-1 active:opacity-70"
+        >
+          <Text className="text-foreground text-[28px] leading-[28px]">‹</Text>
+        </Pressable>
+        <View className="min-w-0 flex-1">
+          <Text className="text-foreground font-heading text-[26px] uppercase" numberOfLines={1}>
+            Teams
+          </Text>
+          <Text className="font-heading mt-0.5 text-[10.5px] uppercase tracking-[1.4px] text-neutral-700">
             {teamList.length} {teamList.length === 1 ? 'team' : 'teams'}
           </Text>
         </View>
-        <Button
-          label={creating ? 'Cancel' : 'New team'}
-          variant={creating ? 'ghost' : 'primary'}
-          onPress={() => setCreating((v) => !v)}
-        />
+        <View className="ml-2 w-[120px]">
+          <Button
+            label={creating ? 'Cancel' : 'New team'}
+            variant={creating ? 'ghost' : 'primary'}
+            onPress={() => setCreating((v) => !v)}
+          />
+        </View>
       </View>
 
       {teams.error || mutation.error ? (
@@ -198,7 +210,7 @@ export default function Teams() {
       <FlatList
         data={teamList}
         keyExtractor={(t) => t.id}
-        contentContainerClassName="px-5 pb-8 gap-2"
+        contentContainerClassName="px-5 pb-8"
         refreshControl={
           <RefreshControl refreshing={teams.isRefreshing} onRefresh={teams.refresh} />
         }
@@ -221,15 +233,6 @@ export default function Teams() {
           />
         )}
       />
-
-      <View className="border-border flex-row gap-3 border-t px-5 py-3">
-        <View className="flex-1">
-          <Button label="Players" variant="secondary" onPress={() => router.push('/players')} />
-        </View>
-        <View className="flex-1">
-          <Button label="Back" variant="ghost" onPress={() => router.back()} />
-        </View>
-      </View>
     </SafeAreaView>
   );
 }
@@ -269,19 +272,19 @@ function TeamRow({ team, onPress }: { team: TeamSummary; onPress: () => void }) 
       accessibilityRole="button"
       accessibilityLabel={`${team.name} club page`}
       onPress={onPress}
-      className="border-border flex-row items-center gap-3 border px-4 py-3 active:opacity-70"
+      className="border-border flex-row items-center gap-3 border-b py-4 active:opacity-60"
     >
       <View className="min-w-0 flex-1">
-        <Text className="text-foreground font-heading text-[16px]" numberOfLines={1}>
+        <Text className="text-foreground font-heading text-[17px]" numberOfLines={1}>
           {team.name}
         </Text>
         {team.homeGround ? (
-          <Text className="text-foreground/55 mt-0.5 text-[12px]" numberOfLines={1}>
+          <Text className="text-foreground/60 mt-0.5 text-[13px]" numberOfLines={1}>
             {team.homeGround}
           </Text>
         ) : null}
       </View>
-      <Text className="text-foreground/35 shrink-0 text-[17px]">›</Text>
+      <Text className="text-foreground/30 shrink-0 text-[18px]">›</Text>
     </Pressable>
   );
 }
