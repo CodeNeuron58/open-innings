@@ -126,6 +126,61 @@ def feature_graphic():
     return img.resize((1024, 500), Image.LANCZOS)
 
 
+def devpost_thumbnail():
+    """Devpost submission thumbnail, 1200x800 (3:2).
+
+    A different problem from the feature graphic. That one is wide, sits alone
+    at the top of a store page, and has its title overlaid by Play. This sits
+    in a gallery of twenty thousand projects at a few hundred pixels across,
+    with nothing around it to say what it is — so the composition is centred
+    and stacked rather than mark-left / type-right, and it carries one line of
+    copy instead of three.
+
+    Same ground, mark, rule and accent steps as the feature graphic, so the two
+    read as one set rather than two designs of the same thing.
+    """
+    W, H = 1200 * SS, 800 * SS
+    img = Image.new("RGBA", (W, H), GROUND)
+    d = ImageDraw.Draw(img)
+
+    # Mark in the upper third, sized to survive gallery scale — about a fifth
+    # of the canvas height, which is roughly 40px in a 300px-wide tile.
+    draw_wicket(d, 1200 * SS, 0.44, MARK, cx=W / 2, cy=270 * SS)
+
+    semibold = os.path.join(FONT_DIR, "600SemiBold", "BarlowCondensed_600SemiBold.ttf")
+    regular = os.path.join(FONT_DIR, "400Regular", "BarlowCondensed_400Regular.ttf")
+    medium = os.path.join(FONT_DIR, "500Medium", "BarlowCondensed_500Medium.ttf")
+
+    if not os.path.exists(semibold):
+        print("  ! fonts unavailable - mark-only thumbnail")
+        return img.resize((1200, 800), Image.LANCZOS)
+
+    margin = 110 * SS
+    avail = W - margin * 2
+    cx = W / 2
+
+    title = "OPEN INNINGS"
+    sub = "Ball-by-ball cricket scoring. Free, forever."
+    meta = "OPEN SOURCE  ·  OFFLINE-FIRST  ·  AGPL-3.0"
+
+    f_title = _fit(d, title, semibold, avail, 132 * SS)
+    f_sub = _fit(d, sub, regular, avail, 46 * SS)
+    f_meta = _fit(d, meta, medium, avail, 28 * SS)
+
+    d.text((cx, 520 * SS), title, font=f_title, fill=MARK, anchor="ms")
+    d.text((cx, 580 * SS), sub, font=f_sub, fill=(0x94, 0xbc, 0xe3, 255), anchor="ms")
+
+    rule_w = 300 * SS
+    d.rectangle(
+        [cx - rule_w / 2, 622 * SS, cx + rule_w / 2, 624 * SS],
+        fill=(0x41, 0x61, 0x80, 255),
+    )
+    d.text((cx, 682 * SS), meta, font=f_meta, fill=(0x74, 0x9d, 0xc4, 255), anchor="ms")
+
+    return img.resize((1200, 800), Image.LANCZOS)
+
+
+
 print("Open Innings — WICKET icon set\n")
 
 print("Expo / Android:")
@@ -141,6 +196,9 @@ save(render(512, 1.30, MARK, GROUND), os.path.join(MOBILE, "play-icon-512.png"))
 
 print("\nPlay listing:")
 save(feature_graphic(), os.path.join(MOBILE, "play-feature-graphic.png"))
+
+print("\nDevpost:")
+save(devpost_thumbnail(), os.path.join(MOBILE, "devpost-thumbnail.png"))
 
 print("\nWeb (Next.js app-router conventions):")
 save(render(512, 1.30, MARK, GROUND), os.path.join(WEB, "icon.png"))
