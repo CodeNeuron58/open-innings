@@ -21,6 +21,16 @@
   --color-text: #1d1f20;
   --color-accent: #5980a6;
   --color-accent-2: #728fab;
+  /*
+   * The accent, darkened past AA against --color-bg (4.8:1 where the raw
+   * accent manages 3.7:1). Every conversion button reads it in sunlight on a
+   * phone; the raw accent stays for surfaces where it is decoration.
+   */
+  --color-accent-strong: #4a6d94;
+  --color-accent-deep: #3d5c81;
+  /* Form errors. Referenced before it was ever defined — errors rendered in
+     the default ink and looked like ordinary copy. */
+  --color-destructive: #b3372c;
   --color-divider: color-mix(in srgb, #1d1f20 16%, transparent);
 
   /* Tonal ramps â€” generated in OKLCH on one shared lightness scale, so the
@@ -163,13 +173,13 @@ figcaption {
 }
 .btn svg { display: block; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--color-accent); color: var(--color-bg); }
-.btn-primary:hover { background: var(--color-accent-600); }
-.btn-primary:active { background: var(--color-accent-700); }
+.btn-primary { background: var(--color-accent-strong); color: var(--color-bg); }
+.btn-primary:hover { background: var(--color-accent-deep); }
+.btn-primary:active { background: var(--color-accent-deep); }
 .btn-secondary { border-color: var(--color-divider); }
 .btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
 .btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
-.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost { color: var(--color-accent-strong); padding-inline: var(--space-1); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
 .btn-icon { width: 36px; height: 36px; padding: 0; }

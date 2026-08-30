@@ -1229,7 +1229,19 @@ td.oi-fmt-plate {
 }
 
 @media (max-width: 760px) {
+  /*
+   * Most arrivals are on a phone, from a WhatsApp link. Hiding every section
+   * link left the footer as the only way to find Pricing, so the bar keeps a
+   * scrollable row instead — the CTA stays pinned beside it.
+   */
   .oi-navlinks {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .oi-navlinks::-webkit-scrollbar {
     display: none;
   }
 }

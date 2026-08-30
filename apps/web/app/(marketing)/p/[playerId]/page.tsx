@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Blueprint } from '@/components/marketing/blueprint';
 import { careerFor, type PlayerCareer } from '@/lib/services/stats';
@@ -214,14 +215,14 @@ export default async function PlayerPage({ params }: Params) {
             <hr className="oi-rule oi-rule-md" />
             <div className="oi-form-row">
               {form.map((f, i) => (
-                <Blueprint className="oi-form-card" key={`${f.matchId}-${i}`}>
+                <Link key={`${f.matchId}-${i}`} href={`/m/${f.matchId}`} className="oi-form-card">
                   <div className="num oi-form-runs">
                     {f.runs}
                     {f.notOut ? '*' : ''}
                   </div>
                   <div className="num oi-form-balls">({f.balls})</div>
                   {f.opponent ? <div className="oi-form-opp">v {f.opponent}</div> : null}
-                </Blueprint>
+                </Link>
               ))}
             </div>
           </div>

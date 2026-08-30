@@ -157,8 +157,8 @@ export default function PricingPage() {
               </tbody>
             </table>
             <p className="oi-sheet-foot">
-              Prices in Indian rupees, billed monthly. No annual lock-in, no per-match fees, no
-              charge for people opening your link.
+              Prices in Indian rupees. Monthly or yearly, cancel anytime — the yearly plan includes
+              a 7-day free trial. No per-match fees, no charge for people opening your link.
             </p>
           </Blueprint>
         </div>

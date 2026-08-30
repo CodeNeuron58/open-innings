@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: '%s · Open Innings',
   },
   description:
-    'Free, open-source ball-by-ball cricket scoring. Live scorecards, player database, tournaments. Free forever.',
+    'Free, open-source ball-by-ball cricket scoring. Live scorecards, player database, offline scoring. Free forever.',
   applicationName: 'Open Innings',
   keywords: ['cricket', 'scoring', 'live score', 'tournament', 'free', 'open source'],
   authors: [{ name: 'Open Innings contributors' }],
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     siteName: 'Open Innings',
     title: 'Open Innings — Free cricket scoring, forever',
     description:
-      'Ball-by-ball cricket scoring. Live scorecards, player stats, tournaments. Free forever, donation-funded.',
+      'Ball-by-ball cricket scoring. Live scorecards, player stats, offline scoring. Free forever, supporter-funded.',
   },
   twitter: { card: 'summary_large_image' },
   robots: { index: true, follow: true },
