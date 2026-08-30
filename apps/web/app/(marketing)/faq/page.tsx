@@ -44,7 +44,7 @@ const GROUPS = [
     items: [
       {
         q: 'Do I need a signal to score?',
-        a: 'Yes, for now — and that is the honest answer rather than the one we would like to give. Every ball goes to the server as you tap it, which is what keeps the live link on the same over as you, and it means a dropped signal stops scoring until it comes back. Offline scoring — a queue on the phone that syncs when the signal returns — is the next thing being built. Until it ships, plan for a ground with bars.',
+        a: 'Not ball by ball, any more. Every tap is saved on the phone first and shown on the screen straight away, and the queue drains to the server when there is signal — so a dropped connection at the ground does not stop scoring. What still needs a signal is starting a match, opening an innings and making corrections, and the live link for spectators only moves when the queue can send. Sync catches up in order, and the server refuses anything that would double-count a ball.',
       },
       {
         q: 'Can two people score the same match?',
