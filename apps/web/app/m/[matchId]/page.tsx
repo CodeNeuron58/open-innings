@@ -393,6 +393,15 @@ export default async function PublicScorecardPage({ params }: Props) {
                 {reqRate ? ` · RRR ${reqRate}` : ''}
               </p>
             )}
+            {isLive &&
+              !matchDone &&
+              !matchAbandoned &&
+              inn.status === 'completed' &&
+              inn.inningsNumber === 1 && (
+                <p className="text-scoreboard-accent mt-3 text-sm font-medium">
+                  Innings break · {bowlingTeam?.name ?? 'the chase'} need {inn.runs + 1} to win
+                </p>
+              )}
           </div>
 
           {/* Recent balls */}

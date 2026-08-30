@@ -458,6 +458,8 @@ export type MatchCard = {
   venue: string | null;
   status: string;
   result: string | null;
+  /** The innings length, so a spectator's card can finish "need 12 off 14". */
+  oversPerInnings: number;
   innings: CardInnings[];
   /** True when the caller scored this match. Drives ad suppression, nothing else. */
   isMine: boolean;
@@ -550,6 +552,7 @@ export async function matchCardFor(matchId: string): Promise<MatchCard> {
     venue: match.venue,
     status: match.status,
     result: match.summary,
+    oversPerInnings: match.oversPerInnings,
     innings,
     isMine: await isScorer(match.createdBy),
   };

@@ -442,6 +442,12 @@ export type MatchCardResponse = {
   venue: string | null;
   status: string;
   result: string | null;
+  /**
+   * The match's innings length, so a spectator's card can say what a chase
+   * still needs *off how many balls* — the innings rows carry only the overs
+   * bowled so far, and "need 12" without "off 14" is half a sentence.
+   */
+  oversPerInnings: number;
   innings: CardInnings[];
   /**
    * True when the caller scored this match.
