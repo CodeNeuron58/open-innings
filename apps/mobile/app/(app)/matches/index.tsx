@@ -256,7 +256,10 @@ export default function Matches() {
         renderItem={({ item }) => (
           <FinishedMatch
             match={item}
-            onPress={() => router.push(`/matches/${item.id}/score`)}
+            /* Straight to the card, the way the browse list already was —
+               routing through the scorer console only to be redirected
+               flashed a skeleton for a screen that was never going to score. */
+            onPress={() => router.push(`/matches/${item.id}/card`)}
             onOptions={() => setSettingsFor(item)}
           />
         )}

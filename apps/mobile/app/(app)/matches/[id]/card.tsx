@@ -51,8 +51,14 @@ export default function MatchCard() {
       <SafeAreaView className="bg-background flex-1 justify-center p-6">
         <Stack.Screen options={{ headerShown: false }} />
         <ErrorBanner message={query.error ?? 'Could not load this card.'} />
-        <View className="mt-4">
-          <Button label="Back to matches" onPress={() => router.replace('/matches')} />
+        <View className="mt-4 gap-2">
+          {/* A follower on mobile data deserves the retry the scorer gets. */}
+          <Button label="Try again" onPress={() => void query.refresh()} />
+          <Button
+            label="Back to matches"
+            variant="secondary"
+            onPress={() => router.replace('/matches')}
+          />
         </View>
       </SafeAreaView>
     );
@@ -95,6 +101,22 @@ export default function MatchCard() {
   const index = Math.max(0, Math.min(activeIndex, card.innings.length - 1));
   const innings = card.innings[index] as CardInnings;
 
+  /*
+   * The chase, in the sentence the web card already uses. It reads the latest
+   * innings regardless of which one is on show — the chase is a fact about
+   * the match, and the innings switcher is a viewing choice.
+   */
+  const latest = card.innings[card.innings.length - 1];
+  const ballsBowled = (() => {
+    const [completed, part] = (latest?.overs ?? '0.0').split('.');
+    return Number(completed ?? 0) * 6 + Number(part ?? 0);
+  })();
+  const ballsLeft = card.oversPerInnings * 6 - ballsBowled;
+  const chaseLine =
+    card.status === 'live' && latest?.target != null && latest.runs < latest.target && ballsLeft > 0
+      ? `Need ${latest.target - latest.runs} off ${ballsLeft}`
+      : null;
+
   return (
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
@@ -121,6 +143,9 @@ export default function MatchCard() {
             .filter(Boolean)
             .join('  ·  ') || 'In progress'}
         </Text>
+        {chaseLine ? (
+          <Text className="text-primary font-heading mt-1.5 text-[14px]">{chaseLine}</Text>
+        ) : null}
       </View>
 
       {/* Innings switch — only when there are two. */}

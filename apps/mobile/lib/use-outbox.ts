@@ -47,9 +47,9 @@ const RETRY_MS = 4000;
 export type SyncState =
   | { kind: 'synced' }
   /** In flight, or about to be. */
-  | { kind: 'sending'; count: number }
+  | { kind: 'sending'; count: number; memoryOnly?: boolean }
   /** The server could not be reached. Everything is safe on disk. */
-  | { kind: 'waiting'; count: number }
+  | { kind: 'waiting'; count: number; memoryOnly?: boolean }
   /** The server refused a delivery. Nothing after it can be sent. */
   | { kind: 'blocked'; count: number; message: string };
 
@@ -93,6 +93,15 @@ export type Outbox = {
   undoLast: () => Promise<boolean>;
   /** Give up on a queue that cannot be sent. */
   discard: () => Promise<void>;
+  /**
+   * Drop one queued delivery by its request id.
+   *
+   * The per-ball half of a refusal: when the head delivery is refused, the
+   * balls behind it are usually still good, and "discard the queue" threw
+   * them away with it. Also how the console removes a delivery the local
+   * engine could no longer fold.
+   */
+  discardOne: (requestId: string) => Promise<void>;
   /** Try the queue again after a refusal has been dealt with. */
   retry: () => void;
 };
@@ -148,6 +157,23 @@ export function useOutbox({
    */
   const [sentIds, setSentIds] = useState<ReadonlySet<string>>(() => new Set());
   const pendingRef = useRef<PendingBall[]>([]);
+  /*
+   * The highest sequence number handed out.
+   *
+   * `nextSeq` reads the queue, and the queue only advances in `commit` — which
+   * runs after the disk write. Two taps inside that window both read the same
+   * queue and minted the same seq: harmless to the on-screen order (the fold
+   * sorts stably) but unspecified on reload, where `loadOutbox` orders by seq.
+   * Minting here, synchronously, cannot interleave — JavaScript is
+   * single-threaded up to the first await.
+   */
+  const seqRef = useRef(0);
+  /*
+   * Whether the disk has accepted everything handed to it. One SQLite failure
+   * downgrades the queue to memory-only, and the sync bar has to stop saying
+   * "safe on this phone" the moment that happens.
+   */
+  const [memoryOnly, setMemoryOnly] = useState(false);
 
   const commit = useCallback((next: PendingBall[]) => {
     pendingRef.current = next;
@@ -179,6 +205,9 @@ export function useOutbox({
       const stored = await loadOutbox(matchId);
       if (cancelled) return;
       pendingRef.current = stored;
+      // Continue the sequence above whatever a previous mount queued, so a
+      // reload cannot mint a seq that collides with a row already on disk.
+      seqRef.current = stored.reduce((max, p) => Math.max(max, p.seq), 0);
       setPending(stored);
       setReady(true);
     })();
@@ -253,15 +282,16 @@ export function useOutbox({
       // A new Set, not a mutation: React compares by identity.
       setSentIds((prev) => new Set(prev).add(requestId));
       const item: PendingBall = {
-        seq: nextSeq(pendingRef.current),
+        seq: (seqRef.current = Math.max(nextSeq(pendingRef.current), seqRef.current + 1)),
         requestId,
         ball,
         queuedAt: Date.now(),
       };
 
       // On disk first. A delivery the scorer has been shown as recorded must
-      // survive the app dying between this line and the next.
-      await saveBall(matchId, item);
+      // survive the app dying between this line and the next — and when the
+      // disk refuses, the sync bar has to stop claiming it is safe.
+      if (!(await saveBall(matchId, item))) setMemoryOnly(true);
 
       commit(enqueue(pendingRef.current, item));
     },
@@ -286,6 +316,18 @@ export function useOutbox({
     setWaiting(false);
   }, [matchId, commit]);
 
+  const discardOne = useCallback(
+    async (requestId: string) => {
+      await removeBall(requestId);
+      commit(ack(pendingRef.current, requestId));
+      // If this was the delivery the refusal was about, the queue behind it
+      // is free to move; if it was not, retrying is still what the scorer
+      // asked for by keeping the app open.
+      setBlocked(null);
+    },
+    [commit],
+  );
+
   const retry = useCallback(() => setBlocked(null), []);
 
   const sync: SyncState =
@@ -294,8 +336,8 @@ export function useOutbox({
       : pending.length === 0
         ? { kind: 'synced' }
         : waiting
-          ? { kind: 'waiting', count: pending.length }
-          : { kind: 'sending', count: pending.length };
+          ? { kind: 'waiting', count: pending.length, ...(memoryOnly ? { memoryOnly: true } : {}) }
+          : { kind: 'sending', count: pending.length, ...(memoryOnly ? { memoryOnly: true } : {}) };
 
-  return { pending, sync, ready, add, undoLast, discard, retry, sentIds, addSentIds };
+  return { pending, sync, ready, add, undoLast, discard, discardOne, retry, sentIds, addSentIds };
 }

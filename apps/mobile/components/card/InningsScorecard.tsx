@@ -77,9 +77,11 @@ export function InningsScorecard({ innings }: { innings: CardInnings }) {
               {b.playerName}
             </Text>
             {/* How they went. A not-out batter gets the words, not a blank —
-                the absence of a dismissal is information. */}
+                the absence of a dismissal is information. A duck is the
+                other kind of story the dismissal text does not tell. */}
             <Text className="text-foreground/55 mt-0.5 text-[11px]" numberOfLines={1}>
               {b.isOut ? (b.dismissalText ?? 'out') : 'not out'}
+              {b.isOut && b.runs === 0 && b.balls > 0 ? ' · duck' : ''}
             </Text>
           </View>
           <Figures

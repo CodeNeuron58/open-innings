@@ -19,6 +19,9 @@ export default function ShareMatch() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
+  // A failed PNG load used to render an empty framed box — no message, no way
+  // to know the link still works. One flag turns it into something honest.
+  const [imageFailed, setImageFailed] = useState(false);
 
   const query = usePublicQuery<MatchResultResponse>(
     (t, signal) => api.matchSummary(t, id, signal),
@@ -69,12 +72,28 @@ export default function ShareMatch() {
 
         {/* The real card, at the ratio it is actually generated at. */}
         <View className="border-border border">
-          <Image
-            source={{ uri: shareUrls.matchCardImage(id) }}
-            style={{ width: '100%', aspectRatio: CARD_ASPECT_RATIO }}
-            resizeMode="contain"
-            accessibilityLabel={`Share card: ${headline}`}
-          />
+          {imageFailed ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading the share card"
+              onPress={() => setImageFailed(false)}
+              style={{ aspectRatio: CARD_ASPECT_RATIO }}
+              className="items-center justify-center bg-neutral-100 p-6"
+            >
+              <Text className="text-foreground/70 text-center text-[13.5px] leading-[19px]">
+                The card image could not load on this connection. Tap to retry — the copy link below
+                works either way.
+              </Text>
+            </Pressable>
+          ) : (
+            <Image
+              source={{ uri: shareUrls.matchCardImage(id) }}
+              style={{ width: '100%', aspectRatio: CARD_ASPECT_RATIO }}
+              resizeMode="contain"
+              onError={() => setImageFailed(true)}
+              accessibilityLabel={`Share card: ${headline}`}
+            />
+          )}
         </View>
 
         <View className="mt-4 flex-row gap-2">

@@ -74,7 +74,10 @@ export async function loadOutbox(matchId: string): Promise<PendingBall[]> {
   try {
     const db = await open();
     const rows = await db.getAllAsync<Row>(
-      'SELECT request_id, match_id, seq, ball, queued_at FROM outbox WHERE match_id = ? ORDER BY seq ASC',
+      // `seq, queued_at` rather than `seq` alone: two taps inside the disk
+      // write window could once mint the same seq, and a tie needs *some*
+      // order. Insertion time is the order the scorer actually made.
+      'SELECT request_id, match_id, seq, ball, queued_at FROM outbox WHERE match_id = ? ORDER BY seq ASC, queued_at ASC',
       matchId,
     );
 

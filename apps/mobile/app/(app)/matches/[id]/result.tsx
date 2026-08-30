@@ -79,7 +79,6 @@ export default function Result() {
       <ScrollView contentContainerClassName="pb-4">
         <View className="flex-row items-baseline justify-between gap-3 px-4 pb-1 pt-3">
           <Kicker>Match ended</Kicker>
-          {/* SAVED & SYNCED omitted as balls are synced immediately. */}
         </View>
 
         <Text className="text-foreground font-heading px-4 text-[31px] leading-[35px]">
