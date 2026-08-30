@@ -198,6 +198,18 @@ export default function More() {
     <SafeAreaView className="bg-background flex-1">
       <Stack.Screen options={{ headerShown: false }} />
 
+      <View className="border-border flex-row items-center gap-3 border-b px-4 py-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/matches'))}
+          className="-ml-2 h-10 w-10 items-center justify-center"
+        >
+          <Text className="text-foreground/70 mb-1 text-2xl">‹</Text>
+        </Pressable>
+        <Text className="text-foreground font-heading text-xl">Settings & More</Text>
+      </View>
+
       <ScrollView contentContainerClassName="px-4 pb-8 pt-4">
         {/* Account and associated player profile. */}
         <Pressable
