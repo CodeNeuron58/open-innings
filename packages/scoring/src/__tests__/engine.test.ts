@@ -346,11 +346,14 @@ describe('applyBall — wickets', () => {
   });
 
   it('credits bowler for caught (with fielder)', () => {
+    // A catch ends the delivery dead: no run completed on it counts (Law
+    // 18.1), so the dismissal arrives with no runs attached. One used to be
+    // accepted here and credited to batter, total and bowler alike.
     const state = applyBalls([
       {
         eventType: 'wicket',
-        runsOffBat: 1,
-        totalRuns: 1,
+        runsOffBat: 0,
+        totalRuns: 0,
         wicketType: 'caught',
         wicketPlayerId: STRIKER,
         fielderId: FIELDER_1,
@@ -1068,5 +1071,79 @@ describe('Penalty runs (Law 41 & 42)', () => {
     // Striker did not face a ball
     expect(state.batting[STRIKER]?.balls).toBe(0);
     expect(state.batting[STRIKER]?.runs).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retirements and ball-facing arithmetic
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('retirements are not balls anyone faced', () => {
+  it('a retiring striker is not charged a ball faced', () => {
+    // The retirement is recorded as `eventType: 'wicket'`, which looked like a
+    // fair ball to the facing rule — so the batter walking off was charged a
+    // delivery they never faced, and if the non-striker walked, the *striker*
+    // was charged it.
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_hurt',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
+    expect(state.batting[STRIKER]?.balls).toBe(0);
+    expect(state.batting[STRIKER]?.isRetiredHurt).toBe(true);
+    expect(state.batting[STRIKER]?.isOut).toBe(false);
+  });
+
+  it('a retiring non-striker is marked retired hurt, not out', () => {
+    // The striker branch always set the flag; the non-striker branch did
+    // nothing, so the scorecard printed them as plain "not out" and counted
+    // them in the not-out column at the innings end.
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_hurt',
+        wicketPlayerId: NON_STRIKER,
+      },
+    ]);
+    expect(state.batting[NON_STRIKER]?.isRetiredHurt).toBe(true);
+    expect(state.batting[NON_STRIKER]?.isOut).toBe(false);
+    // …and the striker is not charged for their partner's walk.
+    expect(state.batting[STRIKER]?.balls).toBe(0);
+  });
+
+  it('a retired-out carries no ball faced either', () => {
+    const state = applyBalls([
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_out',
+        wicketPlayerId: STRIKER,
+      },
+    ]);
+    expect(state.batting[STRIKER]?.balls).toBe(0);
+  });
+
+  it('balls faced resume with the replacement, not the departed', () => {
+    const state = applyBalls([
+      { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+      {
+        eventType: 'wicket',
+        runsOffBat: 0,
+        totalRuns: 0,
+        wicketType: 'retired_hurt',
+        wicketPlayerId: STRIKER,
+      },
+      { eventType: 'dot', runsOffBat: 0, totalRuns: 0 },
+    ]);
+    expect(state.batting[STRIKER]?.balls).toBe(1);
+    expect(state.batting['p_new_0']?.balls).toBe(1);
+    expect(state.currentInnings.ballsBowled).toBe(2);
   });
 });

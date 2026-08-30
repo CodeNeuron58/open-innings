@@ -363,6 +363,8 @@ export type ScoringErrorCode =
   | 'PLAYER_IN_TWO_ROLES'
   | 'NEGATIVE_RUNS'
   | 'INVALID_RUNS_OFF_BAT'
+  /** A dead-ball dismissal cannot also carry runs off the same delivery. */
+  | 'INVALID_RUNS_WITH_DISMISSAL'
   | 'EXTRA_RUNS_WITHOUT_EXTRA_TYPE'
   | 'WICKET_TYPE_MISSING'
   /** Renamed from RUN_OUT_NEEDS_BATSMAN, which described neither the check

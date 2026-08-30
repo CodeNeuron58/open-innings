@@ -70,6 +70,7 @@ import {
   TEAM_WICKET_COUNTED,
   WIDE_VALID_WICKETS,
   isLegalDelivery,
+  isNonDeliveryEvent,
 } from './rules';
 import {
   ballNumberInOver,
@@ -190,8 +191,7 @@ function normalizeEvent(state: MatchState, input: BallEventInput): BallEvent {
    * a client mark an ordinary delivery illegal and stop the over ever
    * advancing — so the only place that can know this is the engine.
    */
-  const nonDelivery = input.wicketType !== undefined && NON_DELIVERY_WICKETS.has(input.wicketType);
-  const legal = !nonDelivery && isLegalDelivery(input.eventType);
+  const legal = !isNonDeliveryEvent(input) && isLegalDelivery(input.eventType);
 
   const overthrowRuns = input.overthrowRuns ?? 0;
 
@@ -278,6 +278,28 @@ function validate(state: MatchState, event: BallEvent): void {
       'INVALID_RUNS_OFF_BAT',
       `runsOffBat must be 0..6, got ${event.runsOffBat}`,
     );
+  }
+
+  // A delivery that ends dead — bowled, caught, LBW, stumped, hit wicket —
+  // scores nothing off itself: the ball is in the bowler's or a fielder's
+  // hands, and no run completed afterwards counts (Law 18.1). Only a run out,
+  // or an obstruction / hitting the ball twice where runs completed before
+  // the offence stand, can carry runs — and a retirement is not a delivery
+  // at all. Accepting "caught for 4" credited four runs to the batter, the
+  // total, and the bowler's analysis for a ball that did none of it.
+  if (event.wicketType && (event.runsOffBat > 0 || event.overthrowRuns > 0)) {
+    const runsPossible =
+      event.wicketType === 'run_out' ||
+      event.wicketType === 'obstructing_field' ||
+      event.wicketType === 'handled_ball' ||
+      event.wicketType === 'double_hit' ||
+      event.wicketType === 'hit_the_ball_twice';
+    if (!runsPossible) {
+      throw new ScoringError(
+        'INVALID_RUNS_WITH_DISMISSAL',
+        `A batter dismissed "${event.wicketType}" cannot also score runs off the same delivery`,
+      );
+    }
   }
 
   // Wicket types that require a fielder
@@ -407,6 +429,41 @@ function validateRoles(event: BallEvent): void {
 function validateBowler(state: MatchState, event: BallEvent): void {
   const inn = state.currentInnings;
 
+  /*
+   * An over is in progress when a *delivery* has been bowled in it.
+   * Non-delivery events are excluded — a retirement recorded at the break
+   * sits in the ball log under the new over's number, and counting it here
+   * made the engine believe that over had already started, so the first real
+   * delivery of it was refused as a mid-over bowler change.
+   */
+  const currentOver = overNumberFor(inn.ballsBowled);
+  const overInProgress = state.balls.some(
+    (b) => b.overNumber === currentOver && !isNonDeliveryEvent(b),
+  );
+
+  /*
+   * A retirement or penalty is not a delivery, so the bowling Laws — two
+   * consecutive overs, parts of consecutive overs, the quota — do not apply
+   * to it. The most common moment to retire is exactly between overs, where
+   * the state still names the bowler who just finished the closed over, and
+   * Law 16.2 read that as the same bowler bowling again, refusing the record.
+   *
+   * One consistency survives, because `updateInnings` takes `currentBowlerId`
+   * from this event: part-way through a live over, a non-delivery must not
+   * change the bowler. Without it, a mistyped bowler id on a retirement would
+   * silently swap who is considered to be bowling, and the next real delivery
+   * would refuse in the bowler's name.
+   */
+  if (isNonDeliveryEvent(event)) {
+    if (overInProgress && event.bowlerId !== inn.currentBowlerId) {
+      throw new ScoringError(
+        'BOWLER_CHANGED_MID_OVER',
+        'The bowler may not change part-way through an over (Law 17.4)',
+      );
+    }
+    return;
+  }
+
   // Law 16.2 — a bowler may not bowl two consecutive overs. `lastBowlerId`
   // holds the bowler of the PREVIOUS over and is only written when an over
   // closes, so this compares against the right person on every ball of the
@@ -424,8 +481,6 @@ function validateBowler(state: MatchState, event: BallEvent): void {
   // delivery has already been bowled in this over, which is not the same test
   // as `ballsBowled % 6 !== 0`: a wide as the first delivery starts the over
   // without advancing that counter.
-  const currentOver = overNumberFor(inn.ballsBowled);
-  const overInProgress = state.balls.some((b) => b.overNumber === currentOver);
 
   // Law 17.4 again, the half `lastBowlerId` cannot see: a bowler may not
   // "bowl parts of each of two consecutive overs". `lastBowlerId` holds
@@ -616,7 +671,10 @@ function updateBatting(
   // - Wides don't count as balls faced (Law 22.2)
   // - Byes/leg-byes don't count as balls faced (Law 23 + 24)
   // - No-balls DO count as balls faced (Law 21.3 — batsman had a chance to hit)
-  if (!BATSMAN_FACING_EXCLUDED_TYPES.has(event.eventType)) {
+  // - A retirement is not a delivery, so it is no ball anyone faced — and the
+  //   batter it walks off may be the non-striker, which must not charge the
+  //   striker's count either.
+  if (!isNonDeliveryEvent(event) && !BATSMAN_FACING_EXCLUDED_TYPES.has(event.eventType)) {
     striker.balls += 1;
   }
 
@@ -668,7 +726,13 @@ function updateBatting(
     if (nonStriker.isOut) {
       ctx.object(new ScoringError('BATSMAN_ALREADY_OUT', 'Batsman is already out'));
     }
-    if (event.wicketType !== 'retired_hurt') {
+    if (event.wicketType === 'retired_hurt') {
+      // Mirror of the striker branch. A retirement from the non-striker's end
+      // is the same walk: not out, and able to return. Without this the
+      // scorecard printed them as "not out" and counted them in the not-out
+      // column at the innings end, with nothing saying where they went.
+      nonStriker.isRetiredHurt = true;
+    } else {
       nonStriker.isOut = true;
       nonStriker.dismissalType = event.wicketType;
       nonStriker.fielderId = event.fielderId;

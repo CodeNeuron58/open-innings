@@ -89,6 +89,24 @@ export const NON_DELIVERY_WICKETS: ReadonlySet<WicketType> = new Set([
 ]);
 
 /**
+ * Whether this event records something that happened between deliveries
+ * rather than the outcome of one.
+ *
+ * Retirements and penalties ride on ball events because that is the only
+ * place the schema can put them, and several delivery-shaped rules would
+ * otherwise read them as a fair ball: `isLegalDelivery` cannot help, because
+ * a retirement is recorded as `eventType: 'wicket'` and looks like one from
+ * the event type alone. The bowling Laws, the batter's ball-faced count and
+ * the over counter must all ask this first.
+ */
+export function isNonDeliveryEvent(event: { eventType: string; wicketType?: WicketType }): boolean {
+  return (
+    event.eventType === 'penalty' ||
+    (event.wicketType !== undefined && NON_DELIVERY_WICKETS.has(event.wicketType))
+  );
+}
+
+/**
  * Dismissals after which the batter leaves the field and must be replaced.
  *
  * Wider than `TEAM_WICKET_COUNTED` by exactly one: a retired hurt batter walks

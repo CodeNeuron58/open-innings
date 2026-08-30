@@ -806,3 +806,200 @@ describe('the scorer can overrule the strike arithmetic', () => {
     expect(after.balls[0]!.battersCrossed).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retirements and the bowling Laws
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('a retirement is not governed by the bowling Laws', () => {
+  it('can be recorded between overs, against the bowler who just finished', () => {
+    // The most common moment to retire is exactly at the break. The closed
+    // over still names its bowler in the state, and Law 16.2 read that as the
+    // same bowler bowling again — refusing the record outright.
+    let s = seedWith();
+    for (let i = 0; i < 6; i += 1) s = bowl(s);
+    expect(
+      codeFor(() =>
+        bowl(s, {
+          eventType: 'wicket',
+          wicketType: 'retired_hurt',
+          wicketPlayerId: asPlayerId('b1'),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('accepts the next over\u2019s bowler being named on the retirement, as the console sends it', () => {
+    // The console picks the next bowler before anything else at the break, so
+    // the record arrives carrying them — and the innings is left waiting on
+    // exactly that bowler.
+    let s = seedWith();
+    for (let i = 0; i < 6; i += 1) s = bowl(s);
+    const s2 = applyBall(
+      s,
+      ball(s, {
+        eventType: 'wicket',
+        wicketType: 'retired_hurt',
+        wicketPlayerId: asPlayerId('b1'),
+        bowlerId: asPlayerId('w2'),
+      }),
+    );
+    expect(s2.currentInnings.currentBowlerId).toBe(asPlayerId('w2'));
+  });
+
+  it('a penalty can be recorded between overs against the bowler who just finished', () => {
+    let s = seedWith();
+    for (let i = 0; i < 6; i += 1) s = bowl(s);
+    expect(
+      codeFor(() => bowl(s, { eventType: 'penalty', runsOffBat: 0, extraRuns: 5, totalRuns: 5 })),
+    ).toBeNull();
+  });
+
+  it('the over quota does not refuse a retirement recorded by a bowler who is done', () => {
+    // Nothing was bowled, so the quota is neither spent nor consulted.
+    let s = seedWith({ maxOversPerBowler: 1 });
+    for (let i = 0; i < 6; i += 1) s = bowl(s);
+    expect(
+      codeFor(() =>
+        bowl(s, {
+          eventType: 'wicket',
+          wicketType: 'retired_hurt',
+          wicketPlayerId: asPlayerId('b1'),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('still refuses a bowler change part-way through a live over', () => {
+    // `updateInnings` takes the current bowler from the event, so a mistyped
+    // id on a mid-over retirement would silently swap who is bowling, and the
+    // next real delivery would refuse in the bowler's name.
+    const s = bowl(seedWith());
+    expect(
+      codeFor(() =>
+        bowl(s, {
+          eventType: 'wicket',
+          wicketType: 'retired_hurt',
+          wicketPlayerId: asPlayerId('b1'),
+          bowlerId: asPlayerId('w2'),
+        }),
+      ),
+    ).toBe('BOWLER_CHANGED_MID_OVER');
+  });
+});
+
+describe('a retired hurt batter may return at an interval', () => {
+  it('the full walk: retire mid-over, return at the over break', () => {
+    // Law 25.5: resumption at the fall of a wicket **or any interval**. b1
+    // retires hurt off the first ball, b3 completes the over, and at the
+    // break b2 walks off so b1 can come back for the new over. Both walks are
+    // records of their own — nobody leaves the field unrecorded.
+    let s = seedWith();
+    s = bowl(s);
+    s = bowl(s, {
+      eventType: 'wicket',
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b1'),
+    });
+    // b1's vacancy must be filled before the next delivery.
+    s = bowl(s, { batsmanId: asPlayerId('b3') });
+    // The retirement used no delivery, so four more close the over.
+    for (let i = 0; i < 4; i += 1) s = bowl(s);
+    expect(s.currentInnings.ballsBowled).toBe(6);
+
+    // b2 retires at the break — a non-delivery, between overs.
+    s = bowl(s, {
+      eventType: 'wicket',
+      wicketType: 'retired_hurt',
+      wicketPlayerId: asPlayerId('b2'),
+    });
+
+    // b1 returns, taking b2's slot for the new over — bowled by w2, since w1
+    // just completed the previous over (Law 16.2).
+    const slot = s.currentInnings.strikerId === asPlayerId('b2') ? 'batsmanId' : 'nonStrikerId';
+    const returned = bowl(s, { [slot]: asPlayerId('b1'), bowlerId: asPlayerId('w2') });
+    expect(returned.batting.b1?.balls).toBe(2);
+    expect(returned.batting.b1?.isRetiredHurt).toBe(true);
+    expect(returned.batting.b2?.isRetiredHurt).toBe(true);
+    expect(returned.batting.b2?.isOut).toBe(false);
+  });
+});
+
+describe('a dead-ball dismissal scores nothing off the delivery', () => {
+  it.each(['bowled', 'caught', 'caught_behind', 'lbw', 'stumped', 'hit_wicket'] as const)(
+    'refuses runs attached to a "%s"',
+    (wicketType) => {
+      expect(
+        codeFor(() =>
+          bowl(seedWith(), {
+            eventType: 'wicket',
+            runsOffBat: 4,
+            totalRuns: 4,
+            wicketType,
+            wicketPlayerId: asPlayerId('b1'),
+          }),
+        ),
+      ).toBe('INVALID_RUNS_WITH_DISMISSAL');
+    },
+  );
+
+  it('refuses overthrows attached to a caught dismissal too', () => {
+    // The ball is dead in the fielder's hands; there is nothing to overthrow.
+    expect(
+      codeFor(() =>
+        bowl(seedWith(), {
+          eventType: 'wicket',
+          runsOffBat: 0,
+          totalRuns: 0,
+          overthrowRuns: 2,
+          wicketType: 'caught',
+          wicketPlayerId: asPlayerId('b1'),
+        }),
+      ),
+    ).toBe('INVALID_RUNS_WITH_DISMISSAL');
+  });
+
+  it('still allows completed runs on a run out', () => {
+    expect(
+      codeFor(() =>
+        bowl(seedWith(), {
+          eventType: 'wicket',
+          runsOffBat: 1,
+          totalRuns: 1,
+          wicketType: 'run_out',
+          wicketPlayerId: asPlayerId('b1'),
+          fielderId: asPlayerId('w2'),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('still allows runs completed before an obstruction', () => {
+    // Law 41.5: the batting side keeps the runs completed before the offence.
+    expect(
+      codeFor(() =>
+        bowl(seedWith(), {
+          eventType: 'wicket',
+          runsOffBat: 2,
+          totalRuns: 2,
+          wicketType: 'obstructing_field',
+          wicketPlayerId: asPlayerId('b1'),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('a retirement carries no runs either', () => {
+    expect(
+      codeFor(() =>
+        bowl(seedWith(), {
+          eventType: 'wicket',
+          runsOffBat: 1,
+          totalRuns: 1,
+          wicketType: 'retired_hurt',
+          wicketPlayerId: asPlayerId('b1'),
+        }),
+      ),
+    ).toBe('INVALID_RUNS_WITH_DISMISSAL');
+  });
+});
