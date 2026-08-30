@@ -10,6 +10,7 @@ import type { CardInnings, MatchCardResponse } from '@open-innings/shared';
 import { api } from '../../../../lib/api';
 import { shareUrls } from '../../../../lib/config';
 import { usePublicQuery } from '../../../../lib/use-api';
+import { useLiveRefresh } from '../../../../lib/use-live';
 import { AdBar } from '../../../../components/AdBar';
 import { MatchTabs } from '../../../../components/MatchTabs';
 import { Button, ErrorBanner, Kicker, LoadingScreen } from '../../../../components/ui';
@@ -29,6 +30,19 @@ export default function MatchCard() {
     (t, signal) => api.matchCard(t, id, signal),
     [id],
   );
+
+  /*
+   * The spectator side of live. Before this, the card was a snapshot: a
+   * follower watching a close chase had to keep pull-refreshing by hand while
+   * the web page updated itself. Now it polls while the match is live and the
+   * app is open, and this reader is counted in "N watching" while here.
+   * Called before the early returns below — hooks have no conditions.
+   */
+  useLiveRefresh({
+    live: query.data?.status === 'live',
+    matchId: query.data?.status === 'live' ? id : undefined,
+    refresh: query.refresh,
+  });
 
   if (query.isLoading) return <LoadingScreen />;
 

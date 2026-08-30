@@ -436,6 +436,17 @@ export const api = {
     apiFetch<MatchCardResponse>(`/api/matches/${matchId}/card`, { token, signal }),
 
   /**
+   * Presence, not followers: this reader is here. Public and unauthenticated,
+   * like the endpoint — the key is an anonymous install id and nothing else.
+   * Returns the fresh count so a caller need not refetch the card to show it.
+   */
+  watch: (matchId: string, watcherKey: string) =>
+    apiFetch<{ watching: number }>(`/api/matches/${matchId}/watching`, {
+      method: 'POST',
+      body: { watcherKey },
+    }),
+
+  /**
    * Career context for a list of players, in one request.
    *
    * The pickers call this once with a whole squad rather than hitting
