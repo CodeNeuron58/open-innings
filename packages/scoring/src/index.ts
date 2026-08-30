@@ -104,4 +104,9 @@ export {
   FREE_HIT_VALID_WICKETS,
   NON_DELIVERY_WICKETS,
   BATTER_LEAVES_FIELD,
+  // Which overthrows belong to the striker rather than the extras column.
+  // Exported for the same reason as the sets above: the app's milestone
+  // moments need to know how many of a delivery's runs crossed a batter's
+  // fifty, and re-stating the routing would drift from the engine's.
+  OVERTHROW_TO_EXTRAS_TYPES,
 } from './rules';

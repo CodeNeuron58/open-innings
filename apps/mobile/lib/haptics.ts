@@ -37,7 +37,9 @@ export type Feel =
   /** A wicket, or anything else that changes the shape of the innings. */
   | 'wicket'
   /** Something was refused, or taken back. */
-  | 'undo';
+  | 'undo'
+  /** A fifty, a century, a hat-trick — the moments the ground notices. */
+  | 'milestone';
 
 const STYLE: Record<Feel, () => Promise<void>> = {
   light: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
@@ -45,6 +47,7 @@ const STYLE: Record<Feel, () => Promise<void>> = {
   boundary: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
   wicket: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
   undo: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
+  milestone: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
 };
 
 /**

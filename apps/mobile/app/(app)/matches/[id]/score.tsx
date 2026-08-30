@@ -26,12 +26,13 @@ import {
   wicketDeliveryFor,
 } from '../../../../lib/deliveries';
 import { feelForBall, tap } from '../../../../lib/haptics';
+import { milestonesFor, milestoneLabel, type Milestone } from '../../../../lib/milestones';
 import { api } from '../../../../lib/api';
 import { requestIdFor } from '../../../../lib/request-id';
 import { useSession } from '../../../../lib/session';
 import { useSettings } from '../../../../lib/settings';
 import { useApiQuery, useApiMutation } from '../../../../lib/use-api';
-import { project } from '../../../../lib/outbox';
+import { head, project } from '../../../../lib/outbox';
 import { useOutbox, type SyncState } from '../../../../lib/use-outbox';
 import { Button, ErrorBanner } from '../../../../components/ui';
 import { SkeletonConsole } from '../../../../components/Skeleton';
@@ -90,15 +91,15 @@ export default function Scorer() {
   /*
    * Is there room to put the keypad beside the board?
    *
-   * A tablet propped on a table is the classic setup at an organised club, and
-   * in landscape the console was a phone layout stretched — a keypad pinned to
-   * the bottom of a screen twice as wide as it is tall, with the score scrolled
-   * off above it.
+   * A tablet propped on the boundary rope is the classic setup at an
+   * organised club, and on a wide screen the console was a phone layout
+   * stretched — a keypad pinned to the bottom of a screen twice as wide as it
+   * is tall, with the score scrolled off above it.
    *
-   * 700 rather than a device check: what matters is whether two columns fit,
-   * and a large phone in landscape is as entitled to the wider layout as a
-   * small tablet is. `useWindowDimensions` re-renders on rotation, so this
-   * follows the device rather than whatever it was at mount.
+   * 700 rather than a device check: what matters is whether two columns fit.
+   * The app is portrait-locked, so this is about a tablet's real width rather
+   * than rotation — `useWindowDimensions` is kept anyway, because it costs
+   * nothing and follows the device if that lock is ever lifted.
    */
   const { width } = useWindowDimensions();
   const wide = width >= 700;
@@ -277,8 +278,15 @@ export default function Scorer() {
       <SafeAreaView className="bg-scoreboard flex-1 justify-center p-6">
         <Stack.Screen options={{ title: 'Scorer' }} />
         <ErrorBanner message={query.error ?? 'Could not load this match.'} />
-        <View className="mt-4">
-          <Button label="Back to matches" onPress={() => router.replace('/matches')} />
+        <View className="mt-4 gap-2">
+          {/* A transient failure on ground wifi should not cost the scorer
+                their place — refresh before offering the way out. */}
+          <Button label="Try again" onPress={() => void query.refresh()} />
+          <Button
+            label="Back to matches"
+            variant="secondary"
+            onPress={() => router.replace('/matches')}
+          />
         </View>
       </SafeAreaView>
     );
@@ -483,22 +491,43 @@ export default function Scorer() {
     const index = state.balls.findIndex((b) => String(b.id) === ballId);
     if (index === -1) return;
 
-    const count = state.balls.length - index;
-    const plural = count === 1 ? 'delivery' : 'deliveries';
+    /*
+     * The projected log is the server's balls with this device's queued ones
+     * folded on top, so the pending deliveries sit at the tail. Counting them
+     * into server undos deleted server balls the tap never meant to touch —
+     * each `undoBall` removes whatever is last on the *server* — while leaving
+     * the queued ones queued to fold back in on top. Split the two: queued
+     * deliveries come off locally and instantly, and only the server's own
+     * tail is asked of the server.
+     */
+    const after = state.balls.length - index - 1;
+    const acceptedPending = Math.max(0, state.balls.length - serverState.balls.length);
+    const localDrops = Math.min(after, acceptedPending);
+    const serverUndos = after - localDrops;
+
+    const plural = after === 1 ? 'delivery' : 'deliveries';
+    const queuedNote =
+      localDrops > 0
+        ? ` ${localDrops} of them ${localDrops === 1 ? 'is' : 'are'} still queued on this phone and come off straight away.`
+        : '';
 
     Alert.alert(
-      `Undo ${count} ${plural}?`,
-      count === 1
+      `Undo ${after} ${plural}?`,
+      after === 1
         ? 'The last delivery comes off the board.'
-        : `That delivery and the ${count - 1} after it come off the board. You can score them again.`,
+        : `That delivery and the ${after - 1} after it come off the board. You can score them again.${queuedNote}`,
       [
         { text: 'Keep them', style: 'cancel' },
         {
-          text: `Undo ${count}`,
+          text: `Undo ${after}`,
           style: 'destructive',
           onPress: async () => {
             closeCorrection();
-            for (let i = 0; i < count; i += 1) {
+            for (let i = 0; i < localDrops; i += 1) {
+              // Each call drops this device's most recent queued delivery.
+              if (!(await outbox.undoLast())) break;
+            }
+            for (let i = 0; i < serverUndos; i += 1) {
               const next = await mutation.run((t) => api.undoBall(t, id));
               if (!next) return;
               applyState(next);
@@ -888,10 +917,58 @@ export default function Scorer() {
         </Pressable>
       ) : null}
 
+      {/* Deliveries this device queued that the engine can no longer apply —
+            the server state moved underneath them. Reported rather than
+            silently vanished from the board: five of six are probably still
+            good, and each carries its own way out. */}
+      {projection.rejected.length > 0 ? (
+        <View className="border-destructive bg-destructive/10 mx-3 mb-2 border p-3">
+          <Text className="text-destructive font-heading text-[13.5px]">
+            {projection.rejected.length}{' '}
+            {projection.rejected.length === 1
+              ? 'ball can no longer be applied'
+              : 'balls can no longer be applied'}
+          </Text>
+          {projection.rejected.map((r) => (
+            <View key={r.pending.requestId} className="mt-1.5 flex-row items-center gap-2">
+              <Text
+                className="text-foreground/75 min-w-0 flex-1 text-[13px] leading-[17px]"
+                numberOfLines={2}
+              >
+                {
+                  ballMark({
+                    ...r.pending.ball,
+                    totalRuns:
+                      r.pending.ball.totalRuns ??
+                      r.pending.ball.runsOffBat + r.pending.ball.extraRuns,
+                  }).label
+                }{' '}
+                — {r.message}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Discard this ball"
+                onPress={() => void outbox.discardOne(r.pending.requestId)}
+                className="border-destructive h-9 justify-center border px-2.5 active:opacity-70"
+              >
+                <Text className="text-destructive font-heading text-[13px]">Discard</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
       {/* What has and has not reached the server, next to the thumb that is
             about to add to it. This replaces a static "Live" square that meant
             nothing and said so even after an hour of nobody scoring. */}
-      <SyncBar sync={outbox.sync} onRetry={outbox.retry} onDiscard={() => void outbox.discard()} />
+      <SyncBar
+        sync={outbox.sync}
+        onRetry={outbox.retry}
+        onDiscardHead={() => {
+          const next = head(outbox.pending);
+          if (next) void outbox.discardOne(next.requestId);
+        }}
+      />
 
       {/* The console — pinned, thumb-reachable, one-handed */}
       {!completed ? (
@@ -1611,11 +1688,100 @@ export default function Scorer() {
           busy={mutation.busy}
         />
       ) : null}
+
+      <MilestoneBanner state={state} nameOf={nameOf} />
     </SafeAreaView>
   );
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/**
+ * The moments the ground already knows about, announced properly.
+ *
+ * A fifty, a century, a hat-trick used to land on the scorecard as quietly as
+ * a dot ball — the scorer's party was a number changing. This watches the
+ * projection for the delivery that crossed the line and says so, out loud,
+ * for a few seconds.
+ *
+ * Its hooks live here rather than in the console's body because the console
+ * returns early while loading, and a component rendered past that point owns
+ * its hook count unconditionally.
+ */
+function MilestoneBanner({
+  state,
+  nameOf,
+}: {
+  state: MatchState;
+  nameOf: (playerId: PlayerId | string) => string;
+}) {
+  const [banner, setBanner] = useState<{ key: string; text: string } | null>(null);
+  // The projection and the last state it was judged against. New deliveries
+  // are folded from here so a milestone is judged against the moment it
+  // happened, not against a state that already holds the next over too.
+  const lastSeen = useRef<{ count: number; state: MatchState } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const prev = lastSeen.current;
+    lastSeen.current = { count: state.balls.length, state };
+    if (!prev || state.balls.length <= prev.count) return;
+
+    const newBalls = state.balls.slice(prev.count);
+    let base = prev.state;
+    const found: Milestone[] = [];
+    for (const ball of newBalls) {
+      try {
+        const after = applyBall(base, ball);
+        found.push(...milestonesFor(after, ball));
+        base = after;
+      } catch {
+        // The innings moved in a way this replay cannot mirror — a correction
+        // landing mid-sync, most plausibly. Skip the celebration rather than
+        // show one the scorecard would contradict.
+        break;
+      }
+    }
+
+    const show = found[found.length - 1];
+    if (!show) return;
+
+    // The banner is a side effect of new balls arriving — it owns a timer and
+    // a haptic, which is work an effect exists for — not state derived during
+    // render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- celebration is a side effect, not a cascade
+    setBanner({
+      key: `${show.kind}:${String(show.playerId)}:${state.balls.length}`,
+      text: milestoneLabel(show, nameOf(show.playerId)),
+    });
+    tap('milestone');
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setBanner(null), 4500);
+  }, [state, nameOf]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  if (!banner) return null;
+  return (
+    <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      className="absolute left-4 right-4 top-12 z-40"
+      pointerEvents="none"
+    >
+      <View className="bg-primary border-primary rounded-xl border px-4 py-3">
+        <Text className="text-primary-foreground font-heading text-center text-[16px]">
+          {banner.text}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 /**
  * The state of the queue, in a sentence.
@@ -1632,11 +1798,11 @@ export default function Scorer() {
 function SyncBar({
   sync,
   onRetry,
-  onDiscard,
+  onDiscardHead,
 }: {
   sync: SyncState;
   onRetry: () => void;
-  onDiscard: () => void;
+  onDiscardHead: () => void;
 }) {
   if (sync.kind === 'synced') return null;
 
@@ -1657,11 +1823,11 @@ function SyncBar({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Discard the balls that could not be saved"
-            onPress={onDiscard}
+            accessibilityLabel="Discard the delivery that could not be saved"
+            onPress={onDiscardHead}
             className="border-input h-11 justify-center border px-3 active:opacity-70"
           >
-            <Text className="text-destructive font-heading text-[13.5px]">Discard them</Text>
+            <Text className="text-destructive font-heading text-[13.5px]">Discard that ball</Text>
           </Pressable>
         </View>
       </View>
@@ -1679,7 +1845,9 @@ function SyncBar({
       <View className={`h-2 w-2 shrink-0 ${waiting ? 'bg-steel-600' : 'bg-primary'}`} />
       <Text className="text-foreground/80 min-w-0 flex-1 text-[13.5px]" numberOfLines={2}>
         {waiting
-          ? `${sync.count} ${sync.count === 1 ? 'ball' : 'balls'} waiting for a signal — safe on this phone, and sent the moment there is one.`
+          ? sync.memoryOnly
+            ? `${sync.count} ${sync.count === 1 ? 'ball' : 'balls'} waiting for a signal — the phone could not save them, so keep this screen open until they send.`
+            : `${sync.count} ${sync.count === 1 ? 'ball' : 'balls'} waiting for a signal — safe on this phone, and sent the moment there is one.`
           : `Saving ${sync.count}…`}
       </Text>
     </View>
