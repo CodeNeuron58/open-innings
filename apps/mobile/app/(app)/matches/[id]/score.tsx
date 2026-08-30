@@ -244,6 +244,26 @@ export default function Scorer() {
   }, [matchCompleted, id, router]);
 
   /*
+   * Seed the "was this me?" set from the log as the server already holds it.
+   *
+   * The foreign-scorer test below compares the server's newest delivery
+   * against ids this device minted — and a device that has just opened the
+   * match has minted none, so its own last ball looked foreign on every
+   * re-entry, which is the single most common navigation there is. The ids in
+   * the log are not evidence of a concurrent scorer; a ball that arrives while
+   * the console is open and was not in the log at load time still is.
+   */
+  const knownRequestIds = query.data?.knownRequestIds;
+  const addSentIds = outbox.addSentIds;
+  useEffect(() => {
+    // The ids arrive with the fetch response rather than being derived from
+    // it synchronously — this is data landing, not a cascade. addSentIds
+    // settles to the same set when nothing is new, so a refetch does not
+    // re-render the console.
+    if (knownRequestIds && knownRequestIds.length > 0) addSentIds(knownRequestIds);
+  }, [knownRequestIds, addSentIds]);
+
+  /*
    * The console's own shape, not a spinner.
    *
    * This is the screen most often opened on a ground's connection, and the one

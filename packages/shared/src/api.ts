@@ -279,6 +279,19 @@ export type ScorerResponse = {
    * own. Null on a match with no deliveries yet.
    */
   lastBall: { at: string; requestId: string | null } | null;
+  /**
+   * Request ids already in this innings' ball log, most recent last.
+   *
+   * The foreign-scorer warning compares the server's newest delivery against
+   * the ids *this device* minted — and a device that has just opened the match
+   * has minted none of them, so its own last ball looked foreign on every
+   * re-entry. Seeding the set from the log closes that; a ball that arrives
+   * while the console is open and was not in the log at load time still warns.
+   *
+   * Capped at the most recent few hundred — the warning is about the live
+   * edge, not the archive.
+   */
+  knownRequestIds: string[];
 };
 
 /** `POST`/`DELETE /api/matches/[id]/ball` — the replayed state after the change. */

@@ -76,6 +76,14 @@ export type Outbox = {
    */
   sentIds: ReadonlySet<string>;
   /**
+   * Fold request ids the server's ball log already holds into `sentIds`.
+   *
+   * The console seeds this from the scorer response on load, so its own last
+   * ball — and every ball already on the card — stops reading as foreign on
+   * re-entry. No-op when nothing is new, so a refetch does not re-render.
+   */
+  addSentIds: (ids: readonly string[]) => void;
+  /**
    * Drop the delivery this device queued most recently.
    *
    * Returns false when there was nothing pending, which means the ball being
@@ -144,6 +152,25 @@ export function useOutbox({
   const commit = useCallback((next: PendingBall[]) => {
     pendingRef.current = next;
     setPending(next);
+  }, []);
+
+  /**
+   * Fold request ids the server already holds into the sent set.
+   *
+   * The console warns when the server's newest delivery carries an id this
+   * device never minted — but on re-entry the device has minted none of them,
+   * and its own last ball looked foreign. The scorer seeds this from the
+   * scorer response's `knownRequestIds`. Settling to the same set when nothing
+   * is new keeps a refetch from re-rendering the screen.
+   */
+  const addSentIds = useCallback((ids: readonly string[]) => {
+    setSentIds((prev) => {
+      const additions = ids.filter((id) => !prev.has(id));
+      if (additions.length === 0) return prev;
+      const next = new Set(prev);
+      for (const id of additions) next.add(id);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -270,5 +297,5 @@ export function useOutbox({
           ? { kind: 'waiting', count: pending.length }
           : { kind: 'sending', count: pending.length };
 
-  return { pending, sync, ready, add, undoLast, discard, retry, sentIds };
+  return { pending, sync, ready, add, undoLast, discard, retry, sentIds, addSentIds };
 }

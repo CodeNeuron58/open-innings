@@ -116,6 +116,13 @@ export const GET = handle(async (_request: Request, ctx: RouteParams) => {
         if (!last) return null;
         return { at: last.createdAt.toISOString(), requestId: last.requestId ?? null };
       })(),
+      // Every request id the log already holds, so a device opening the match
+      // can seed its "was this me?" set instead of mistaking its own last ball
+      // for somebody else's. See ScorerResponse.knownRequestIds.
+      knownRequestIds: balls
+        .map((b) => b.requestId)
+        .filter((x): x is string => x != null)
+        .slice(-200),
       // The chase needs openers from the sides swapped round.
       nextBattingSquad: awaitingSecondInnings ? bowlingSquad : [],
       nextBowlingSquad: awaitingSecondInnings ? battingSquad : [],
