@@ -16,8 +16,9 @@ import { resolveBattingSides } from '@open-innings/shared';
 import { SUPER_OVER_MAX_WICKETS, replayInnings } from '@open-innings/scoring';
 import type { Innings } from '@/lib/db/schema';
 import {
-  createMatch,
+  createMatchOnce,
   createInning,
+  closeOpenInnings,
   startMatch,
   updateInningCache,
   getTeamMembers,
@@ -240,7 +241,7 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     });
   }
 
-  const match = await createMatch({
+  const created = await createMatchOnce({
     title: input.title,
     venue: input.venue,
     oversPerInnings: input.oversPerInnings,
@@ -258,7 +259,21 @@ export async function createMatchWithFirstInnings(input: CreateMatchInput) {
     tossDecision: input.tossDecision,
     scheduledAt: input.scheduledAt,
   });
-  if (!match) throw unauthorized('Could not create match — sign in first');
+  if (!created) throw unauthorized('Could not create match — sign in first');
+  const { match, deduped } = created;
+
+  /*
+   * The retry won. This request is a repeat of one that already created this
+   * match — a double tap, or a resend after a timeout — and everything the
+   * original went on to do (squads, going live, opening the innings) is done
+   * too. Returning the match as it stands is the idempotent answer; running
+   * the rest again would either fail on the unique innings index or open a
+   * second innings.
+   */
+  if (deduped) {
+    const innings = await getInnings(match.id);
+    return { match, inning: innings.find((i) => i.status === 'in_progress') ?? null };
+  }
 
   /*
    * Store the XI now the match has an id to hang it on.
@@ -598,16 +613,37 @@ export async function endCurrentInnings(matchId: string) {
     return { match, inning: last, alreadyEnded: true as const };
   }
 
-  await updateInningCache(current.id, { status: 'completed', completedAt: new Date() });
+  /*
+   * Close it under the innings row's lock and take the row back from the
+   * transaction that closed it.
+   *
+   * This used to mark the innings completed from the row as read, then compute
+   * the result from that same stale read. A delivery or correction landing in
+   * between stored a result the ball log contradicts — "won by 3" on the share
+   * card, 2 on the log. `closeOpenInnings` re-reads the row inside the
+   * transaction that closes it, so the figures the result is computed from are
+   * the figures on disk, and no delivery can land afterwards (the innings is
+   * closed, and `recordBall` refuses closed innings under the same lock).
+   */
+  const closed = await closeOpenInnings(matchId);
+  if (!closed) {
+    // Lost the race: another device ended the innings, or the match was
+    // abandoned, between the read above and now. Either way the caller's
+    // desired state already holds — report it as already ended.
+    const fresh = await getInnings(matchId);
+    const last = fresh[fresh.length - 1];
+    if (!last) throw invalid('This match has no innings yet');
+    return { match, inning: last, alreadyEnded: true as const };
+  }
 
-  if (current.inningsNumber >= 2 && current.target != null) {
+  if (closed.inningsNumber >= 2 && closed.target != null) {
     const result = computeMatchResult({
-      runs: current.runs,
-      wickets: current.wickets,
-      target: current.target,
-      maxWickets: current.maxWickets,
-      battingTeamId: current.battingTeamId,
-      bowlingTeamId: current.bowlingTeamId,
+      runs: closed.runs,
+      wickets: closed.wickets,
+      target: closed.target,
+      maxWickets: closed.maxWickets,
+      battingTeamId: closed.battingTeamId,
+      bowlingTeamId: closed.bowlingTeamId,
     });
     const winner = result.winningTeamId
       ? await getTeam(result.winningTeamId).catch(() => null)
@@ -621,11 +657,11 @@ export async function endCurrentInnings(matchId: string) {
             : 'team_b_win',
       winningTeamId: result.winningTeamId,
       // Nobody says a super over was won by seven runs.
-      summary: formatMatchResult(result, winner?.name, { superOver: current.inningsNumber >= 3 }),
+      summary: formatMatchResult(result, winner?.name, { superOver: closed.inningsNumber >= 3 }),
     });
   }
 
-  return { match, inning: current, alreadyEnded: false as const };
+  return { match, inning: closed, alreadyEnded: false as const };
 }
 
 /**

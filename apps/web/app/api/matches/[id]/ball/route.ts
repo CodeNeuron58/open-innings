@@ -311,7 +311,15 @@ export async function DELETE(request: NextRequest, ctx: RouteParams) {
         extras: state.currentInnings.extras,
         status: state.currentInnings.status,
       },
-      { reopenMatchId },
+      {
+        reopenMatchId,
+        // The cache above describes the log as it was when `balls` was read.
+        // A delivery landing between that read and the delete would make this
+        // undo remove a ball from the middle of the log and write a score for
+        // a shorter innings than the one on disk. Refuse instead — same guard,
+        // same reason, as the record path's `balls.length`.
+        expectedBalls: balls.length,
+      },
     );
 
     // Another undo got there first. The score we computed describes a ball

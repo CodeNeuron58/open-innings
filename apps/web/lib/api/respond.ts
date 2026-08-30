@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { ScoringError } from '@open-innings/scoring';
 import { HTTP, type ApiError } from '@open-innings/shared';
 import { ServiceError, notFound } from '@/lib/services/errors';
-import { StaleInningsError } from '@/lib/db/queries';
+import { InningsNotOpenError, StaleInningsError } from '@/lib/db/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -166,6 +166,23 @@ export function toErrorResponse(error: unknown): NextResponse<ApiError> {
       {
         error: 'The innings changed while you were scoring. Refresh and try that ball again.',
         code: 'STALE_INNINGS',
+      },
+      { status: HTTP.conflict },
+    );
+  }
+
+  /*
+   * The innings is over — ended by another device, or the match abandoned —
+   * while a delivery was in flight. Deliberately a different code from
+   * STALE_INNINGS: re-reading and resending cannot help here, because there is
+   * no open innings left to send the ball to. The client should show what the
+   * match became, not retry.
+   */
+  if (error instanceof InningsNotOpenError) {
+    return NextResponse.json(
+      {
+        error: 'This innings has ended. Refresh to see the match as it stands.',
+        code: 'INNINGS_CLOSED',
       },
       { status: HTTP.conflict },
     );

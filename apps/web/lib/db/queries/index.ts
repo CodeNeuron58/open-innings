@@ -6,7 +6,7 @@
  */
 
 import 'server-only';
-import { and, asc, desc, eq, inArray, ilike, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, ilike, or, sql } from 'drizzle-orm';
 import { db } from '../client';
 import {
   players,
@@ -738,6 +738,81 @@ export async function createMatch(input: {
 }
 
 /**
+ * Create a match exactly once per intent.
+ *
+ * Every other scoring write has an idempotency story — the ball log has the
+ * request-id index, corrections have `expectedTotal` — but creation had
+ * nothing, so a double tap on the final button, or a retry after a timeout on
+ * ground wifi, produced two live matches between the same clubs and no way to
+ * tell which one the scorer meant. The retry is not a second intent; it is the
+ * same one arriving twice.
+ *
+ * The check and the insert share one transaction under a transaction-scoped
+ * advisory lock keyed on the scorer and the pairing, so two concurrent POSTs
+ * serialise instead of both passing a plain "does one exist" read. The window
+ * is deliberately short — one minute. A genuine second match between the same
+ * clubs needs a form filled in again, which takes longer than that; a retry
+ * arrives inside it.
+ */
+export async function createMatchOnce(input: {
+  title?: string;
+  venue?: string;
+  oversPerInnings: number;
+  format?: string;
+  /** Null means the match sets no per-bowler limit. See migration 0009. */
+  maxOversPerBowler?: number | null;
+  teamAId: string;
+  teamBId: string;
+  tossWinnerTeamId?: string;
+  tossDecision?: 'bat' | 'bowl';
+  scheduledAt?: Date;
+}): Promise<{ match: Match; deduped: boolean } | null> {
+  const userId = await getUserId();
+  if (!userId) return null;
+
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`match-create:${userId}:${input.teamAId}:${input.teamBId}`}))`,
+    );
+
+    const [recent] = await tx
+      .select()
+      .from(matches)
+      .where(
+        and(
+          eq(matches.createdBy, userId),
+          eq(matches.teamAId, input.teamAId),
+          eq(matches.teamBId, input.teamBId),
+          inArray(matches.status, ['scheduled', 'live']),
+          gte(matches.createdAt, new Date(Date.now() - 60_000)),
+        ),
+      )
+      .orderBy(desc(matches.createdAt))
+      .limit(1);
+    if (recent) return { match: recent, deduped: true };
+
+    const rows = await tx
+      .insert(matches)
+      .values({
+        title: input.title,
+        venue: input.venue,
+        oversPerInnings: input.oversPerInnings,
+        format: input.format,
+        maxOversPerBowler: input.maxOversPerBowler,
+        teamAId: input.teamAId,
+        teamBId: input.teamBId,
+        tossWinnerTeamId: input.tossWinnerTeamId,
+        tossDecision: input.tossDecision,
+        scheduledAt: input.scheduledAt,
+        createdBy: userId,
+        status: 'scheduled',
+      })
+      .returning();
+    return rows[0] ? { match: rows[0], deduped: false } : null;
+  });
+}
+
+/**
  * Change what a match says about itself. Scoped to the owner — a no-op
  * otherwise, like `updateTeam`.
  *
@@ -788,7 +863,12 @@ export async function completeMatch(
       winningTeamId: patch.winningTeamId,
       summary: patch.summary,
     })
-    .where(eq(matches.id, matchId));
+    /*
+     * Live only. A result is written once, the moment the chase ends; a match
+     * that has already been abandoned or re-completed must not be overwritten
+     * by a completion that was computed against a snapshot of the innings.
+     */
+    .where(and(eq(matches.id, matchId), eq(matches.status, 'live')));
 }
 
 /**
@@ -1007,6 +1087,32 @@ export async function recordBall(
   }
 
   return db.transaction(async (tx) => {
+    /*
+     * The innings row, locked before anything is read or written.
+     *
+     * This is the one serialization point for every writer to an innings —
+     * deliveries here, corrections in `replaceBallSequence`, undos in
+     * `removeLastBall`, and the scorer ending the innings in
+     * `closeOpenInnings`. Taking it first means the count check below and the
+     * cache write at the end both describe an innings nobody else is changing
+     * underneath them.
+     *
+     * It also closes the status gap: the route read the innings outside this
+     * transaction, so a scorer ending it — or abandoning the match — in that
+     * window let this ball commit into an innings that was already over, and
+     * (for a chase) run the result logic a second time on top. The lock makes
+     * that a strict either/or: whoever gets the row first finishes first, and
+     * the other sees the outcome.
+     */
+    const [innings] = await tx
+      .select({ status: inningsTable.status })
+      .from(inningsTable)
+      .where(eq(inningsTable.id, inningsId))
+      .for('update');
+    if (!innings || innings.status !== 'in_progress') {
+      throw new InningsNotOpenError();
+    }
+
     if (expectedBalls !== undefined) {
       const [{ count } = { count: 0 }] = await tx
         .select({ count: sql<number>`count(*)::int` })
@@ -1026,6 +1132,21 @@ export async function recordBall(
 
     return rows[0] ?? null;
   });
+}
+
+/**
+ * The innings is no longer open — another device ended it, or the match was
+ * abandoned — between the caller's read and this write.
+ *
+ * Unlike `StaleInningsError` this is not recoverable by re-reading and
+ * resending: the innings the delivery was aimed at is over, so the delivery
+ * belongs nowhere. The client should show what the match became, not retry.
+ */
+export class InningsNotOpenError extends Error {
+  constructor() {
+    super('This innings is no longer in progress');
+    this.name = 'InningsNotOpenError';
+  }
 }
 
 /**
@@ -1074,6 +1195,50 @@ export async function deleteBallEvent(id: string): Promise<void> {
 }
 
 /**
+ * Close a match's open innings and return the row as the log actually left it.
+ *
+ * The "end innings" button used to work off an innings read before the write:
+ * it marked the cached row completed, then computed the match result from
+ * whatever runs/wickets that stale read carried. A delivery or a correction
+ * landing in between stored a result the scorecard would contradict for ever —
+ * "won by 3" on the share card, 2 on the ball log.
+ *
+ * Now the whole close happens in one transaction under the innings row's lock
+ * (the same serialization point as `recordBall`), and the row is re-read
+ * inside it, so the figures the result is computed from are the figures on
+ * disk. The match row is locked first and must still be live: an abandonment
+ * that landed while the scorer was deciding to end the innings wins, and the
+ * caller gets `null` — there is no result to compute over a no-result.
+ *
+ * Returns `null` when there is nothing to close (already ended, or the match
+ * is no longer live), which the caller reports as "already ended".
+ */
+export async function closeOpenInnings(matchId: string): Promise<Innings | null> {
+  return db.transaction(async (tx) => {
+    const [match] = await tx
+      .select({ status: matches.status })
+      .from(matches)
+      .where(eq(matches.id, matchId))
+      .for('update');
+    if (!match || match.status !== 'live') return null;
+
+    const [current] = await tx
+      .select()
+      .from(inningsTable)
+      .where(and(eq(inningsTable.matchId, matchId), eq(inningsTable.status, 'in_progress')))
+      .for('update');
+    if (!current) return null;
+
+    await tx
+      .update(inningsTable)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(inningsTable.id, current.id));
+
+    return current;
+  });
+}
+
+/**
  * Undo a delivery and move the innings back, in one transaction.
  *
  * The mirror of `recordBall`, and it exists for the same reason. The undo path
@@ -1101,12 +1266,48 @@ export async function removeLastBall(
     extras: number;
     status: 'not_started' | 'in_progress' | 'completed';
   },
-  opts: { reopenMatchId?: string } = {},
+  opts: { reopenMatchId?: string; expectedBalls?: number } = {},
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
+    /*
+     * The same serialization point every innings writer takes — see
+     * `recordBall`. Held across the count check and the cache write, so a
+     * delivery landing between the caller's read and this delete either
+     * commits before the lock is taken (and the count check sees it) or waits
+     * until this undo is done.
+     */
+    await tx
+      .select({ status: inningsTable.status })
+      .from(inningsTable)
+      .where(eq(inningsTable.id, inningsId))
+      .for('update');
+
+    /*
+     * The caller computed `cache` from a log of a known length. If a delivery
+     * has landed since, the ball being deleted is no longer the last one —
+     * undoing it would tear a hole in the middle of the log and write a score
+     * that describes a shorter innings than the one on disk. `recordBall` has
+     * guarded the mirror-image race since it was written; this path never did.
+     */
+    if (opts.expectedBalls !== undefined) {
+      const [{ count } = { count: 0 }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(ballEvents)
+        .where(eq(ballEvents.inningsId, inningsId));
+      if (count !== opts.expectedBalls) {
+        throw new StaleInningsError(opts.expectedBalls, count);
+      }
+    }
+
     const deleted = await tx
       .delete(ballEvents)
-      .where(eq(ballEvents.id, ballId))
+      /*
+       * Scoped to the innings. The route can only reach here with a ball from
+       * this innings, but the WHERE clause below used to trust that: given any
+       * ball uuid, the statement itself would have deleted it from any innings
+       * — any user's match — and written this innings' cache over it.
+       */
+      .where(and(eq(ballEvents.id, ballId), eq(ballEvents.inningsId, inningsId)))
       .returning({ id: ballEvents.id });
 
     // Somebody else undid it first. Report it rather than writing a score
@@ -1213,6 +1414,19 @@ export async function replaceBallSequence(
   }
 
   return db.transaction(async (tx) => {
+    /*
+     * The innings row, locked before the expectedTotal check reads it — the
+     * same serialization point as `recordBall`. Without it, a delivery that
+     * committed between the count check and the cache write below would be
+     * overwritten by a cache computed against a log without it: the count
+     * guard would pass against a snapshot and fail against the world.
+     */
+    await tx
+      .select({ status: inningsTable.status })
+      .from(inningsTable)
+      .where(eq(inningsTable.id, inningsId))
+      .for('update');
+
     if (opts.expectedTotal >= 0) {
       const current = await tx
         .select({ id: ballEvents.id })
