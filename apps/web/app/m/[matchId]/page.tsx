@@ -1,16 +1,19 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import { MapPin, ChevronDown } from 'lucide-react';
 import {
   loadMatchInProgress,
+  getMatch,
   getTeam,
   getInnings,
   listBallEvents,
   getPlayerNamesByIds,
+  teamNamesFor,
 } from '@/lib/db/queries';
 import { toBallEventInputs } from '@/lib/ball-input';
 import { formatOvers } from '@/lib/utils';
-import { replayInnings, type MatchState } from '@open-innings/scoring';
+import { replayInnings, extrasFrom, type MatchState } from '@open-innings/scoring';
 import type { Innings } from '@/lib/db/schema';
 import { BattingCard } from '@/components/scorecard/BattingCard';
 import { BowlingCard } from '@/components/scorecard/BowlingCard';
@@ -23,6 +26,61 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type Props = { params: Promise<{ matchId: string }> };
+
+/**
+ * This page is the app's most-shared URL, and a WhatsApp preview reads three
+ * things: the og:title, the og:description, and the og:image. The image came
+ * from the sibling `opengraph-image` route; the title and description used to
+ * fall through to the layout's site-wide defaults, so every match unfurled as
+ * "Open Innings — Free cricket scoring, forever" and nothing about the match.
+ *
+ * Built from the rows only — the innings caches and team names — not a replay,
+ * because this runs on every request beside the page render and the page is
+ * polled every ten seconds by every spectator.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { matchId } = await params;
+  try {
+    const match = await getMatch(matchId);
+    if (!match) return { title: 'Match' };
+
+    const [innings, teamNames] = await Promise.all([
+      getInnings(matchId),
+      teamNamesFor([match.teamAId, match.teamBId]),
+    ]);
+    const label =
+      match.title?.trim() ||
+      `${teamNames.get(match.teamAId) ?? 'Team A'} v ${teamNames.get(match.teamBId) ?? 'Team B'}`;
+
+    const scoreLine = innings
+      .filter((i) => i.runs > 0 || i.wickets > 0 || i.ballsBowled > 0)
+      .map(
+        (i) =>
+          `${teamNames.get(i.battingTeamId) ?? '?'} ${i.runs}/${i.wickets} (${formatOvers(i.ballsBowled)})`,
+      )
+      .join(' · ');
+
+    // The server's own result line ("X won by 4 wickets") is the one fact a
+    // forwarded link exists to carry; the venue is the fallback while the
+    // match is live.
+    const fact = match.summary ?? match.venue ?? null;
+    const description = [scoreLine, fact].filter(Boolean).join(' — ');
+    const suffix = 'Live on Open Innings — free cricket scoring, forever.';
+
+    return {
+      title: label,
+      description: description ? `${description}. ${suffix}` : suffix,
+      // og fields do not inherit the page title — without these, WhatsApp and
+      // every other crawler still saw the layout's site-wide defaults.
+      openGraph: {
+        title: label,
+        description: description ? `${description}. ${suffix}` : suffix,
+      },
+    };
+  } catch {
+    return { title: 'Match' };
+  }
+}
 
 type BallRow = Awaited<ReturnType<typeof listBallEvents>>[number];
 
@@ -90,11 +148,16 @@ function getInningsExtras(state: MatchState) {
     penalty: 0,
   };
   for (const b of state.balls) {
-    if (b.eventType === 'wide') extras.wides += b.totalRuns;
-    else if (b.eventType === 'no_ball') extras.noBalls += b.totalRuns;
-    else if (b.eventType === 'bye') extras.byes += b.totalRuns;
-    else if (b.eventType === 'leg_bye') extras.legByes += b.totalRuns;
-    else if (b.eventType === 'penalty') extras.penalty += b.totalRuns;
+    // `extrasFrom`, not `totalRuns` — a no-ball struck for four is five runs
+    // and one extra. This was a drifted second copy of the engine's own
+    // breakdown (`buildScorecard`), and counting the total here printed
+    // "nb 5" beside an extras total that said 1.
+    const e = extrasFrom(b);
+    if (b.eventType === 'wide') extras.wides += e;
+    else if (b.eventType === 'no_ball') extras.noBalls += e;
+    else if (b.eventType === 'bye') extras.byes += e;
+    else if (b.eventType === 'leg_bye') extras.legByes += e;
+    else if (b.eventType === 'penalty') extras.penalty += e;
   }
   const parts = [
     extras.wides > 0 ? `wd ${extras.wides}` : null,

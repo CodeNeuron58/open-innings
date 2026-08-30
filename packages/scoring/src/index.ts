@@ -47,6 +47,11 @@ export {
   overNumberFor,
   ballNumberInOver,
   playerIdKey,
+  // The extras a single delivery contributes. Exported so the app's scorecard
+  // pages ask the engine instead of re-stating the routing — the second copy
+  // that used to exist bucketed a no-ball's total into the nb column and
+  // printed a breakdown that contradicted the total beside it.
+  extrasFrom,
 } from './helpers';
 export {
   ScoringError,
