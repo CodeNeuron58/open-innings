@@ -153,6 +153,53 @@ export async function squadFor(matchId: string, teamId: string): Promise<SquadMe
   return named.length > 0 ? named : await getTeamMembers(teamId);
 }
 
+/**
+ * Every player a delivery names has to belong to this match.
+ *
+ * The engine cannot check this — it holds no squads, by design — and match
+ * creation always did, because `createMatchWithFirstInnings` knows that
+ * "every invented delivery lands in those players' public career figures".
+ * The per-ball path was the hole: after any wicket or over, a match owner
+ * could name any player uuid on the platform — ids are public through team
+ * and player endpoints — and every run attributed to them landed in a
+ * stranger's permanent public career, which the stranger cannot edit.
+ *
+ * Role-aware, because the squads answer different questions: the two batters
+ * and whoever was dismissed come from the batting side, the bowler and the
+ * fielder from the bowling side. A squad nobody named falls back to the full
+ * roster in `squadFor`, and an empty roster disables its own half of the
+ * check — the same condition the replay tolerates.
+ */
+export async function assertDeliveryPlayersInSquads(
+  matchId: string,
+  innings: { battingTeamId: string; bowlingTeamId: string },
+  delivery: {
+    batsmanId?: string;
+    nonStrikerId?: string;
+    bowlerId?: string;
+    wicketPlayerId?: string | null;
+    fielderId?: string | null;
+  },
+): Promise<void> {
+  const [batting, bowling] = await Promise.all([
+    squadFor(matchId, innings.battingTeamId),
+    squadFor(matchId, innings.bowlingTeamId),
+  ]);
+  const battingIds = new Set(batting.map((p) => p.id));
+  const bowlingIds = new Set(bowling.map((p) => p.id));
+
+  const check = (id: string | null | undefined, squad: Set<string>): void => {
+    if (!id || squad.size === 0 || squad.has(id)) return;
+    throw invalid('That player is not in this match. Pick from the two squads that were named.');
+  };
+
+  check(delivery.batsmanId, battingIds);
+  check(delivery.nonStrikerId, battingIds);
+  check(delivery.wicketPlayerId, battingIds);
+  check(delivery.bowlerId, bowlingIds);
+  check(delivery.fielderId, bowlingIds);
+}
+
 /** Load a match the current user owns, or throw. */
 async function requireOwnedMatch(matchId: string) {
   const userId = await getUserId();

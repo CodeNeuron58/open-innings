@@ -18,6 +18,7 @@ import { computeMatchResult, formatMatchResult } from '@/lib/match-result';
 import { enforceRateLimit } from '@/lib/api/request-meta';
 import { readJson, toErrorResponse, assertId } from '@/lib/api/respond';
 import { buildSeed } from '@/lib/services/innings-seed';
+import { assertDeliveryPlayersInSquads } from '@/lib/services/matches';
 import { correctBall, BallCorrectionError, type StoredBall } from '@/lib/services/ball-correction';
 
 type RouteParams = { params: Promise<{ id: string; ballId: string }> };
@@ -62,6 +63,17 @@ export async function PATCH(request: NextRequest, ctx: RouteParams) {
         { status: HTTP.conflict },
       );
     }
+
+    // The patch names players too — the same squad boundary as the record
+    // path, for the same reason.
+    await assertDeliveryPlayersInSquads(matchId, currentInnings, {
+      batsmanId: patch.batsmanId,
+      nonStrikerId: patch.nonStrikerId,
+      wicketPlayerId: patch.wicketPlayerId ?? null,
+      fielderId: patch.fielderId ?? null,
+      // The bowler is carried from the delivery being corrected rather than
+      // accepted here, so it needs no check of its own.
+    });
 
     // Fetch player names for readable diagnostics.
     const names = await playerNames(balls);

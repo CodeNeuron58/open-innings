@@ -31,6 +31,7 @@ import { consistentBallEventSchema } from '@open-innings/shared';
 import { enforceRateLimit } from '@/lib/api/request-meta';
 import { readJson, toErrorResponse, assertId } from '@/lib/api/respond';
 import { buildSeed } from '@/lib/services/innings-seed';
+import { assertDeliveryPlayersInSquads } from '@/lib/services/matches';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -80,6 +81,20 @@ export async function POST(request: NextRequest, ctx: RouteParams) {
         });
       }
     }
+
+    /*
+     * Every player the delivery names must belong to this match. The engine
+     * holds no squads, so this is the check's only home — without it, a match
+     * owner could attribute runs and wickets to any player uuid on the
+     * platform and land them in a stranger's permanent public career.
+     */
+    await assertDeliveryPlayersInSquads(matchId, currentInnings, {
+      batsmanId: parsed.batsmanId,
+      nonStrikerId: parsed.nonStrikerId,
+      bowlerId: parsed.bowlerId,
+      wicketPlayerId: parsed.wicketPlayerId ?? null,
+      fielderId: parsed.fielderId ?? null,
+    });
 
     // Server-owned fields are derived, not accepted from body.
     const body: BallEventInput = {
