@@ -59,7 +59,7 @@ export default function Scorer() {
   // does not go through useApiMutation. It needs its own error state: a
   // refusal there is an answer about a specific delivery, not a failed save,
   // and it belongs in the sheet rather than the banner at the top.
-  const { token } = useSession();
+  const { token, signOut } = useSession();
   const { keepAwakeWhileScoring } = useSettings();
 
   /*
@@ -972,6 +972,7 @@ export default function Scorer() {
           const next = head(outbox.pending);
           if (next) void outbox.discardOne(next.requestId);
         }}
+        onSignInAgain={() => void signOut()}
       />
 
       {/* The console — pinned, thumb-reachable, one-handed */}
@@ -1819,12 +1820,35 @@ function SyncBar({
   sync,
   onRetry,
   onDiscardHead,
+  onSignInAgain,
 }: {
   sync: SyncState;
   onRetry: () => void;
   onDiscardHead: () => void;
+  onSignInAgain: () => void;
 }) {
   if (sync.kind === 'synced') return null;
+
+  if (sync.kind === 'auth_expired') {
+    return (
+      <View className="border-steel-400 bg-steel-100 mx-3 mb-2 border p-3">
+        <Text className="text-foreground font-heading text-[13.5px]">Session expired</Text>
+        <Text className="text-foreground/75 mt-1 text-[13.5px] leading-[17px]">
+          {sync.count} {sync.count === 1 ? 'ball is' : 'balls are'} safe on this phone. Sign in
+          again and they will send themselves.
+        </Text>
+        <View className="mt-2.5">
+          <Pressable
+            accessibilityRole="button"
+            onPress={onSignInAgain}
+            className="border-input h-11 justify-center border px-3 active:opacity-70"
+          >
+            <Text className="text-foreground font-heading text-[13.5px]">Sign in again</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   if (sync.kind === 'blocked') {
     return (

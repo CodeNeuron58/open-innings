@@ -51,7 +51,9 @@ export type SyncState =
   /** The server could not be reached. Everything is safe on disk. */
   | { kind: 'waiting'; count: number; memoryOnly?: boolean }
   /** The server refused a delivery. Nothing after it can be sent. */
-  | { kind: 'blocked'; count: number; message: string };
+  | { kind: 'blocked'; count: number; message: string }
+  /** The session died mid-match. The queue is safe; sign in to send it. */
+  | { kind: 'auth_expired'; count: number };
 
 export type Outbox = {
   pending: PendingBall[];
@@ -128,6 +130,8 @@ export function useOutbox({
   const [ready, setReady] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
+  /** The drain met a 401: the session died while the console was open. */
+  const [authExpired, setAuthExpired] = useState(false);
 
   // Held rather than depended on: the callback is a fresh closure on every
   // render of the console, and depending on it would restart the loop each
@@ -259,6 +263,7 @@ export function useOutbox({
           staleRetried.current.delete(next.requestId);
           setWaiting(false);
           setBlocked(null);
+          setAuthExpired(false);
           onSyncedRef.current(state);
         } catch (error) {
           const status =
@@ -268,6 +273,23 @@ export function useOutbox({
             // Nothing is known about this delivery. It stays queued, and the
             // same requestId makes the resend safe.
             setWaiting(true);
+            return;
+          }
+
+          if (status === 401) {
+            /*
+             * The session died while the console was open. The query hooks
+             * sign out on a 401 the moment a screen refetches — an open
+             * console never does, so this is the only place that notices, and
+             * it used to block the queue behind "Not authorised" with no way
+             * forward while the scorer kept tapping balls onto a wall.
+             *
+             * The queue is on disk, keyed by match id: signing back in and
+             * reopening the match drains it. So the bar says exactly that,
+             * with the one action that helps.
+             */
+            setAuthExpired(true);
+            setBlocked('Session expired');
             return;
           }
 
@@ -369,6 +391,7 @@ export function useOutbox({
     await clearOutbox(matchId);
     commit([]);
     setBlocked(null);
+    setAuthExpired(false);
     setWaiting(false);
   }, [matchId, commit]);
 
@@ -380,6 +403,7 @@ export function useOutbox({
       // is free to move; if it was not, retrying is still what the scorer
       // asked for by keeping the app open.
       setBlocked(null);
+      setAuthExpired(false);
     },
     [commit],
   );
@@ -388,7 +412,9 @@ export function useOutbox({
 
   const sync: SyncState =
     blocked !== null
-      ? { kind: 'blocked', count: pending.length, message: blocked }
+      ? authExpired
+        ? { kind: 'auth_expired', count: pending.length }
+        : { kind: 'blocked', count: pending.length, message: blocked }
       : pending.length === 0
         ? { kind: 'synced' }
         : waiting
