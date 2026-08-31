@@ -331,3 +331,21 @@ describe('the device is not guessing', () => {
     expect(afterAck.batting).toEqual(beforeAck.batting);
   });
 });
+
+describe('folded ids', () => {
+  it('gives queued deliveries ids that survive a re-fold', () => {
+    // The strip corrects and undoes by ball id. Folded ids used to be
+    // re-minted on every render, so a tap on a queued ball lost its target
+    // before anything could open — and offline, where everything is queued,
+    // nothing was touchable.
+    const server = applyBall(seed(), ball(seed()));
+    const queued1 = queued(server, { eventType: '4', runsOffBat: 4, totalRuns: 4 });
+
+    const first = project(server, [queued1]);
+    const second = project(server, [queued1]);
+
+    const a = first.state.balls[1]!.id;
+    expect(a).toBe(second.state.balls[1]!.id);
+    expect(a).toBe(queued1.requestId);
+  });
+});

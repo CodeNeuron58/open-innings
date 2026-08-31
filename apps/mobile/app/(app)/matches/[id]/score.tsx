@@ -231,6 +231,10 @@ export default function Scorer() {
     matchId: id,
     token,
     onSynced: (next) => applyState(next),
+    // The innings moved under the queue — the same recovery the conflict path
+    // uses: drop the local override and pull the server's answer, then let the
+    // drain resend the delivery for the server to judge against the truth.
+    onStale: () => reload(),
   });
 
   // A finished match is a result, not a console. Redirected rather than
@@ -1371,7 +1375,23 @@ export default function Scorer() {
                         // in a closed innings would have to reopen a finished
                         // match and invalidate a result already shared, which is
                         // a different feature and is refused by the server too.
-                        onPress={completed ? undefined : () => setCorrecting(String(b.id))}
+                        onPress={
+                          completed
+                            ? undefined
+                            : () => {
+                                const id = String(b.id);
+                                // A queued delivery has not reached the server, so
+                                // there is nothing to patch — correcting one means
+                                // taking it off the queue and scoring it again.
+                                // Stable fold ids (request ids) are what make this
+                                // tap findable at all.
+                                if (outbox.pending.some((p) => p.requestId === id)) {
+                                  void undoToHere(id);
+                                  return;
+                                }
+                                setCorrecting(id);
+                              }
+                        }
                       />
                     ))}
                     {/* The balls not yet bowled, on the over in progress only —

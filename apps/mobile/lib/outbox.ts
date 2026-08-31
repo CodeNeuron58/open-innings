@@ -105,7 +105,18 @@ export function project(serverState: MatchState, pending: readonly PendingBall[]
 
   for (const item of [...pending].sort((a, b) => a.seq - b.seq)) {
     try {
-      state = applyBall(state, item.ball);
+      /*
+       * The folded delivery carries its request id as its ball id.
+       *
+       * Left to the engine, every fold minted a fresh uuid for the same
+       * queued delivery — so the ball strip's `String(b.id)` pointed somewhere
+       * new on every render. Tapping a queued ball to correct it lost its
+       * target before the sheet could open, and undo-to-here could not find
+       * it either. Offline, where everything is queued, nothing was
+       * touchable. A request id is unique per delivery, uuid-shaped, and
+       * already in hand — the natural stable key.
+       */
+      state = applyBall(state, { ...item.ball, id: item.requestId });
     } catch (error) {
       rejected.push({
         pending: item,

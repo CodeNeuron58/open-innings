@@ -110,11 +110,19 @@ export function useOutbox({
   matchId,
   token,
   onSynced,
+  onStale,
 }: {
   matchId: string;
   token: string | null;
   /** The server's reply to a drained delivery — the new base state. */
   onSynced: (state: MatchState) => void;
+  /**
+   * The server said the innings moved under the queue. The console pulls the
+   * innings as it now stands, so the display folds against server truth again
+   * before the delivery is retried. The retry itself is judged by the server,
+   * which re-validates against the real innings either way.
+   */
+  onStale: () => Promise<void>;
 }): Outbox {
   const [pending, setPending] = useState<PendingBall[]>([]);
   const [ready, setReady] = useState(false);
@@ -128,6 +136,23 @@ export function useOutbox({
   useEffect(() => {
     onSyncedRef.current = onSynced;
   });
+
+  const onStaleRef = useRef(onStale);
+  useEffect(() => {
+    onStaleRef.current = onStale;
+  });
+
+  /*
+   * Deliveries that have already had their one stale-retry.
+   *
+   * A `STALE_INNINGS` refusal means the innings moved while the queue held
+   * this ball — and the ball may be perfectly lawful against the innings as
+   * it now stands. The server is the referee, so the delivery gets one
+   * reload-and-resend; recording that here is what turns "resend after
+   * reload" from a potential infinite loop into a bounded retry. Twice stale
+   * is an answer, and the queue stops and shows it.
+   */
+  const staleRetried = useRef<Set<string>>(new Set());
 
   const tokenRef = useRef(token);
   useEffect(() => {
@@ -231,6 +256,7 @@ export function useOutbox({
 
           await removeBall(next.requestId);
           commit(ack(pendingRef.current, next.requestId));
+          staleRetried.current.delete(next.requestId);
           setWaiting(false);
           setBlocked(null);
           onSyncedRef.current(state);
@@ -245,15 +271,45 @@ export function useOutbox({
             return;
           }
 
-          /*
-           * A 409 is the server saying it already has this ball — which is the
-           * idempotency contract working, not a failure. Treat it as sent and
-           * carry on down the queue.
-           */
           if (status === 409) {
-            await removeBall(next.requestId);
-            commit(ack(pendingRef.current, next.requestId));
-            continue;
+            const code = error instanceof ApiError ? error.code : undefined;
+
+            /*
+             * "Already recorded" is the idempotency contract working, not a
+             * failure. Treat it as sent and carry on down the queue.
+             */
+            if (code === 'DUPLICATE_BALL' || code === 'DUPLICATE_REQUEST') {
+              await removeBall(next.requestId);
+              commit(ack(pendingRef.current, next.requestId));
+              continue;
+            }
+
+            /*
+             * "The innings changed while you were scoring" is a different
+             * sentence. The ball may be perfectly valid against the innings
+             * as it now stands — another device's correction replayed it, most
+             * plausibly — so acking here was silently deleting a good ball.
+             * Reload the innings, resend, and let the server judge it against
+             * the truth. Once per delivery: stale twice is a refusal.
+             */
+            if (code === 'STALE_INNINGS' && !staleRetried.current.has(next.requestId)) {
+              staleRetried.current.add(next.requestId);
+              setWaiting(true);
+              await onStaleRef.current();
+              continue;
+            }
+
+            /*
+             * Everything else — the innings ended under the queue, or a ball
+             * that went stale twice. An answer, and resending cannot change
+             * an answer. The queue stops and says so; the deliveries behind
+             * the refused one are usually still good, and the sync bar's
+             * per-ball discard is how they get their turn.
+             */
+            setBlocked(
+              error instanceof Error ? error.message : 'The server would not accept this delivery.',
+            );
+            return;
           }
 
           setBlocked(
