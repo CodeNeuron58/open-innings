@@ -12,6 +12,7 @@ import { useSettings, THEME_CHOICES, type ThemeChoice } from '../../lib/settings
 import { useTheme } from '../../lib/use-theme';
 import { useSupporter } from '../../lib/purchases';
 import { Button, Kicker } from '../../components/ui';
+import { legalUrls } from '../../lib/config';
 import { DeleteAccount } from '../../components/DeleteAccount';
 
 const REPO = 'https://github.com/CodeNeuron58/open-innings';
@@ -401,6 +402,7 @@ export default function More() {
             label="Run your own copy"
             onPress={() => void Linking.openURL(`${REPO}#self-hosting`)}
           />
+          <Row label="Privacy policy" onPress={() => void Linking.openURL(legalUrls.privacy)} />
           <Row label={isGuest ? 'Leave guest mode' : 'Sign out'} onPress={() => void signOut()} />
         </Group>
 

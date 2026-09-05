@@ -38,6 +38,22 @@ export const MISSING_API_BASE_MESSAGE =
  * Public links for scorecards and share cards.
  * Uses the same origin as the API.
  */
+/*
+ * The site's legal pages, opened in a browser rather than restated in the app.
+ *
+ * AdMob requires a privacy policy reachable from inside the app, and Play's
+ * Data safety form is answered against the page served at /privacy — so the
+ * text that binds has to be the one on the site, not a second copy compiled
+ * into a build that goes stale the first time the real one is edited.
+ *
+ * Falls back to the canonical site when no API base is resolved: everywhere
+ * else an empty base surfaces as a network error the scorer can act on, but a
+ * legal link that opens nothing is worse than one pointing at the public copy.
+ */
+export const legalUrls = {
+  privacy: `${API_BASE || 'https://openinnings.com'}/privacy`,
+};
+
 export const shareUrls = {
   match: (matchId: string) => `${API_BASE}/m/${matchId}`,
   playerInMatch: (matchId: string, playerId: string) => `${API_BASE}/m/${matchId}/p/${playerId}`,

@@ -1,11 +1,20 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signupSchema } from '@open-innings/shared';
 import { useSession } from '../../lib/session';
 import { ApiError, NetworkError } from '../../lib/api';
 import { Button, ErrorBanner, Field, Kicker } from '../../components/ui';
+import { legalUrls } from '../../lib/config';
 
 export default function Signup() {
   const router = useRouter();
@@ -176,6 +185,23 @@ export default function Signup() {
           </View>
 
           <Button label="Create account" onPress={submit} loading={busy} />
+
+          {/*
+            Said at the point of consent, not only in settings. This screen is
+            where an email address is actually handed over, and a policy linked
+            three taps away under About is not shown to the person agreeing.
+          */}
+          <Text className="text-center font-sans text-[12.5px] leading-[18px] text-neutral-600">
+            By creating an account you agree to our{' '}
+            <Text
+              accessibilityRole="link"
+              className="text-steel-700 font-sans underline"
+              onPress={() => void Linking.openURL(legalUrls.privacy)}
+            >
+              privacy policy
+            </Text>
+            .
+          </Text>
 
           <View className="my-1 flex-row items-center gap-3">
             <View className="bg-border h-px flex-1" />
