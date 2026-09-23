@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/CodeNeuron58/open-innings/security/policy
+    about: Please report privately, not as a public issue.
+  - name: Remove a player's published record
+    url: https://openinnings.com/privacy
+    about: For anyone named in a scorecard who did not create the account.

@@ -1,0 +1,63 @@
+name: Bug report
+description: Something scored, synced or displayed wrongly.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, and what the app did instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: For a scoring bug, the Law or the figure you expected.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Scoring console (mobile)
+        - Scorecard or share card
+        - Public website
+        - Sign-up, sign-in or account
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Was the phone online?
+      description: Offline bugs behave differently — the queue is involved.
+      options:
+        - Online throughout
+        - Offline throughout
+        - Went offline or came back mid-match
+        - Not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version and device
+      placeholder: 0.9.0 · Pixel 7a · Android 15
+
+  - type: input
+    id: match
+    attributes:
+      label: Match link (optional)
+      description: An openinnings.com/m/... link makes this far easier to reproduce.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: The over and ball if you know it, or a screenshot.
