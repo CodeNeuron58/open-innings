@@ -8,11 +8,9 @@ match on it and tell us about the ball it got wrong.**
 
 ## Quick links
 
-- 🐛 [Report a bug](https://github.com/CodeNeuron58/open-innings/issues/new)
-- 💡 [Request a feature](https://github.com/CodeNeuron58/open-innings/issues/new)
-- 💬 [Discussions](https://github.com/CodeNeuron58/open-innings/discussions)
-- 🔒 [Security policy](SECURITY.md) — report vulnerabilities privately, not in an issue
-- 📖 [Architecture](docs/architecture.md) · [Cricket rules](docs/scoring-rules.md)
+- [Report a bug](https://github.com/CodeNeuron58/open-innings/issues/new/choose) · [Request a feature](https://github.com/CodeNeuron58/open-innings/issues/new/choose)
+- [Security policy](SECURITY.md) — report vulnerabilities privately, never in an issue
+- [Architecture](docs/architecture.md) · [Cricket laws](docs/scoring-rules.md) · [Setup](SETUP.md)
 
 ## Getting it running
 
@@ -38,7 +36,7 @@ a development build — Expo Go cannot run this project, and
 ```
 apps/
   web/                # Next.js — the REST API, public pages, marketing site
-    app/api/          # 31 route files
+    app/api/          # REST routes
     lib/db/           # Drizzle schema, queries, career SQL
     lib/services/     # Transport-free business logic
     scripts/          # migrate, seed, backup, verify, and seven smoke suites
@@ -147,5 +145,5 @@ By contributing, you agree that your contributions are licensed under
 
 ---
 
-Questions? Open a
-[discussion](https://github.com/CodeNeuron58/open-innings/discussions).
+Questions? [Open an issue](https://github.com/CodeNeuron58/open-innings/issues/new/choose) — it is the only channel,
+and it is read.
