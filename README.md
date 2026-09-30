@@ -11,7 +11,11 @@
 [![Tests](https://img.shields.io/badge/tests-489%20unit-success.svg)](#testing)
 [![Node](https://img.shields.io/badge/node-20%2B-brightgreen.svg)](.nvmrc)
 
-[Website](https://openinnings.com) · [Setup](SETUP.md) · [Architecture](docs/architecture.md) · [Scoring rules](docs/scoring-rules.md) · [Contributing](CONTRIBUTING.md)
+[Demo video](https://youtu.be/8lQ1PKYm43A) · [Website](https://openinnings.com) · [Setup](SETUP.md) · [Architecture](docs/architecture.md) · [Scoring rules](docs/scoring-rules.md) · [Contributing](CONTRIBUTING.md)
+
+https://github.com/user-attachments/assets/e9815ebb-a1d9-4dff-af18-e99157858f16
+
+<sub>82-second demo · [also on YouTube](https://youtu.be/8lQ1PKYm43A)</sub>
 
 </div>
 
