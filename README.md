@@ -13,9 +13,9 @@
 
 [Demo video](https://youtu.be/8lQ1PKYm43A) · [Website](https://openinnings.com) · [Setup](SETUP.md) · [Architecture](docs/architecture.md) · [Scoring rules](docs/scoring-rules.md) · [Contributing](CONTRIBUTING.md)
 
-https://github.com/user-attachments/assets/e9815ebb-a1d9-4dff-af18-e99157858f16
+<a href="https://youtu.be/8lQ1PKYm43A"><img src="https://img.youtube.com/vi/8lQ1PKYm43A/maxresdefault.jpg" width="640" alt="Open Innings demo video"></a>
 
-<sub>82-second demo · [also on YouTube](https://youtu.be/8lQ1PKYm43A)</sub>
+<sub>▶ 82-second demo — click to watch on YouTube</sub>
 
 </div>
 
